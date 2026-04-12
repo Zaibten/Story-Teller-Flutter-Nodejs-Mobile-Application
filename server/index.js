@@ -1,6 +1,6 @@
 // Very 1st script of node js
 console.log('');
-console.log("******* Code Sync Server Side *******");
+console.log("******* Story Teller Server Side *******");
 console.log('');
 
 // External Packages
@@ -11,6 +11,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const OpenAI = require('openai');
 const User = require('./models/user'); // import the model
+const cloudinary = require("cloudinary").v2;
 
 const bcrypt = require('bcryptjs'); // for hashing passwords
 // Internal Routes
@@ -42,6 +43,15 @@ mongoose.connect(DB)
 app.use(cors());
 app.use(bodyParser.json({ limit: "10mb" }));
 
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// const storyRouter = require('./routes/story.js');
+// app.use(storyRouter);
 
 // -------------------- Reset Password --------------------
 app.post('/reset-password', async (req, res) => {
@@ -84,70 +94,397 @@ app.post('/profile', async (req, res) => {
 });
 
 
+// console.log("API KEY:", process.env.OPENAI_API_KEY);
 
+// -------------------- OpenAI Init --------------------
 
-
-
-  // -------------------- OpenAI Init --------------------
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Fix code route
-app.post('/fix-code', async (req, res) => {
+// ✅ SAFE JSON PARSER
+function extractJSON(text) {
   try {
-    const { code } = req.body;
+    if (!text) return null;
 
-    if (!code) {
-      return res.status(400).json({ error: 'Code is required' });
-    }
+    // remove markdown
+    text = text
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
 
-    // Prompt to OpenAI
-    const prompt = `
-You are an expert developer and code reviewer. 
-1. Detect any errors in the following code.
-2. Highlight the errors in a readable format.
-3. Correct the code.
-4. Identify the programming language/framework.
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
 
-Code:
-${code}
+    if (start === -1 || end === -1) return null;
 
-Format your response as JSON:
-{
-  "correctedCode": "<corrected code here>",
-  "errors": "<highlighted errors here>",
-  "language": "<language/framework here>"
+    const jsonString = text.substring(start, end + 1);
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.log("JSON_PARSE_ERROR:", e.message);
+    return null;
+  }
 }
-`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0,
+// ✅ SAFE IMAGE PROMPT (IMPORTANT FOR MODERATION ERRORS)
+function safePrompt(text = "") {
+  return text
+    .replace(/violence|kill|death|gun|weapon|blood|fight/gi, "action scene")
+    .replace(/horror|scary|dark/gi, "mysterious")
+    .substring(0, 180);
+}
+
+// MAIN API
+app.post('/generate-story-comic', async (req, res) => {
+  try {
+    const { prompt } = req.body;
+
+    const finalPrompt =
+      prompt || "A cute cat goes on a magical adventure";
+
+    // 1️⃣ STORY
+    const storyRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: `Write a short kid-friendly story about: ${finalPrompt}`
+        }
+      ],
+      max_tokens: 250,
     });
 
-    const resultText = completion.choices[0].message.content;
+    const story = storyRes.choices?.[0]?.message?.content || "";
 
-    // Try to parse JSON
-    let parsed;
-    try {
-      parsed = JSON.parse(resultText);
-    } catch (err) {
-      parsed = {
-        correctedCode: resultText,
-        errors: "Unable to parse errors",
-        language: "Unknown",
-      };
+    // 2️⃣ PANELS (FAST)
+    const panelRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: "Return ONLY JSON array." },
+        {
+          role: "user",
+          content: `
+Create 4 comic panels:
+
+[
+{"title":"","description":"","imagePrompt":""}
+]
+
+Story:
+${story}
+          `
+        }
+      ]
+    });
+
+    const panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+
+    if (!Array.isArray(panels)) {
+      return res.status(500).json({ error: "panel error" });
     }
 
-    res.json(parsed);
+    // ⚡ RETURN IMMEDIATELY (NO IMAGES YET)
+    res.json({
+      story,
+      panels: panels.map(p => ({
+        ...p,
+        image: "" // empty for now
+      }))
+    });
+
+    // 3️⃣ BACKGROUND IMAGE GENERATION (FAST NON-BLOCKING)
+    panels.forEach(async (p, index) => {
+      try {
+        const img = await openai.images.generate({
+          model: "gpt-image-1",
+          prompt: `${safePrompt(p.imagePrompt)}, cartoon cute cat`,
+          size: "1024x1024"
+        });
+
+        const imageData = img.data?.[0];
+
+        if (!imageData?.b64_json) return;
+
+        const base64Image = `data:image/png;base64,${imageData.b64_json}`;
+
+        const uploadRes = await cloudinary.uploader.upload(base64Image, {
+          folder: "story_comics"
+        });
+
+        // (optional) store in DB later
+        console.log("Image ready:", uploadRes.secure_url);
+
+      } catch (e) {
+        console.log("BG IMAGE ERROR:", e.message);
+      }
+    });
 
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ error: 'Server error' });
+    console.error(err);
+    res.status(500).json({ error: "failed" });
   }
 });
+
+app.get('/generate-story-comic-stream', async (req, res) => {
+  try {
+    const prompt = req.query.prompt;
+    if (!prompt) return res.status(400).send("Prompt required");
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    const send = (data) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    send({ progress: 5 });
+
+    /// 1️⃣ STORY
+    const storyRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: `Write a kid-friendly story: ${prompt}` }],
+      max_tokens: 200,
+    });
+
+    const story = storyRes.choices?.[0]?.message?.content || "";
+    send({ progress: 20, story });
+
+    /// 2️⃣ PANELS
+    const panelRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: "Return ONLY JSON array." },
+        {
+          role: "user",
+          content: `4 comic panels:
+[
+{"title":"","description":"","imagePrompt":""}
+]
+Story:
+${story}`
+        }
+      ]
+    });
+
+    let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+
+    if (!Array.isArray(panels)) {
+      send({ error: "panel_error" });
+      return res.end();
+    }
+
+    // Send initial panels (no images yet)
+    panels = panels.map(p => ({ ...p, image: "" }));
+    send({ progress: 40, panels });
+
+    /// 3️⃣ GENERATE IMAGES ONE BY ONE (FAST STREAM)
+    let completed = 0;
+
+    for (let i = 0; i < panels.length; i++) {
+      try {
+        const img = await openai.images.generate({
+          model: "gpt-image-1",
+          prompt: `${safePrompt(panels[i].imagePrompt)}, cartoon colorful`,
+          size: "1024x1024" // ⚡ faster
+        });
+
+        const base64 = img.data?.[0]?.b64_json;
+
+        if (base64) {
+          const uploadRes = await cloudinary.uploader.upload(
+            `data:image/png;base64,${base64}`,
+            { folder: "story_comics" }
+          );
+
+          const imageUrl = uploadRes.secure_url;
+
+          // ✅ PRINT IMAGE LINK IN CONSOLE
+          console.log(`Image ${i + 1}:`, imageUrl);
+
+          // ✅ UPDATE ONLY THIS PANEL
+          panels[i].image = imageUrl;
+
+          completed++;
+
+          send({
+            progress: 40 + Math.round((completed / panels.length) * 60),
+            panelIndex: i,
+            image: imageUrl
+          });
+        }
+
+      } catch (e) {
+        console.log("Image Error:", e.message);
+      }
+    }
+
+    send({
+      progress: 100,
+      panels,
+      step: "done"
+    });
+
+    res.end();
+
+  } catch (e) {
+    console.error(e);
+    res.end();
+  }
+});
+
+app.get('/demo-cat-comic', async (req, res) => {
+  try {
+    // 🐱 HARDCODED PROMPT
+    const prompt = "A cute cat goes on a magical adventure in a colorful world";
+
+    // 1️⃣ STORY
+    const storyRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: `Write a short, fun, kid-friendly story about: ${prompt}`
+        }
+      ],
+      max_tokens: 200,
+    });
+
+    const story = storyRes.choices?.[0]?.message?.content || "";
+
+    // 2️⃣ PANELS
+    const panelRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: "Return ONLY JSON array." },
+        {
+          role: "user",
+          content: `
+Create 4 comic panels:
+
+[
+{"title":"","description":"","imagePrompt":""}
+]
+
+Story:
+${story}
+          `
+        }
+      ]
+    });
+
+    const panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+
+    if (!Array.isArray(panels)) {
+      return res.json({ error: "panel failed" });
+    }
+
+    // 3️⃣ IMAGES + CLOUDINARY
+    const results = await Promise.all(
+      panels.map(async (p) => {
+        try {
+          const img = await openai.images.generate({
+            model: "gpt-image-1",
+            prompt: `${safePrompt(p.imagePrompt)}, cartoon, cute cat, colorful`,
+            size: "1024x1024"
+          });
+
+          const imageData = img.data?.[0];
+
+          let imageUrl = "";
+
+          if (imageData?.b64_json) {
+            const base64Image = `data:image/png;base64,${imageData.b64_json}`;
+
+            const uploadRes = await cloudinary.uploader.upload(base64Image, {
+              folder: "demo_cat",
+            });
+
+            imageUrl = uploadRes.secure_url;
+          }
+
+          return {
+            title: p.title,
+            description: p.description,
+            image: imageUrl
+          };
+
+        } catch (e) {
+          return {
+            title: p.title,
+            description: p.description,
+            image: ""
+          };
+        }
+      })
+    );
+
+    // ✅ SIMPLE RESPONSE
+    res.json({
+      success: true,
+      story,
+      panels: results
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Demo failed" });
+  }
+});
+
+// Story Teller Route
+// app.post('/generate-story', async (req, res) => {
+//   try {
+//     const { prompt } = req.body;
+
+//     // Validate prompt
+//     if (!prompt || prompt.trim() === "") {
+//       return res.status(400).json({ error: 'Prompt is required' });
+//     }
+
+//     // Story prompt for AI
+//     const storyPrompt = `
+// You are a professional creative storyteller.
+
+// Your job:
+// - Convert the given prompt into a short, engaging story.
+// - If the prompt is unclear, invalid, or unrelated to storytelling, IGNORE it and still generate a meaningful generic story.
+
+// Prompt:
+// "${prompt}"
+
+// Rules:
+// - Only return the story.
+// - Do NOT explain anything.
+// - Do NOT return JSON.
+// - Keep it engaging and creative.
+// `;
+
+//     const completion = await openai.chat.completions.create({
+//       model: "gpt-4o-mini", // fast + good for storytelling
+//       messages: [{ role: "user", content: storyPrompt }],
+//       temperature: 0.8, // more creativity
+//       max_tokens: 500,
+//     });
+
+//     const story = completion.choices[0].message.content;
+
+//     res.json({
+//       story: story.trim()
+//     });
+
+//   } catch (err) {
+//     console.error(err.message);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
+
+
+
+
 
 // Home Route (Dashboard UI)
 app.get("/home", (req, res) => {

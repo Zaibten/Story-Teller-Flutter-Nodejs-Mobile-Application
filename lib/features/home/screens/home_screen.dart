@@ -12,6 +12,7 @@ import '../../../providers/user_provider.dart';
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home';
   const HomeScreen({Key? key}) : super(key: key);
+  
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -20,16 +21,22 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   var textcontroller = TextEditingController();
   bool isLoaded = false;
-  String generatedCode = "Generated Output UI\n(Frontend Only - No Backend)";
+  List comicPanels = [];
+  
+  final ScrollController _scrollController = ScrollController();
+double comicProgress = 0.0;
+bool isGeneratingComic = false;
+  // Reused variable (no structure change)
+  String generatedCode = "Story will appear here...";
 
-  Future<void> saveCodeToFile() async {
+  Future<void> saveStoryToFile() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final file = File("${dir.path}/generated_code.txt");
+      final file = File("${dir.path}/generated_story.txt");
       await file.writeAsString(generatedCode);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Code saved to: ${file.path}")),
+        SnackBar(content: Text("Story saved to: ${file.path}")),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -38,39 +45,170 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> generateCorrectedCode() async {
-    if (textcontroller.text.isEmpty) return;
+Future<void> generateStory() async {
+  if (textcontroller.text.isEmpty) return;
 
-    setState(() {
-      isLoaded = true;
-      generatedCode = "Loading...";
-    });
+  setState(() {
+    isLoaded = true;
+    isGeneratingComic = true;
+    comicProgress = 0;
+    generatedCode = "Generating...";
+    comicPanels = [];
+  });
 
-    try {
-      final url = Uri.parse("https://code-sync-server-kappa.vercel.app/fix-code"); // Use emulator localhost
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({"code": textcontroller.text}),
-      );
+  final request = http.Request(
+    'GET',
+    Uri.parse(
+      "http://10.189.144.221:9000/generate-story-comic-stream?prompt=${textcontroller.text}"
+    ),
+  );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        setState(() {
-          generatedCode =
-              "Language: ${data['language']}\n\nErrors:\n${data['errors']}\n\nCorrected Code:\n${data['correctedCode']}";
-        });
-      } else {
-        setState(() => generatedCode = "Error: ${response.body}");
+  final response = await request.send();
+
+  response.stream
+      .transform(utf8.decoder)
+      .listen((event) {
+    for (var line in event.split("\n")) {
+      if (line.startsWith("data:")) {
+        final jsonStr = line.replaceFirst("data:", "").trim();
+
+        try {
+          final data = jsonDecode(jsonStr);
+
+          setState(() {
+            comicProgress = (data["progress"] ?? 0).toDouble() / 100;
+
+            if (data["story"] != null) {
+              generatedCode = data["story"];
+            }
+
+            if (data["panels"] != null && data["panels"] is List) {
+  comicPanels = List.from(data["panels"]);
+}
+          });
+
+        } catch (e) {}
       }
-    } catch (e) {
-      setState(() => generatedCode = "Error connecting to server: $e");
     }
+  });
+}
+void generateComic() {
+  if (comicPanels.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Comic not ready")),
+    );
+    return;
   }
 
+  showComicModal(comicPanels);
+}
+
+void showComicModal(List panels) {
+  int currentIndex = 0;
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setModalState) {
+          final panel = panels[currentIndex];
+
+       return Dialog(
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(20),
+  ),
+  child: Container(
+    padding: const EdgeInsets.all(16),
+    height: 500,
+    child: Column(
+      children: [
+        Text(
+          panel['title'],
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        // ✅ IMAGE
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            panel['image'],
+            height: 220,
+            width: double.infinity,
+            fit: BoxFit.cover,
+          ),
+        ),
+
+        const SizedBox(height: 10),
+
+        Text(
+          panel['description'],
+          style: const TextStyle(fontSize: 15),
+          textAlign: TextAlign.center,
+        ),
+
+        const Spacer(),
+
+        // 🔥 NAVIGATION
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            ElevatedButton(
+              onPressed: currentIndex > 0
+                  ? () => setModalState(() => currentIndex--)
+                  : null,
+              child: const Text("⬅ Prev"),
+            ),
+            Text("${currentIndex + 1}/${panels.length}"),
+            ElevatedButton(
+              onPressed: currentIndex < panels.length - 1
+                  ? () => setModalState(() => currentIndex++)
+                  : null,
+              child: const Text("Next ➡"),
+            ),
+          ],
+        )
+      ],
+    ),
+  ),
+);},
+      );
+    },
+  );
+}
+
+void generateVideo() {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        child: Container(
+          height: 300,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: const [
+              Text(
+                "🎬 Story Video",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 20),
+              Icon(Icons.play_circle_fill, size: 80),
+              SizedBox(height: 10),
+              Text("Video generation coming soon..."),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: PreferredSize(
@@ -91,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: Column(
             children: [
               const Text(
-                GlobalVariables.WelcomeText,
+                "AI Story Teller",
                 style: TextStyle(
                   fontFamily: 'Poppins-Bold',
                   letterSpacing: 1.0,
@@ -118,6 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   onPressed: () {
                     setState(() => isLoaded = false);
                     textcontroller.clear();
+                    generatedCode = "Story will appear here...";
                   },
                 ),
               ),
@@ -125,11 +264,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: SingleChildScrollView(
           child: Column(
             children: [
+              // 🔹 INPUT BOX
               Container(
                 height: 350,
                 padding: const EdgeInsets.all(8.0),
@@ -137,29 +278,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Scrollbar(
-                          thumbVisibility: true,
-                          radius: const Radius.circular(8),
-                          child: SingleChildScrollView(
-                            child: TextFormField(
-                              controller: textcontroller,
-                              maxLines: null,
-                              keyboardType: TextInputType.multiline,
-                              decoration: const InputDecoration(
-                                hintText: 'Write or paste code here...',
-                                border: InputBorder.none,
-                              ),
-                            ),
-                          ),
-                        ),
+  controller: _scrollController,
+  thumbVisibility: true,
+  radius: const Radius.circular(8),
+  child: SingleChildScrollView(
+    controller: _scrollController,
+    child: TextFormField(
+      controller: textcontroller,
+      maxLines: null,
+      keyboardType: TextInputType.multiline,
+      decoration: const InputDecoration(
+        hintText: 'Write your story prompt here...',
+        border: InputBorder.none,
+      ),
+    ),
+  ),
+),
                       ),
                     ),
                     const SizedBox(height: 10),
+
+                    // 🔥 GENERATE BUTTON
                     SizedBox(
                       width: 300,
                       height: 44,
@@ -169,14 +315,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           backgroundColor: GlobalVariables.btncolor,
                           shape: const StadiumBorder(),
                         ),
-                        onPressed: generateCorrectedCode,
-                        child: const Text("Generate"),
+                        onPressed: generateStory,
+                        child: const Text("Generate Story"),
                       ),
                     ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 10),
+
+              // 🔹 OUTPUT
               Container(
                 height: 490,
                 child: isLoaded
@@ -184,69 +333,103 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Container(
-                            clipBehavior: Clip.antiAlias,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Container(
-                              height: 300,
-                              width: double.infinity,
-                              color: Colors.grey.shade200,
-                              alignment: Alignment.center,
-                              child: SingleChildScrollView(
-                                padding: const EdgeInsets.all(8.0),
-                                child: Text(
-                                  generatedCode,
-                                  textAlign: TextAlign.left,
-                                  style: const TextStyle(
-                                    color: Colors.black87,
-                                    fontSize: 15,
-                                  ),
+                            height: 300,
+                            width: double.infinity,
+                            color: Colors.grey.shade200,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Text(
+                                generatedCode,
+                                style: const TextStyle(
+                                  color: Colors.black87,
+                                  fontSize: 15,
                                 ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              SizedBox(
-                                width: 180,
-                                height: 50,
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.copy),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: GlobalVariables.btncolor,
-                                    foregroundColor: GlobalVariables.whitecolor,
-                                  ),
-                                  onPressed: () {
-                                    Clipboard.setData(
-                                      ClipboardData(text: generatedCode),
-                                    );
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text("Code copied!")),
-                                    );
-                                  },
-                                  label: const Text('Copy Code'),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              SizedBox(
-                                width: 150,
-                                height: 50,
-                                child: ElevatedButton.icon(
-                                  icon: const Icon(Icons.save),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: GlobalVariables.btncolor,
-                                    foregroundColor: GlobalVariables.whitecolor,
-                                  ),
-                                  onPressed: saveCodeToFile,
-                                  label: const Text('Save Code'),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+
+                          // 🔹 BUTTONS
+                       Column(
+  children: [
+    // 🔹 FIRST ROW (Copy + Save)
+    Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 160,
+          height: 50,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.copy),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: GlobalVariables.btncolor,
+              foregroundColor: GlobalVariables.whitecolor,
+            ),
+            onPressed: () {
+              Clipboard.setData(
+                ClipboardData(text: generatedCode),
+              );
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Story copied!")),
+              );
+            },
+            label: const Text('Copy Story'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 150,
+          height: 50,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.save),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: GlobalVariables.btncolor,
+              foregroundColor: GlobalVariables.whitecolor,
+            ),
+            onPressed: saveStoryToFile,
+            label: const Text('Save Story'),
+          ),
+        ),
+      ],
+    ),
+
+    const SizedBox(height: 15),
+
+    // 🔥 SECOND ROW (Comic + Video)
+    Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 160,
+          height: 50,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.auto_stories),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.deepPurple,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: generateComic,
+            label: const Text('Comic Version'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 150,
+          height: 50,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.movie),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: generateVideo,
+            label: const Text('Video'),
+          ),
+        ),
+      ],
+    ),
+  ],
+) ],
                       )
                     : Container(
                         alignment: Alignment.center,
@@ -259,7 +442,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Image.asset("assets/images/loader.gif"),
                             const Text(
-                              '🤖 Meet Our DR AI',
+                              '✨ Tell your story with AI',
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Color.fromARGB(255, 139, 139, 139),
