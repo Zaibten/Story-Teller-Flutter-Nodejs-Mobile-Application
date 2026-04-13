@@ -20,23 +20,19 @@ class SplashScreen extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: Center(
-        child: AnimatedSplashScreen(
-          splash: Image.asset(
-            'assets/images/APK_Logo-removebg-preview.png',
-            height: 300,
-            width: 300,
-            color: Colors.white,
-          ),
-          splashIconSize: 400,
-          //duration: 40000000000000000,
-          duration: 3000,
-          splashTransition: SplashTransition.scaleTransition,
-          backgroundColor: Colors.deepPurple.shade900,
-
-          nextScreen: AuthScreen(),
-          //nextScreen: HomeScreen(),
+      home: AnimatedSplashScreen(
+        splash: Image.asset(
+          'assets/images/logonew.png',
+          fit: BoxFit.cover, // This makes the image cover the entire screen
+          width: double.infinity,
+          height: double.infinity,
         ),
+        splashIconSize: double.infinity, // Make splash take full screen
+        duration: 3000, // Fixed the extremely long duration
+        splashTransition: SplashTransition.scaleTransition,
+        backgroundColor: Colors.white,
+        nextScreen: AuthScreen(),
+        // Remove the Center widget wrapper
       ),
       debugShowCheckedModeBanner: false,
     );

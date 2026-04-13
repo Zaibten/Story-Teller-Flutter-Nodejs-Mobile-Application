@@ -1,631 +1,330 @@
-// ignore_for_file: avoid_print, non_constant_identifier_names
+// ignore_for_file: avoid_print
 
-import 'package:pictureai/constants/global_variables.dart';
-import 'package:pictureai/features/auth/services/auth_service.dart';
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:pictureai/features/auth/services/auth_service.dart';
 import '../../../constants/utils.dart';
 
 class AuthScreen extends StatefulWidget {
   static const String routeName = '/auth_screen';
 
   const AuthScreen({super.key});
+
   @override
-  _LoginSignupScreenState createState() => _LoginSignupScreenState();
+  State<AuthScreen> createState() => _AuthScreenState();
 }
 
-enum Gender {
-  male,
-  female,
-}
-
-class _LoginSignupScreenState extends State<AuthScreen> {
+class _AuthScreenState extends State<AuthScreen>
+    with TickerProviderStateMixin {
   final AuthService authService = AuthService();
+
   final TextEditingController userNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   bool isSignupScreen = true;
   bool isMale = true;
-  bool isRememberMe = false;
-  bool isPasswordVisible = false;
+
+  late AnimationController _cloudController;
+  late AnimationController _fairyController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // ☁️ Clouds slow animation
+    _cloudController =
+        AnimationController(vsync: this, duration: Duration(seconds: 30))
+          ..repeat();
+
+    // 🧚 Fairy floating animation
+    _fairyController =
+        AnimationController(vsync: this, duration: Duration(seconds: 4))
+          ..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _cloudController.dispose();
+    _fairyController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final random = Random();
+
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Positioned(
-            top: 0,
-            right: 0,
-            left: 0,
-            child: Container(
-              height: 300,
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage("assets/images/background.jpg"),
-                  fit: BoxFit.fill,
-                ),
-              ),
-              child: Container(
-                padding: EdgeInsets.only(top: 90, left: 20),
-                color: Color(0xFF3b5999).withOpacity(.85),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RichText(
-                      text: TextSpan(
-                        text: "Welcome",
-                        style: TextStyle(
-                          fontSize: 25,
-                          letterSpacing: 2,
-                          color: Colors.yellow[700],
-                        ),
-                        children: [
-                          TextSpan(
-                            text: isSignupScreen
-                                ? ' To ${GlobalVariables.Companyname}'
-                                : " Back,",
-                            style: TextStyle(
-                              fontSize: 25,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.yellow[700],
-                            ),
-                          )
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      height: 5,
-                    ),
-                    Text(
-                      isSignupScreen
-                          ? "Signup to Continue"
-                          : "Signin to Continue",
-                      style: TextStyle(
-                        letterSpacing: 1,
-                        color: Colors.white,
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
-          ),
-          buildBottomHalfContainer(true),
-          AnimatedPositioned(
-            duration: Duration(milliseconds: 700),
-            curve: Curves.bounceInOut,
-            top: isSignupScreen ? 200 : 230,
-            child: AnimatedContainer(
-              duration: Duration(milliseconds: 700),
-              curve: Curves.bounceInOut,
-              height: isSignupScreen ? 380 : 250,
-              padding: EdgeInsets.all(20),
-              width: MediaQuery.of(context).size.width - 40,
-              margin: EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 15,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              isSignupScreen = false;
-                            });
-                          },
-                          child: Column(
-                            children: [
-                              Text(
-                                "LOGIN",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: !isSignupScreen
-                                      ? Colors.orange
-                                      : Colors.black,
-                                ),
-                              ),
-                              if (!isSignupScreen)
-                                Container(
-                                  margin: EdgeInsets.only(top: 3),
-                                  height: 2,
-                                  width: 55,
-                                  color: Colors.orange,
-                                )
-                            ],
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              isSignupScreen = true;
-                            });
-                          },
-                          child: Column(
-                            children: [
-                              Text(
-                                "SIGNUP",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: isSignupScreen
-                                      ? Colors.orange
-                                      : Colors.black,
-                                ),
-                              ),
-                              if (isSignupScreen)
-                                Container(
-                                  margin: EdgeInsets.only(top: 3),
-                                  height: 2,
-                                  width: 55,
-                                  color: Colors.orange,
-                                )
-                            ],
-                          ),
-                        )
-                      ],
-                    ),
-                    if (isSignupScreen) buildSignupSection(),
-                    if (!isSignupScreen) buildSigninSection()
-                  ],
-                ),
-              ),
-            ),
-          ),
-          buildBottomHalfContainer(false),
-          Positioned(
-            top: MediaQuery.of(context).size.height - 100,
-            right: 0,
-            left: 0,
-            child: Column(
-              children: [
-                Text(isSignupScreen ? "Or Signup with" : "Or Signin with"),
-                Container(
-                  margin: EdgeInsets.only(right: 20, left: 20, top: 15),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      buildTextButton(Icons.facebook, "Facebook", Colors.blue),
-                      buildTextButton(Icons.mail, "Google", Colors.red),
-                    ],
-                  ),
-                )
-              ],
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  Container buildSigninSection() {
-    return Container(
-      margin: EdgeInsets.only(top: 20),
-      child: Column(
-        children: [
-          buildTextField(
-            Icons.mail_outline,
-            "info@codesync.com",
-            false,
-            true,
-            emailController,
-          ),
-          buildPasswordField(
-              Icons.lock_outline, "**********", passwordController),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: isRememberMe,
-                    activeColor: Colors.orange,
-                    onChanged: (value) {
-                      setState(() {
-                        isRememberMe = !isRememberMe;
-                      });
-                    },
-                  ),
-                  Text(
-                    "Remember me",
-                    style: TextStyle(fontSize: 12, color: Colors.black),
-                  )
-                ],
-              ),
-              TextButton(
-                onPressed: () {},
-                child: Text(
-                  "Forgot Password?",
-                  style: TextStyle(fontSize: 12, color: Colors.black),
-                ),
-              )
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Container buildSignupSection() {
-    return Container(
-      margin: EdgeInsets.only(top: 20),
-      child: Column(
-        children: [
-          buildTextField(
-            Icons.person,
-            "User Name",
-            false,
-            false,
-            userNameController,
-          ),
-          buildTextField(
-            Icons.mail_outline,
-            "email",
-            false,
-            true,
-            emailController,
-          ),
-          buildPasswordField(
-              Icons.lock_outline, "password", passwordController),
-          Padding(
-            padding: const EdgeInsets.only(top: 10, left: 10),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      isMale = true;
-                      printSelectedGender(Gender.male);
-                    });
-                  },
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 30,
-                        height: 30,
-                        margin: EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          color: isMale ? Colors.orange : Colors.transparent,
-                          border: Border.all(
-                            width: 1,
-                            color: isMale ? Colors.transparent : Colors.black,
-                          ),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Icon(
-                          Icons.man,
-                          color: isMale ? Colors.white : Colors.black,
-                        ),
-                      ),
-                      Text(
-                        "Male",
-                        style: TextStyle(color: Colors.black),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(
-                  width: 30,
-                ),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      isMale = false;
-                      printSelectedGender(Gender.female);
-                    });
-                  },
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 30,
-                        height: 30,
-                        margin: EdgeInsets.only(right: 8),
-                        decoration: BoxDecoration(
-                          color: isMale ? Colors.transparent : Colors.orange,
-                          border: Border.all(
-                            width: 1,
-                            color: isMale ? Colors.black : Colors.transparent,
-                          ),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Icon(
-                          Icons.woman,
-                          color: isMale ? Colors.black : Colors.white,
-                        ),
-                      ),
-                      Text(
-                        "Female",
-                        style: TextStyle(color: Colors.black),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // 🌈 BACKGROUND (child-friendly gradient)
           Container(
-            width: 200,
-            margin: EdgeInsets.only(top: 20),
-            child: RichText(
-              textAlign: TextAlign.center,
-              text: TextSpan(
-                text: "By pressing 'Submit' you agree to our ",
-                style: TextStyle(color: Colors.black),
-                children: [
-                  TextSpan(
-                    text: "terms & conditions",
-                    style: TextStyle(color: Colors.orange),
-                  ),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF89CFF0), // sky blue
+                  Color(0xFFE0BBE4), // light purple
+                  Color(0xFFFFDFD3), // peach
                 ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
 
-  TextButton buildTextButton(
-      IconData icon, String title, Color backgroundColor) {
-    return TextButton(
-      onPressed: () {},
-      style: TextButton.styleFrom(
-        foregroundColor: Colors.white, side: BorderSide(width: 1, color: Colors.grey),
-        minimumSize: Size(145, 40),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        backgroundColor: backgroundColor,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-          ),
-          SizedBox(
-            width: 5,
-          ),
-          Text(
-            title,
-          ),
-        ],
-      ),
-    );
-  }
+          // ☁️ MULTIPLE MOVING CLOUDS
+          ...List.generate(3, (index) {
+            return AnimatedBuilder(
+              animation: _cloudController,
+              builder: (context, child) {
+                return Positioned(
+                  left: (_cloudController.value * 300) - (index * 150),
+                  top: 50.0 + index * 80,
+                  child: Opacity(
+                    opacity: 0.9,
+                    child: Image.asset(
+                      "assets/images/clouds.png",
+                      height: 100 + index * 20,
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
 
-  Widget buildBottomHalfContainer(bool showShadow) {
-    return AnimatedPositioned(
-      duration: Duration(milliseconds: 700),
-      curve: Curves.bounceInOut,
-      top: isSignupScreen ? 535 : 430,
-      right: 0,
-      left: 0,
-      child: Center(
-        child: GestureDetector(
-          onTap: () {
-            isSignupScreen ? signupAction(context) : loginAction(context);
-          },
-          child: Container(
-            height: 90,
-            width: 90,
-            padding: EdgeInsets.all(15),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(50),
-              boxShadow: [
-                if (showShadow)
-                  BoxShadow(
-                    color: Colors.black.withOpacity(.3),
-                    spreadRadius: 1.5,
-                    blurRadius: 10,
-                  )
-              ],
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.orange[200]!,
-                    Colors.red[400]!,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+          // ✨ RANDOM TWINKLING STARS
+          ...List.generate(40, (index) {
+            double top = random.nextDouble() * 600;
+            double left = random.nextDouble() * 300;
+
+            return TweenAnimationBuilder(
+              tween: Tween(begin: 0.2, end: 1.0),
+              duration: Duration(milliseconds: 800 + index * 50),
+              curve: Curves.easeInOut,
+              builder: (context, value, child) {
+                return Positioned(
+                  top: top,
+                  left: left,
+                  child: Opacity(
+                    opacity: value as double,
+                    child: Icon(
+                      Icons.star,
+                      size: 8 + random.nextDouble() * 6,
+                      color: Colors.white,
+                    ),
+                  ),
+                );
+              },
+            );
+          }),
+
+          // 🧚 FLOATING FAIRY
+          AnimatedBuilder(
+            animation: _fairyController,
+            builder: (context, child) {
+              return Positioned(
+                right: 20,
+                top: 120 + (_fairyController.value * 20),
+                child: Image.asset(
+                  "assets/images/fairy.png",
+                  height: 120,
                 ),
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(.3),
-                    spreadRadius: 1,
-                    blurRadius: 2,
-                    offset: Offset(0, 1),
-                  )
-                ],
-              ),
-              child: Icon(
-                Icons.arrow_forward,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget buildTextField(IconData icon, String hintText, bool isPassword,
-      bool isEmail, TextEditingController controller) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: TextField(
-        controller: controller,
-        obscureText: isPassword && !isPasswordVisible,
-        keyboardType: isEmail ? TextInputType.emailAddress : TextInputType.text,
-        decoration: InputDecoration(
-          prefixIcon: Icon(
-            icon,
-            color: Colors.grey[400], // Icon color
-          ),
-          suffixIcon: isPassword
-              ? IconButton(
-                  icon: Icon(
-                    isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                    color: Colors.black,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      isPasswordVisible = !isPasswordVisible;
-                    });
-                  },
-                )
-              : null,
-          enabledBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey), // Border color
-            borderRadius: BorderRadius.all(Radius.circular(35.0)),
-          ),
-          focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey), // Border color
-            borderRadius: BorderRadius.all(Radius.circular(35.0)),
-          ),
-          contentPadding: EdgeInsets.all(10),
-          hintText: hintText,
-          hintStyle:
-              TextStyle(fontSize: 14, color: Colors.grey[400]), // Text color
-        ),
-      ),
-    );
-  }
-
-  Widget buildPasswordField(
-      IconData icon, String hintText, TextEditingController controller) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: TextField(
-        controller: controller,
-        obscureText: !isPasswordVisible,
-        keyboardType: TextInputType.visiblePassword,
-        decoration: InputDecoration(
-          prefixIcon: Icon(
-            icon,
-            color: Colors.grey[400], // Icon color
-          ),
-          suffixIcon: IconButton(
-            icon: Icon(
-              isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-              color: Colors.grey,
-            ),
-            onPressed: () {
-              setState(() {
-                isPasswordVisible = !isPasswordVisible;
-              });
+              );
             },
           ),
-          enabledBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey), // Border color
-            borderRadius: BorderRadius.all(Radius.circular(35.0)),
+
+          // 🌟 LOGO WITH ANIMATION
+          Align(
+            alignment: Alignment.topCenter,
+            child: TweenAnimationBuilder(
+              duration: Duration(seconds: 2),
+              tween: Tween(begin: 0.5, end: 1.0),
+              curve: Curves.elasticOut,
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value as double,
+                  child: Opacity(
+                    opacity: value,
+                    child: Column(
+                      children: [
+                        SizedBox(height: 90),
+                        Text(
+                          "✨ Magic Story ✨",
+                          style: TextStyle(
+                            fontSize: 34,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 2,
+                            shadows: [
+                              Shadow(
+                                blurRadius: 12,
+                                color: Colors.purple,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-          focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.grey), // Border color
-            borderRadius: BorderRadius.all(Radius.circular(35.0)),
+
+          // 📦 FORM BOX (more rounded + cute)
+          Align(
+            alignment: Alignment.center,
+            child: Container(
+              margin: EdgeInsets.symmetric(horizontal: 25),
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.25),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(color: Colors.black26, blurRadius: 20)
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isSignupScreen)
+                    buildMagicField(Icons.person, "Username",
+                        userNameController),
+
+                  if (isSignupScreen) SizedBox(height: 12),
+
+                  buildMagicField(Icons.email, "Email", emailController),
+
+                  SizedBox(height: 12),
+
+                  buildMagicField(Icons.lock, "Password", passwordController,
+                      isPassword: true),
+
+                  SizedBox(height: 20),
+
+                  // 🌈 PULSING BUTTON
+                  TweenAnimationBuilder(
+                    tween: Tween(begin: 0.95, end: 1.08),
+                    duration: Duration(milliseconds: 900),
+                    curve: Curves.easeInOut,
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: value as double,
+                        child: GestureDetector(
+                          onTap: () {
+                            isSignupScreen
+                                ? signupAction(context)
+                                : loginAction(context);
+                          },
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 45),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.pinkAccent,
+                                  Colors.orangeAccent
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(40),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.pink.withOpacity(0.5),
+                                  blurRadius: 15,
+                                )
+                              ],
+                            ),
+                            child: Text(
+                              isSignupScreen
+                                  ? "Start Magic ✨"
+                                  : "Login ✨",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+
+                  SizedBox(height: 10),
+
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        isSignupScreen = !isSignupScreen;
+                      });
+                    },
+                    child: Text(
+                      isSignupScreen
+                          ? "Already have account? Login"
+                          : "Create new account",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  )
+                ],
+              ),
+            ),
           ),
-          contentPadding: const EdgeInsets.all(10),
-          hintText: hintText,
-          hintStyle:
-              TextStyle(fontSize: 14, color: Colors.grey[400]), // Text color
+        ],
+      ),
+    );
+  }
+
+  // 🌟 INPUT FIELD
+  Widget buildMagicField(IconData icon, String hint,
+      TextEditingController controller,
+      {bool isPassword = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword,
+      style: TextStyle(color: Colors.white),
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon, color: Colors.white),
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.white70),
+        filled: true,
+        fillColor: Colors.white.withOpacity(0.3),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(40),
+          borderSide: BorderSide.none,
         ),
       ),
     );
   }
 
-  void printSelectedGender(Gender selectedGender) {
-    String genderString = selectedGender == Gender.male ? "Male" : "Female";
-    print('Selected Gender: $genderString');
-  }
-
-// SignupUser
-  void SighupUser(Gender selectedGender) {
-    authService.signUpUser(
-      context: context,
-      email: emailController.text,
-      name: userNameController.text,
-      password: passwordController.text,
-      gender: selectedGender == Gender.male ? 'male' : 'female',
-    );
-  }
-
-  void signInUser() {
-    authService.signInUser(
-      context: context,
-      email: emailController.text,
-      password: passwordController.text,
-    );
-  }
+  // ---------------- LOGIC ----------------
 
   void loginAction(BuildContext context) {
-    // Check if login fields are filled
-    if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-      // Show error dialog for login
-      showErrorDialog(context, 'Please fill all login fields.');
+    if (emailController.text.isEmpty ||
+        passwordController.text.isEmpty) {
+      showErrorDialog(context, 'Please fill all fields.');
     } else {
-      // Login logic
-      // Signin Function
-      signInUser();
-
-      print('Email: ${emailController.text}');
-      print('Password: ${passwordController.text}');
+      authService.signInUser(
+        context: context,
+        email: emailController.text,
+        password: passwordController.text,
+      );
     }
   }
 
   void signupAction(BuildContext context) {
-    // Check if signup fields are filled
     if (userNameController.text.isEmpty ||
         emailController.text.isEmpty ||
         passwordController.text.isEmpty) {
-      // Show error dialog for signup
-      showErrorDialog(context, 'Please fill all signup fields.');
-    } else if (!isNameValid(userNameController.text)) {
-      // Show error dialog for invalid name format
-      showErrorDialog(context,
-          'Invalid name format. Remove numbers or special characters.');
-    } else if (passwordController.text.length < 8) {
-      // Show error dialog for short password
-      showErrorDialog(context, 'Password must be at least 8 characters.');
-    } else if (!isEmailValid(emailController.text)) {
-      // Show error dialog for invalid email format
-      showErrorDialog(context, 'Invalid email format.');
+      showErrorDialog(context, 'Please fill all fields.');
     } else {
-      // Signup logic
-      print('Username: ${userNameController.text}');
-      print('Email: ${emailController.text}');
-      print('Password: ${passwordController.text}');
-      printSelectedGender(isMale ? Gender.male : Gender.female);
-
-      // Signup Function
-      SighupUser(isMale ? Gender.male : Gender.female);
+      authService.signUpUser(
+        context: context,
+        email: emailController.text,
+        name: userNameController.text,
+        password: passwordController.text,
+        gender: isMale ? 'male' : 'female',
+      );
     }
-  }
-
-  bool isNameValid(String name) {
-    // Simple name validation check (no numbers or special characters)
-    return RegExp(r'^[a-zA-Z\s]+$').hasMatch(name);
-  }
-
-  bool isEmailValid(String email) {
-    // Simple email validation check
-    return RegExp(r'^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$')
-        .hasMatch(email);
   }
 }
