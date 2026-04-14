@@ -23,31 +23,49 @@ class _AuthScreenState extends State<AuthScreen>
   final TextEditingController passwordController = TextEditingController();
 
   bool isSignupScreen = true;
-  bool isMale = true;
+  bool _isPasswordVisible = false;
 
   late AnimationController _cloudController;
   late AnimationController _fairyController;
+  late AnimationController _buttonController;
+  late AnimationController _eyeBounceController;
 
   @override
   void initState() {
     super.initState();
 
-    // ☁️ Clouds slow animation
     _cloudController =
         AnimationController(vsync: this, duration: Duration(seconds: 30))
           ..repeat();
 
-    // 🧚 Fairy floating animation
     _fairyController =
-        AnimationController(vsync: this, duration: Duration(seconds: 4))
+        AnimationController(vsync: this, duration: Duration(seconds: 3))
           ..repeat(reverse: true);
+
+    _buttonController =
+        AnimationController(vsync: this, duration: Duration(milliseconds: 900))
+          ..repeat(reverse: true);
+
+    _eyeBounceController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 200),
+    );
   }
 
   @override
   void dispose() {
     _cloudController.dispose();
     _fairyController.dispose();
+    _buttonController.dispose();
+    _eyeBounceController.dispose();
     super.dispose();
+  }
+
+  void _togglePasswordVisibility() {
+    setState(() {
+      _isPasswordVisible = !_isPasswordVisible;
+    });
+    _eyeBounceController.forward(from: 0.0);
   }
 
   @override
@@ -55,16 +73,17 @@ class _AuthScreenState extends State<AuthScreen>
     final random = Random();
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          // 🌈 BACKGROUND (child-friendly gradient)
+          // 🌈 BACKGROUND
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Color(0xFF89CFF0), // sky blue
-                  Color(0xFFE0BBE4), // light purple
-                  Color(0xFFFFDFD3), // peach
+                  Color(0xFF89CFF0),
+                  Color(0xFFE0BBE4),
+                  Color(0xFFFFDFD3),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
@@ -72,7 +91,7 @@ class _AuthScreenState extends State<AuthScreen>
             ),
           ),
 
-          // ☁️ MULTIPLE MOVING CLOUDS
+          // ☁️ CLOUDS
           ...List.generate(3, (index) {
             return AnimatedBuilder(
               animation: _cloudController,
@@ -80,45 +99,32 @@ class _AuthScreenState extends State<AuthScreen>
                 return Positioned(
                   left: (_cloudController.value * 300) - (index * 150),
                   top: 50.0 + index * 80,
-                  child: Opacity(
-                    opacity: 0.9,
-                    child: Image.asset(
-                      "assets/images/clouds.png",
-                      height: 100 + index * 20,
-                    ),
+                  child: Image.asset(
+                    "assets/images/clouds.png",
+                    height: 100 + index * 20,
                   ),
                 );
               },
             );
           }),
 
-          // ✨ RANDOM TWINKLING STARS
+          // ✨ STARS
           ...List.generate(40, (index) {
             double top = random.nextDouble() * 600;
             double left = random.nextDouble() * 300;
 
-            return TweenAnimationBuilder(
-              tween: Tween(begin: 0.2, end: 1.0),
-              duration: Duration(milliseconds: 800 + index * 50),
-              curve: Curves.easeInOut,
-              builder: (context, value, child) {
-                return Positioned(
-                  top: top,
-                  left: left,
-                  child: Opacity(
-                    opacity: value as double,
-                    child: Icon(
-                      Icons.star,
-                      size: 8 + random.nextDouble() * 6,
-                      color: Colors.white,
-                    ),
-                  ),
-                );
-              },
+            return Positioned(
+              top: top,
+              left: left,
+              child: Icon(
+                Icons.star,
+                size: 6 + random.nextDouble() * 6,
+                color: Colors.white.withOpacity(0.8),
+              ),
             );
           }),
 
-          // 🧚 FLOATING FAIRY
+          // 🧚 FAIRY
           AnimatedBuilder(
             animation: _fairyController,
             builder: (context, child) {
@@ -133,57 +139,49 @@ class _AuthScreenState extends State<AuthScreen>
             },
           ),
 
-          // 🌟 LOGO WITH ANIMATION
+          // 🌟 TITLE
           Align(
             alignment: Alignment.topCenter,
-            child: TweenAnimationBuilder(
-              duration: Duration(seconds: 2),
-              tween: Tween(begin: 0.5, end: 1.0),
-              curve: Curves.elasticOut,
-              builder: (context, value, child) {
-                return Transform.scale(
-                  scale: value as double,
-                  child: Opacity(
-                    opacity: value,
-                    child: Column(
-                      children: [
-                        SizedBox(height: 90),
-                        Text(
-                          "✨ Magic Story ✨",
-                          style: TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: 2,
-                            shadows: [
-                              Shadow(
-                                blurRadius: 12,
-                                color: Colors.purple,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+            child: Column(
+              children: [
+                const SizedBox(height: 90),
+                const Text(
+                  "✨ Magic Story ✨",
+                  style: TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [
+                      Shadow(
+                          blurRadius: 15,
+                          color: Colors.purple,
+                          offset: Offset(0, 4))
+                    ],
                   ),
-                );
-              },
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  "Welcome to Magic Story 🧚",
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
 
-          // 📦 FORM BOX (more rounded + cute)
-          Align(
-            alignment: Alignment.center,
+          // 📦 FORM
+          Positioned(
+            top: 220,
+            left: 25,
+            right: 25,
             child: Container(
-              margin: EdgeInsets.symmetric(horizontal: 25),
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.25),
                 borderRadius: BorderRadius.circular(30),
-                boxShadow: [
-                  BoxShadow(color: Colors.black26, blurRadius: 20)
-                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -192,25 +190,21 @@ class _AuthScreenState extends State<AuthScreen>
                     buildMagicField(Icons.person, "Username",
                         userNameController),
 
-                  if (isSignupScreen) SizedBox(height: 12),
+                  if (isSignupScreen) const SizedBox(height: 12),
 
                   buildMagicField(Icons.email, "Email", emailController),
 
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                  buildMagicField(Icons.lock, "Password", passwordController,
-                      isPassword: true),
+                  buildPasswordField(),
 
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                  // 🌈 PULSING BUTTON
-                  TweenAnimationBuilder(
-                    tween: Tween(begin: 0.95, end: 1.08),
-                    duration: Duration(milliseconds: 900),
-                    curve: Curves.easeInOut,
-                    builder: (context, value, child) {
+                  AnimatedBuilder(
+                    animation: _buttonController,
+                    builder: (context, child) {
                       return Transform.scale(
-                        scale: value as double,
+                        scale: 1 + (_buttonController.value * 0.1),
                         child: GestureDetector(
                           onTap: () {
                             isSignupScreen
@@ -218,20 +212,21 @@ class _AuthScreenState extends State<AuthScreen>
                                 : loginAction(context);
                           },
                           child: Container(
-                            padding: EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 45),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 16, horizontal: 50),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
+                              gradient: const LinearGradient(
                                 colors: [
-                                  Colors.pinkAccent,
-                                  Colors.orangeAccent
+                                  Colors.pink,
+                                  Colors.orange,
+                                  Colors.purple
                                 ],
                               ),
-                              borderRadius: BorderRadius.circular(40),
+                              borderRadius: BorderRadius.circular(50),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.pink.withOpacity(0.5),
-                                  blurRadius: 15,
+                                  color: Colors.pink.withOpacity(0.6),
+                                  blurRadius: 25,
                                 )
                               ],
                             ),
@@ -239,19 +234,16 @@ class _AuthScreenState extends State<AuthScreen>
                               isSignupScreen
                                   ? "Start Magic ✨"
                                   : "Login ✨",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
                       );
                     },
                   ),
-
-                  SizedBox(height: 10),
 
                   TextButton(
                     onPressed: () {
@@ -263,11 +255,35 @@ class _AuthScreenState extends State<AuthScreen>
                       isSignupScreen
                           ? "Already have account? Login"
                           : "Create new account",
-                      style: TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.white),
                     ),
                   )
                 ],
               ),
+            ),
+          ),
+
+          // 🦆 DUCK GIF
+          Positioned(
+            bottom: 50,
+            left: 0,
+            right: 0,
+            child: Image.asset(
+              "assets/images/duck.gif",
+              height: 180,
+              fit: BoxFit.contain,
+            ),
+          ),
+
+          // 🎬 BOTTOM GIF
+          Positioned(
+            bottom: -50,
+            left: 0,
+            right: 0,
+            child: Image.asset(
+              "assets/images/below.gif",
+              height: 120,
+              fit: BoxFit.cover,
             ),
           ),
         ],
@@ -275,29 +291,98 @@ class _AuthScreenState extends State<AuthScreen>
     );
   }
 
-  // 🌟 INPUT FIELD
   Widget buildMagicField(IconData icon, String hint,
       TextEditingController controller,
       {bool isPassword = false}) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      style: TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.white),
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.white70),
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.3),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(40),
-          borderSide: BorderSide.none,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: isPassword,
+        decoration: InputDecoration(
+          prefixIcon: Icon(icon, color: Colors.purple),
+          hintText: hint,
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
         ),
       ),
     );
   }
 
-  // ---------------- LOGIC ----------------
+  Widget buildPasswordField() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(40),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.purple.withOpacity(0.2),
+            blurRadius: 10,
+            offset: const Offset(0, 5),
+          )
+        ],
+      ),
+      child: Stack(
+        alignment: Alignment.centerRight,
+        children: [
+          TextField(
+            controller: passwordController,
+            obscureText: !_isPasswordVisible,
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.lock, color: Colors.purple),
+              hintText: "Password",
+              border: InputBorder.none,
+              contentPadding:
+                  EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            child: GestureDetector(
+              onTap: _togglePasswordVisibility,
+              child: AnimatedBuilder(
+                animation: _eyeBounceController,
+                builder: (context, child) {
+                  return Transform.scale(
+                    scale: 1 + (_eyeBounceController.value * 0.15),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.purple.withOpacity(0.1),
+                      ),
+                      child: _isPasswordVisible
+                          ? const Icon(
+                              Icons.visibility_rounded,
+                              color: Colors.purple,
+                              size: 24,
+                            )
+                          : const Icon(
+                              Icons.visibility_off_rounded,
+                              color: Colors.grey,
+                              size: 24,
+                            ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   void loginAction(BuildContext context) {
     if (emailController.text.isEmpty ||
@@ -323,7 +408,7 @@ class _AuthScreenState extends State<AuthScreen>
         email: emailController.text,
         name: userNameController.text,
         password: passwordController.text,
-        gender: isMale ? 'male' : 'female',
+        gender: 'male',
       );
     }
   }

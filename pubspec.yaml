@@ -25,6 +25,8 @@ dependencies:
   path_provider:
   share_plus:
   permission_handler:
+  video_player: ^2.8.3
+  audioplayers: ^5.2.1
 
 dev_dependencies:
   flutter_test:
@@ -45,6 +47,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
+    - assets/sounds/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

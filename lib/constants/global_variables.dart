@@ -22,7 +22,7 @@ class GlobalVariables {
   static const textcolor = Color.fromARGB(226, 59, 23, 44);
   static const Color greyBackgroundCOlor = Color(0xffebecee);
   static var selectedNavBarColor = Colors.cyan[800]!;
-  static const unselectedNavBarColor = Colors.black87;
+  static const unselectedNavBarColor = Color.fromARGB(221, 235, 205, 205);
   static const Color greyTextColor = Color.fromARGB(255, 0, 0, 0);
   static const WelcomeText = ('Story Verce');
   static const Companyname = ('Story Verce');
