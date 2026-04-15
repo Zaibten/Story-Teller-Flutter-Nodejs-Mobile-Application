@@ -227,113 +227,244 @@ ${story}
 });
 
 app.get('/generate-story-comic-stream', async (req, res) => {
+  const startTime = Date.now();
+  const uniqueRequestId = `${Date.now()}-${Math.random().toString(36)}-${req.query.prompt || 'none'}`;
+
+  // No-cache headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
   try {
     const prompt = req.query.prompt;
     if (!prompt) return res.status(400).send("Prompt required");
 
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-
-    const send = (data) => {
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-    };
-
+    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
     send({ progress: 5 });
 
-    /// 1️⃣ STORY
+    // 🆕 Force uniqueness by appending a random UUID to the prompt
+    const uniqueSuffix = `[unique request: ${uniqueRequestId}]`;
+    const forcedUniquePrompt = `${prompt}. Generate a completely new, different story every time. Never repeat. ${uniqueSuffix}`;
+
+    // 1️⃣ STORY – high temperature + random seed + unique prompt
     const storyRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      messages: [{ role: "user", content: `Write a kid-friendly story: ${prompt}` }],
-      max_tokens: 200,
+      messages: [
+        {
+          role: "user",
+          content: `Write a very short kid-friendly story (max 100 words) based on: "${forcedUniquePrompt}". 
+          Be extremely creative and different from any previous story. Use random style, characters, and setting.`
+        }
+      ],
+      max_tokens: 150,
+      temperature: 0.9,           // even more creative
+      seed: Math.floor(Math.random() * 1000000)  // random seed disables determinism
     });
-
     const story = storyRes.choices?.[0]?.message?.content || "";
     send({ progress: 20, story });
 
-    /// 2️⃣ PANELS
+    // 2️⃣ PANELS – also creative
     const panelRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
-      temperature: 0.2,
+      temperature: 0.7,
       messages: [
-        { role: "system", content: "Return ONLY JSON array." },
+        { role: "system", content: "Return ONLY valid JSON array, no extra text." },
         {
           role: "user",
-          content: `4 comic panels:
-[
-{"title":"","description":"","imagePrompt":""}
-]
-Story:
-${story}`
+          content: `Generate 4 unique comic panels for the story below. 
+          Each panel must have a title, description, and imagePrompt. 
+          Make every panel different and unexpected.
+          Story: ${story}
+          Unique request ID: ${uniqueRequestId}`
         }
       ]
     });
 
     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+    if (!Array.isArray(panels)) throw new Error("Panel parsing failed");
 
-    if (!Array.isArray(panels)) {
-      send({ error: "panel_error" });
-      return res.end();
-    }
-
-    // Send initial panels (no images yet)
     panels = panels.map(p => ({ ...p, image: "" }));
     send({ progress: 40, panels });
 
-    /// 3️⃣ GENERATE IMAGES ONE BY ONE (FAST STREAM)
-    let completed = 0;
+    // 3️⃣ IMAGES – same as before (unchanged)
+    const concurrency = 2;
+    const imageQueue = [...panels.entries()];
 
-    for (let i = 0; i < panels.length; i++) {
-      try {
-        const img = await openai.images.generate({
-          model: "gpt-image-1",
-          prompt: `${safePrompt(panels[i].imagePrompt)}, cartoon colorful`,
-          size: "1024x1024" // ⚡ faster
-        });
+    async function processQueue() {
+      const batch = [];
+      while (imageQueue.length && batch.length < concurrency) {
+        batch.push(imageQueue.shift());
+      }
+      if (batch.length === 0) return;
 
-        const base64 = img.data?.[0]?.b64_json;
+      await Promise.all(batch.map(async ([idx, panel]) => {
+        try {
+          const img = await openai.images.generate({
+            model: "dall-e-3",
+            prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, completely new scene",
+            size: "1024x1024",
+            response_format: "b64_json",
+          });
+          const base64 = img.data?.[0]?.b64_json;
+          if (!base64) throw new Error("No base64");
 
-        if (base64) {
           const uploadRes = await cloudinary.uploader.upload(
             `data:image/png;base64,${base64}`,
             { folder: "story_comics" }
           );
-
           const imageUrl = uploadRes.secure_url;
+          console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
 
-          // ✅ PRINT IMAGE LINK IN CONSOLE
-          console.log(`Image ${i + 1}:`, imageUrl);
-
-          // ✅ UPDATE ONLY THIS PANEL
-          panels[i].image = imageUrl;
-
-          completed++;
-
-          send({
-            progress: 40 + Math.round((completed / panels.length) * 60),
-            panelIndex: i,
-            image: imageUrl
-          });
+          panels[idx].image = imageUrl;
+          send({ progress: 40 + Math.round(((idx + 1) / panels.length) * 60), panelIndex: idx, image: imageUrl });
+        } catch (err) {
+          console.error(`Panel ${idx} failed:`, err.message);
+          panels[idx].image = "";
         }
+      }));
 
-      } catch (e) {
-        console.log("Image Error:", e.message);
-      }
+      await processQueue();
     }
 
-    send({
-      progress: 100,
-      panels,
-      step: "done"
-    });
+    processQueue().then(() => {
+      const totalTimeMs = Date.now() - startTime;
+      const totalSeconds = Math.floor(totalTimeMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-    res.end();
+      console.log(`⏱️ Total generation time: ${minutes}m ${seconds}s (${formattedTime})`);
+
+      send({
+        progress: 100,
+        panels,
+        step: "done",
+        generationTime: formattedTime,
+        generationTimeSeconds: totalSeconds
+      });
+      res.end();
+    }).catch(err => {
+      console.error(err);
+      send({ error: "image generation failed" });
+      res.end();
+    });
 
   } catch (e) {
     console.error(e);
     res.end();
   }
 });
+
+// app.get('/generate-story-comic-stream', async (req, res) => {
+//   const startTime = Date.now(); // 🆕 start timer
+
+//   try {
+//     const prompt = req.query.prompt;
+//     if (!prompt) return res.status(400).send("Prompt required");
+
+//     res.setHeader("Content-Type", "text/event-stream");
+//     res.setHeader("Cache-Control", "no-cache");
+//     res.setHeader("Connection", "keep-alive");
+
+//     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+//     send({ progress: 5 });
+
+//     // 1️⃣ STORY
+//     const storyRes = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [{ role: "user", content: `Write a very short kid-friendly story (max 100 words): ${prompt}` }],
+//       max_tokens: 150,
+//       temperature: 0.2,
+//     });
+//     const story = storyRes.choices?.[0]?.message?.content || "";
+//     send({ progress: 20, story });
+
+//     // 2️⃣ PANELS
+//     const panelRes = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       temperature: 0.1,
+//       messages: [
+//         { role: "system", content: "Return ONLY valid JSON array, no extra text." },
+//         { role: "user", content: `4 comic panels: [{"title":"","description":"","imagePrompt":""}] Story: ${story}` }
+//       ]
+//     });
+//     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+//     if (!Array.isArray(panels)) throw new Error("Panel parsing failed");
+
+//     panels = panels.map(p => ({ ...p, image: "" }));
+//     send({ progress: 40, panels });
+
+//     // 3️⃣ IMAGES – PARALLEL with concurrency limit
+//     const concurrency = 2;
+//     const imageQueue = [...panels.entries()];
+
+//     async function processQueue() {
+//       const batch = [];
+//       while (imageQueue.length && batch.length < concurrency) {
+//         batch.push(imageQueue.shift());
+//       }
+//       if (batch.length === 0) return;
+
+//       await Promise.all(batch.map(async ([idx, panel]) => {
+//         try {
+//           const img = await openai.images.generate({
+//             model: "dall-e-3",
+//             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style",
+//             size: "1024x1024",
+//             response_format: "b64_json",
+//           });
+//           const base64 = img.data?.[0]?.b64_json;
+//           if (!base64) throw new Error("No base64");
+
+//           const uploadRes = await cloudinary.uploader.upload(
+//             `data:image/png;base64,${base64}`,
+//             { folder: "story_comics" }
+//           );
+//           const imageUrl = uploadRes.secure_url;
+//           console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
+
+//           panels[idx].image = imageUrl;
+//           send({ progress: 40 + Math.round(((idx + 1) / panels.length) * 60), panelIndex: idx, image: imageUrl });
+//         } catch (err) {
+//           console.error(`Panel ${idx} failed:`, err.message);
+//           panels[idx].image = "";
+//         }
+//       }));
+
+//       await processQueue();
+//     }
+
+//     // Start parallel image generation
+//     processQueue().then(() => {
+//       const totalTimeMs = Date.now() - startTime;
+//       const totalSeconds = Math.floor(totalTimeMs / 1000);
+//       const minutes = Math.floor(totalSeconds / 60);
+//       const seconds = totalSeconds % 60;
+//       const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+//       console.log(`⏱️ Total generation time: ${minutes}m ${seconds}s (${formattedTime})`);
+
+//       send({
+//         progress: 100,
+//         panels,
+//         step: "done",
+//         generationTime: formattedTime,   // 🆕 send formatted time
+//         generationTimeSeconds: totalSeconds // optional
+//       });
+//       res.end();
+//     }).catch(err => {
+//       console.error(err);
+//       send({ error: "image generation failed" });
+//       res.end();
+//     });
+
+//   } catch (e) {
+//     console.error(e);
+//     res.end();
+//   }
+// });
 
 app.get('/demo-cat-comic', async (req, res) => {
   try {

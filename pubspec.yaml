@@ -27,6 +27,8 @@ dependencies:
   permission_handler:
   video_player: ^2.8.3
   audioplayers: ^5.2.1
+  cached_network_image: ^3.3.1
+  flutter_tts: ^3.8.5
 
 dev_dependencies:
   flutter_test:

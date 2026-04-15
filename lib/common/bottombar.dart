@@ -5,6 +5,7 @@ import 'package:pictureai/constants/global_variables.dart';
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:badges/badges.dart' as badges;
+import 'package:pictureai/features/home/screens/test.dart';
 
 import '../features/account/screens/account_screen.dart';
 import '../features/art/screens/art_screen.dart';
@@ -51,7 +52,7 @@ class _BottomBarState extends State<BottomBar> {
         index: page,
         children: [
           const HomeScreen(),
-          const SavedCodesScreen(),
+          const NewPage(),
           const SettingsScreen(),
           //const CartScreen(),
         ],
