@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../providers/user_provider.dart';
+// ADD THIS IMPORT
+import 'dart:math';
+import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 
 class HomeScreen extends StatefulWidget {
   static const String routeName = '/home_screen';
@@ -13,6 +19,84 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+
+Map<String, dynamic> storyData = {};
+List<String> currentStories = [];
+int currentStoryIndex = 0;
+
+late FlutterTts _flutterTts;
+
+bool _isPlaying = false;
+bool _isPaused = false;
+
+Future<void> loadStories() async {
+  try {
+    final String response =
+        await rootBundle.loadString('assets/data/story.json');
+
+    final data = json.decode(response);
+
+    setState(() {
+      storyData = data;
+    });
+
+    debugPrint("Stories Loaded Successfully");
+    debugPrint(storyData.toString()); // 🔥 ADD THIS
+  } catch (e) {
+    debugPrint("Error loading stories: $e");
+  }
+} final Random _random = Random();
+
+List<String> _generateStories() {
+  final character = _selectedCharacterData!;
+  final world = _selectedWorldData!;
+  final mood = _selectedMood!;
+
+  List<String> beginnings = [
+    "${character.name} entered the magical ${world.name}",
+    "In the land of ${world.name}, ${character.name} woke up",
+    "Once upon a time, ${character.name} discovered a secret in ${world.name}",
+    "${character.name} was suddenly transported to ${world.name}",
+    "A strange light carried ${character.name} into ${world.name}",
+  ];
+
+  List<String> actions = [
+    "where a mysterious adventure began",
+    "and met talking animals and glowing trees",
+    "and found a hidden magical treasure",
+    "where everything was alive and magical",
+    "and discovered a lost ancient secret",
+  ];
+
+  List<String> moods = [
+    if (mood == "Happy") "filled with joy and laughter",
+    if (mood == "Funny") "full of funny surprises and silly moments",
+    if (mood == "Adventure") "with dangerous quests and brave moments",
+    if (mood == "Bedtime") "under a calm and peaceful glowing sky",
+  ];
+
+  List<String> endings = [
+    "and became the hero of ${world.name}.",
+    "and everyone celebrated ${character.name}'s courage.",
+    "and returned home with a big smile.",
+    "and the world of ${world.name} remembered them forever.",
+    "and promised to return again someday.",
+  ];
+
+  List<String> stories = [];
+
+  for (int i = 0; i < 5; i++) {
+    stories.add(
+      "${beginnings[_random.nextInt(beginnings.length)]} "
+      "${actions[_random.nextInt(actions.length)]}, "
+      "${moods[_random.nextInt(moods.length)]} "
+      "${endings[_random.nextInt(endings.length)]}"
+    );
+  }
+
+  return stories;
+}
+
   int? _selectedCharacterIndex;
   String? _selectedStoryWorld;
   String? _selectedMood;
@@ -64,79 +148,567 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     Mood(name: "Bedtime", emoji: "🌙", icon: Icons.nightlight_round, color: const Color(0xFF7986CB), description: "", bgColor: const Color(0xFF283593)),
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    
-    _bounceController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat(reverse: true);
-    _waveAnimation = Tween<double>(begin: 0, end: 1).animate(_waveController);
-    
-    _glowController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-    _glowAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(_glowController);
-    
-    _floatController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat(reverse: true);
-    _floatAnimation = Tween<double>(begin: -5, end: 5).animate(_floatController);
-    
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-    
-    _sparkleController1 = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-    
-    _sparkleController2 = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-    
-    _modalController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _modalScaleAnimation = Tween<double>(begin: 0.8, end: 1).animate(
-      CurvedAnimation(parent: _modalController, curve: Curves.elasticOut),
-    );
-    _modalFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _modalController, curve: Curves.easeOut),
-    );
-    
-    _moodController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
-    _moodScaleAnimation = Tween<double>(begin: 0.8, end: 1).animate(
-      CurvedAnimation(parent: _moodController, curve: Curves.elasticOut),
-    );
-    _moodFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _moodController, curve: Curves.easeOut),
-    );
-    
-    _moodCardController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _moodCardScaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _moodCardController, curve: Curves.easeInOut),
-    );
+@override
+void initState() {
+  super.initState();
+  loadStories(); // keep this
+
+  _flutterTts = FlutterTts();
+
+_flutterTts.setLanguage("en-US");
+_flutterTts.setSpeechRate(0.42); // slow for kids
+_flutterTts.setPitch(1.15);
+_flutterTts.setVolume(1.0);
+
+// When one slide finishes → auto move next
+_flutterTts.setCompletionHandler(() {
+  if (!_isPaused && mounted) {
+    _nextSlideAuto();
+  }
+});
+
+  _bounceController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+  );
+
+  _waveController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 3),
+  )..repeat(reverse: true);
+
+  _waveAnimation = Tween<double>(begin: 0, end: 1).animate(_waveController);
+
+  _glowController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  )..repeat(reverse: true);
+
+  _glowAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(_glowController);
+
+  _floatController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 4),
+  )..repeat(reverse: true);
+
+  _floatAnimation = Tween<double>(begin: -5, end: 5).animate(_floatController);
+
+  _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 1),
+  )..repeat(reverse: true);
+
+  _sparkleController1 = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  )..repeat(reverse: true);
+
+  _sparkleController2 = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  )..repeat(reverse: true);
+
+  _modalController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 500),
+  );
+
+  _moodController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 500),
+  );
+
+  _moodCardController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 300),
+  );
+
+  // ================= MODAL ANIMATIONS =================
+_modalScaleAnimation = Tween<double>(
+  begin: 0.8,
+  end: 1.0,
+).animate(
+  CurvedAnimation(
+    parent: _modalController,
+    curve: Curves.easeOutBack,
+  ),
+);
+
+_modalFadeAnimation = Tween<double>(
+  begin: 0.0,
+  end: 1.0,
+).animate(
+  CurvedAnimation(
+    parent: _modalController,
+    curve: Curves.easeIn,
+  ),
+);
+
+// ================= MOOD ANIMATIONS =================
+_moodScaleAnimation = Tween<double>(
+  begin: 0.8,
+  end: 1.0,
+).animate(
+  CurvedAnimation(
+    parent: _moodController,
+    curve: Curves.easeOutBack,
+  ),
+);
+
+_moodFadeAnimation = Tween<double>(
+  begin: 0.0,
+  end: 1.0,
+).animate(
+  CurvedAnimation(
+    parent: _moodController,
+    curve: Curves.easeIn,
+  ),
+);
+
+// ================= MOOD CARD ANIMATION =================
+_moodCardScaleAnimation = Tween<double>(
+  begin: 0.9,
+  end: 1.05,
+).animate(
+  CurvedAnimation(
+    parent: _moodCardController,
+    curve: Curves.easeOutBack,
+  ),
+);
+}
+List<String> getStories() {
+  if (_selectedCharacterData == null ||
+      _selectedWorldData == null ||
+      _selectedMood == null ||
+      storyData.isEmpty) {
+    return [];
   }
 
+  try {
+    final characterKey = _selectedCharacterData!.name;
+    final worldKey = _selectedWorldData!.name;
+    final moodKey = _selectedMood!;
+
+    final result = storyData[characterKey]?[worldKey]?[moodKey];
+
+    if (result is List) {
+      return List<String>.from(result);
+    }
+
+    return [];
+  } catch (e) {
+    debugPrint("Story parse error: $e");
+    return [];
+  }
+}
+
+Future<void> _speakCurrentSlide() async {
+  if (currentStories.isEmpty) return;
+
+  await _flutterTts.stop();
+
+  final text = currentStories[currentStoryIndex];
+
+  setState(() {
+    _isPlaying = true;
+  });
+
+  await _flutterTts.speak(text);
+}
+void _nextSlideAuto() {
+  if (currentStoryIndex < currentStories.length - 1) {
+    setState(() {
+      currentStoryIndex++;
+    });
+
+    Future.delayed(const Duration(milliseconds: 600), () {
+      _speakCurrentSlide();
+    });
+  } else {
+    setState(() {
+      _isPlaying = false;
+    });
+  }
+}
+void _togglePlayPause() async {
+  if (_isPlaying) {
+    // STOP EVERYTHING
+    await _flutterTts.stop();
+
+    setState(() {
+      _isPlaying = false;
+      _isPaused = true;
+    });
+  } else {
+    // START OR RESUME
+    setState(() {
+      _isPaused = false;
+    });
+
+    _speakCurrentSlide();
+  }
+}
+void showStoryReader() {
+  currentStories = getStories();
+  currentStoryIndex = 0;
+
+  Future.delayed(const Duration(milliseconds: 800), () {
+  _isPaused = false;
+  _speakCurrentSlide();
+});
+
+  showDialog(
+    context: context,
+    barrierColor: Colors.black.withOpacity(0.6),
+    builder: (_) {
+      return StatefulBuilder(
+        builder: (context, setStateDialog) {
+          final character = _selectedCharacterData;
+          final world = _selectedWorldData;
+
+          return TweenAnimationBuilder(
+            duration: const Duration(milliseconds: 600),
+            tween: Tween<double>(begin: 0.8, end: 1.0),
+            curve: Curves.easeOutBack,
+            builder: (context, scale, child) {
+              return Transform.scale(
+                scale: scale,
+                child: Dialog(
+                  backgroundColor: Colors.transparent,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+
+                      /// 🌌 BACKGROUND GLOW CARD
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              Color(0xFF6A11CB),
+                              Color(0xFF2575FC),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.purple.withOpacity(0.5),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                            )
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+
+                            /// 🌟 HEADER WITH CHARACTER + WORLD
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+
+                                /// Character
+                                Column(
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 300),
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withOpacity(0.2),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.white.withOpacity(0.3),
+                                            blurRadius: 10,
+                                          )
+                                        ],
+                                      ),
+                                      child: Image.asset(
+                                        character?.gifPath ?? "",
+                                        height: 70,
+                                        width: 70,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      character?.name ?? "",
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  ],
+                                ),
+
+                                /// MAGIC ICON
+                                const Text("✨📖✨",
+                                    style: TextStyle(fontSize: 24)),
+
+                                /// World
+                                Column(
+                                  children: [
+                                    AnimatedContainer(
+                                      duration: const Duration(milliseconds: 300),
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.white.withOpacity(0.2),
+                                      ),
+                                      child: Image.asset(
+                                        world?.gifPath ?? "",
+                                        height: 70,
+                                        width: 70,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      world?.name ?? "",
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    )
+                                  ],
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            /// 📖 STORY CARD (ANIMATED)
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 500),
+                              transitionBuilder: (child, animation) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0.2, 0),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                key: ValueKey(currentStoryIndex),
+                                padding: const EdgeInsets.all(18),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.2),
+                                      blurRadius: 15,
+                                    )
+                                  ],
+                                ),
+                                child: Column(
+                                  children: [
+
+                                    // const Text("📖 Magical Story",
+                                    //     style: TextStyle(
+                                    //         fontWeight: FontWeight.bold,
+                                    //         fontSize: 16)),
+
+                                    // const SizedBox(height: 10),
+
+                                    Text(
+                                      currentStories.isNotEmpty
+                                          ? currentStories[currentStoryIndex]
+                                          : "No Story Found",
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        height: 1.5,
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 10),
+
+                                    // Text(
+                                    //   "Page ${currentStoryIndex + 1} / ${currentStories.length}",
+                                    //   style: TextStyle(
+                                    //     fontSize: 12,
+                                    //     color: Colors.grey.shade600,
+                                    //   ),
+                                    // ),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            /// 🎮 CONTROLS
+                            // Row(
+                            //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            //   children: [
+
+                            //     /// PREV
+                            //     ElevatedButton.icon(
+                            //       style: ElevatedButton.styleFrom(
+                            //         backgroundColor: Colors.white,
+                            //         foregroundColor: Colors.purple,
+                            //         shape: RoundedRectangleBorder(
+                            //           borderRadius: BorderRadius.circular(20),
+                            //         ),
+                            //       ),
+                            //       onPressed: currentStoryIndex > 0
+                            //           ? () {
+                            //               setStateDialog(() {
+                            //                 currentStoryIndex--;
+                            //               });
+                            //             }
+                            //           : null,
+                            //       icon: const Icon(Icons.arrow_back),
+                            //       label: const Text("Prev"),
+                            //     ),
+
+                            //     /// NEXT
+                            //     ElevatedButton.icon(
+                            //       style: ElevatedButton.styleFrom(
+                            //         backgroundColor: Colors.white,
+                            //         foregroundColor: Colors.purple,
+                            //         shape: RoundedRectangleBorder(
+                            //           borderRadius: BorderRadius.circular(20),
+                            //         ),
+                            //       ),
+                            //       onPressed: currentStoryIndex <
+                            //               currentStories.length - 1
+                            //           ? () {
+                            //               setStateDialog(() {
+                            //                 currentStoryIndex++;
+                            //               });
+                            //             }
+                            //           : null,
+                            //       icon: const Icon(Icons.arrow_forward),
+                            //       label: const Text("Next"),
+                            //     ),
+                            //   ],
+                            // ),
+
+                            const SizedBox(height: 5),
+Center(
+  child: GestureDetector(
+    onTap: _togglePlayPause,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: _isPlaying ? Colors.red : Colors.green,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+          )
+        ],
+      ),
+      child: Icon(
+        _isPlaying ? Icons.stop : Icons.play_arrow,
+        color: Colors.white,
+        size: 40,
+      ),
+    ),
+  ),
+),
+
+                            const SizedBox(height: 5),
+                            /// 🎬 WATCH BUTTON
+                            ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                showVideoStory();
+                              },
+                              icon: const Icon(Icons.play_circle),
+                              label: const Text("Watch Story Movie"),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 45),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      /// ✨ FLOATING STARS (DECORATION)
+                      Positioned(
+                        top: 10,
+                        left: 20,
+                        child: _floatingStar("✨"),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        right: 20,
+                        child: _floatingStar("⭐"),
+                      ),
+                      Positioned(
+                        top: 40,
+                        right: 30,
+                        child: _floatingStar("🌙"),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    },
+  );
+}
+Widget _floatingStar(String emoji) {
+  return TweenAnimationBuilder(
+    tween: Tween<double>(begin: 0, end: 10),
+    duration: const Duration(seconds: 2),
+    curve: Curves.easeInOut,
+    builder: (context, value, child) {
+      return Transform.translate(
+        offset: Offset(0, value),
+        child: Text(
+          emoji,
+          style: const TextStyle(fontSize: 20),
+        ),
+      );
+    },
+  );
+}
+void showVideoStory() {
+  showDialog(
+    context: context,
+    builder: (_) => Dialog(
+      backgroundColor: Colors.black,
+      child: Container(
+        height: 300,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: const [
+            Icon(Icons.play_circle_fill, color: Colors.white, size: 80),
+            SizedBox(height: 20),
+            Text(
+              "🎬 Video Story Playing...",
+              style: TextStyle(color: Colors.white),
+            ),
+            SizedBox(height: 10),
+            Text(
+              "Here you can integrate Lottie / MP4 / AI animation later",
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
   @override
   void dispose() {
     _bounceController.dispose();
@@ -680,101 +1252,39 @@ Widget _buildMoodSelectionModalContent() {
     ),
   );
 }
-  void _showStoryGenerationDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(48)),
-          child: Container(
-            padding: const EdgeInsets.all(32),
-            constraints: const BoxConstraints(maxWidth: 360),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.white, (_selectedWorldData?.color ?? const Color(0xFF6C63FF)).withOpacity(0.15)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(48),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedBuilder(
-                  animation: _pulseController,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: 1.0 + (_pulseController.value * 0.1),
-                      child: Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: (_selectedWorldData?.color ?? const Color(0xFF6C63FF)).withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          _selectedMood == "Happy" ? "😊" :
-                          _selectedMood == "Funny" ? "😂" :
-                          _selectedMood == "Adventure" ? "⚔️" : "🌙",
-                          style: const TextStyle(fontSize: 64),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  "✨ Creating Your Magic Story ✨",
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: _selectedWorldData?.color ?? const Color(0xFF6C63FF),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  "${_selectedCharacterData?.emoji} ${_selectedCharacterData?.name} • ${_selectedWorldData?.emoji} ${_selectedWorldData?.name}",
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: (_selectedMood != null ? moods.firstWhere((m) => m.name == _selectedMood).color : const Color(0xFF6C63FF)).withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(40),
-                  ),
-                  child: Text(
-                    "$_selectedMood Mood",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _selectedMood != null ? moods.firstWhere((m) => m.name == _selectedMood).color : const Color(0xFF6C63FF),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                const CircularProgressIndicator(),
-                const SizedBox(height: 24),
-                Text(
-                  "Weaving a magical tale just for you... 🎨",
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 20),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text("Cancel", style: TextStyle(color: _selectedWorldData?.color ?? const Color(0xFF6C63FF), fontSize: 15)),
-                ),
-              ],
-            ),
+void _showStoryGenerationDialog() {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(48),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text("✨ Creating Your Magic Story..."),
+            ],
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
 
+  // ⬇️ THIS IS THE FIX (simulate generation delay)
+  Future.delayed(const Duration(seconds: 2), () {
+    Navigator.pop(context); // close loading dialog
+
+    if (mounted) {
+      showStoryReader(); // 🚀 OPEN STORY SCREEN
+    }
+  });
+}
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user;

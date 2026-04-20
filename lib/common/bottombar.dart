@@ -3,25 +3,25 @@
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
 import 'package:pictureai/constants/global_variables.dart';
-
+import '../features/game/games_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/home/screens/test.dart';
 import '../features/setting/setting.dart';
 
 // 👉 Create a dummy Games screen (replace later)
-class GamesScreen extends StatelessWidget {
-  const GamesScreen({super.key});
+// class GamesScreen extends StatelessWidget {
+//   const GamesScreen({super.key});
 
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        "Games Screen 🎮",
-        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return const Center(
+//       child: Text(
+//         "Games Screen 🎮",
+//         style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+//       ),
+//     );
+//   }
+// }
 
 class BottomBar extends StatefulWidget {
   static const String routeName = 'actual-home';
