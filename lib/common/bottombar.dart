@@ -1,16 +1,27 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
 
-import 'package:badges/badges.dart';
-import 'package:pictureai/constants/global_variables.dart';
 import 'package:flutter/material.dart';
 import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:badges/badges.dart' as badges;
-import 'package:pictureai/features/home/screens/test.dart';
+import 'package:pictureai/constants/global_variables.dart';
 
-import '../features/account/screens/account_screen.dart';
-import '../features/art/screens/art_screen.dart';
 import '../features/home/screens/home_screen.dart';
+import '../features/home/screens/test.dart';
 import '../features/setting/setting.dart';
+
+// 👉 Create a dummy Games screen (replace later)
+class GamesScreen extends StatelessWidget {
+  const GamesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+        "Games Screen 🎮",
+        style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+}
 
 class BottomBar extends StatefulWidget {
   static const String routeName = 'actual-home';
@@ -20,61 +31,86 @@ class BottomBar extends StatefulWidget {
   State<BottomBar> createState() => _BottomBarState();
 }
 
-class _BottomBarState extends State<BottomBar> {
+class _BottomBarState extends State<BottomBar>
+    with SingleTickerProviderStateMixin {
   int page = 0;
-  int cartItemCount = 2; // Replace with the actual count of items in the cart
 
-  late List<GButton> tabs;
-
-  @override
-  void initState() {
-    super.initState();
-    tabs = [
-      const GButton(
-        icon: Icons.home_outlined,
-        text: 'Home',
-      ),
-      const GButton(
-        icon: Icons.picture_in_picture_outlined,
-        text: 'Save Code',
-      ),
-      GButton(
-        icon: Icons.settings,
-        text: 'Settings',
-      ),
-    ];
-  }
+  final List<Widget> pages = [
+    const HomeScreen(),
+    const NewPage(),
+    const GamesScreen(),
+    const SettingsScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: page,
-        children: [
-          const HomeScreen(),
-          const NewPage(),
-          const SettingsScreen(),
-          //const CartScreen(),
-        ],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        child: pages[page],
       ),
-      bottomNavigationBar: GNav(
-        gap: 8,
-        iconSize: 30,
-        color: Colors.grey[800],
-        backgroundColor: GlobalVariables.backgroundColor,
-        rippleColor: Colors.grey,
-        activeColor: GlobalVariables.whitecolor,
-        tabBackgroundColor: Color.fromARGB(255, 99, 95, 96),
-        haptic: true, // haptic feedback
-        hoverColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        tabs: tabs,
-        selectedIndex: page,
-        onTabChange: (index) {
-          setState(() {
-            page = index;
-          });
-        },
+
+      // 🔥 Attractive Bottom Bar
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: GlobalVariables.backgroundColor,
+          boxShadow: [
+            BoxShadow(
+              blurRadius: 20,
+              color: Colors.black.withOpacity(0.15),
+            )
+          ],
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: GNav(
+              selectedIndex: page,
+              onTabChange: (index) {
+                setState(() {
+                  page = index;
+                });
+              },
+
+              // 🔥 Design Improvements
+              rippleColor: Colors.grey.shade300,
+              hoverColor: Colors.grey.shade200,
+              haptic: true,
+              tabBorderRadius: 20,
+              curve: Curves.easeOutExpo,
+              duration: const Duration(milliseconds: 500),
+              gap: 10,
+              iconSize: 26,
+
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 18, vertical: 12),
+
+              color: Colors.grey[600],
+              activeColor: Colors.white,
+
+              tabBackgroundColor: const Color(0xff6C63FF), // 💜 Premium color
+
+              tabs: [
+                GButton(
+                  icon: Icons.home_rounded,
+                  text: 'Home',
+                ),
+                GButton(
+                  icon: Icons.auto_stories_rounded,
+                  text: 'Story',
+                ),
+                GButton(
+                  icon: Icons.sports_esports_rounded,
+                  text: 'Games',
+                ),
+                GButton(
+                  icon: Icons.settings_rounded,
+                  text: 'Settings',
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

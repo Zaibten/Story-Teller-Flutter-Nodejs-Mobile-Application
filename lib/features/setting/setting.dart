@@ -1,14 +1,16 @@
+// ignore_for_file: prefer_const_literals_to_create_immutables
+
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../constants/global_variables.dart';
-import '../../../providers/user_provider.dart';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../constants/global_variables.dart';
+import '../../../providers/user_provider.dart';
 import '../auth/screens/auth_screen.dart';
-
-
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,615 +19,503 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen>
+    with TickerProviderStateMixin {
 
-
-Future<void> showProfileDialog(BuildContext context, String email) async {
-  try {
-    final response = await http.post(
-      Uri.parse('https://code-sync-server-kappa.vercel.app/profile'), // Replace with your server IP/localhost
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'email': email}),
-    );
-
-    final data = jsonDecode(response.body);
-
-    if (data['success'] == true) {
-      final user = data['user'];
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (context) => Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          backgroundColor: Colors.black87,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            width: 300,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundColor: GlobalVariables.btncolor,
-                  child: const Icon(Icons.person, size: 40, color: Colors.white),
-                ),
-                const SizedBox(height: 12),
-                Text(user['name'],
-                    style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white)),
-                const SizedBox(height: 6),
-                Text(user['email'],
-                    style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white.withOpacity(0.7))),
-                
-                const SizedBox(height: 6),
-                Text("Type: ${user['type'] ?? 'N/A'}",
-                    style: const TextStyle(color: Colors.white70)),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: GlobalVariables.btncolor,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Close"),
-                )
-              ],
-            ),
-          ),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(data['error'] ?? "Failed to fetch profile")),
-      );
-    }
-  } catch (e) {
-    print(e);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Server error")),
-    );
-  }
-}
-
-
-Future<void> showLogoutDialog(BuildContext context) async {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.black87,
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.logout, size: 40, color: Colors.redAccent),
-            const SizedBox(height: 15),
-            const Text(
-              "Logout",
-              style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              "Are you sure you want to logout?",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 25),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel",
-                      style: TextStyle(color: Colors.white70)),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: () async {
-                    // 1️⃣ Clear local storage
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.clear();
-
-                    // 2️⃣ Clear provider state
-                    Provider.of<UserProvider>(context, listen: false)
-                        .clearUser();
-
-                    // 3️⃣ Navigate to AuthScreen & remove stack
-                    Navigator.pushAndRemoveUntil(
-  context,
-  MaterialPageRoute(builder: (_) => const AuthScreen()),
-  (route) => false,
-);
-
-                  },
-                  child: const Text("Yes, Logout"),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+  late AnimationController _bgController;
+  late AnimationController _floatController;
+late AnimationController _pulseController;
+late Animation<double> _floatAnimation;
+late Animation<double> _waveAnimation;
+late AnimationController _waveController;
+  final List<_Bubble> bubbles = List.generate(
+    18,
+    (i) => _Bubble(
+      x: Random().nextDouble(),
+      y: Random().nextDouble(),
+      size: Random().nextDouble() * 25 + 10,
+      speed: Random().nextDouble() * 0.002 + 0.001,
     ),
   );
+
+ @override
+void initState() {
+  super.initState();
+
+  _bgController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 5),
+  )..repeat();
+
+  // FLOAT
+  _floatController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 3),
+  )..repeat(reverse: true);
+
+  _floatAnimation = Tween<double>(begin: -6, end: 6).animate(
+    CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+  );
+
+  // PULSE (IMPORTANT FIX)
+  _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  )..repeat(reverse: true);
+
+  // WAVE
+  _waveController = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 4),
+  )..repeat();
+
+  _waveAnimation = CurvedAnimation(
+    parent: _waveController,
+    curve: Curves.easeInOut,
+  );
+
+  _bgController.addListener(() {
+    for (var b in bubbles) {
+      b.y -= b.speed;
+      if (b.y < 0) b.y = 1;
+    }
+    setState(() {});
+  });
 }
 
- Future<void> showResetPasswordDialog(BuildContext context, String email) async {
-  final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmController = TextEditingController();
-  bool isLoading = false;
+  // @override
+  // void dispose() {
+  //   _bgController.dispose();
+  //   _floatController.dispose();
+  //   super.dispose();
+  // }
+@override
+void dispose() {
+  _bgController.dispose();
+  _floatController.dispose();
+  _pulseController.dispose();
+  _waveController.dispose();
+  super.dispose();
+}
+  // ================= PROFILE =================
+  Future<void> showProfileDialog(BuildContext context, String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse('https://code-sync-server-kappa.vercel.app/profile'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
 
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setState) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        backgroundColor: Colors.black87,
-        child: Container(
+      final data = jsonDecode(response.body);
+
+      if (data['success'] == true) {
+        final user = data['user'];
+
+        showDialog(
+          context: context,
+          builder: (_) => Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircleAvatar(
+                    radius: 40,
+                    backgroundColor: Colors.purple.shade100,
+                    child: const Icon(Icons.person,
+                        size: 40, color: Colors.purple),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(user['name'],
+                      style: const TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(user['email']),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Close"),
+                  )
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {}
+  }
+
+  // ================= LOGOUT =================
+  Future<void> showLogoutDialog(BuildContext context) async {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
           padding: const EdgeInsets.all(20),
-          width: 320,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                "Reset Password",
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              const SizedBox(height: 15),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: "New Password",
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: Colors.white12,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-                style: const TextStyle(color: Colors.white),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: confirmController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: "Confirm Password",
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: Colors.white12,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                ),
-                style: const TextStyle(color: Colors.white),
-              ),
+              const Icon(Icons.logout, color: Colors.red, size: 40),
+              const SizedBox(height: 10),
+              const Text("Logout?", style: TextStyle(fontSize: 18)),
               const SizedBox(height: 20),
-              isLoading
-                  ? const CircularProgressIndicator(color: GlobalVariables.btncolor)
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text("Cancel", style: TextStyle(color: Colors.white70)),
-                        ),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: GlobalVariables.btncolor,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                          onPressed: () async {
-                            final newPass = passwordController.text.trim();
-                            final confirmPass = confirmController.text.trim();
-                            if (newPass.isEmpty || confirmPass.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Please fill all fields")));
-                              return;
-                            }
-                            if (newPass != confirmPass) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Passwords do not match")));
-                              return;
-                            }
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Cancel"),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red),
+                    onPressed: () async {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.clear();
 
-                            setState(() => isLoading = true);
+                      Provider.of<UserProvider>(context, listen: false)
+                          .clearUser();
 
-                            try {
-                              final response = await http.post(
-                                Uri.parse('https://code-sync-server-kappa.vercel.app/reset-password'),
-                                headers: {'Content-Type': 'application/json'},
-                                body: jsonEncode({'email': email, 'newPassword': newPass}),
-                              );
-
-                              final data = jsonDecode(response.body);
-
-                              if (data['success'] == true) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Password updated successfully")));
-                                Navigator.pop(context);
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(data['error'] ?? "Failed to update password")));
-                              }
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Server error")));
-                            } finally {
-                              setState(() => isLoading = false);
-                            }
-                          },
-                          child: const Text("Reset"),
-                        ),
-                      ],
-                    ),
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AuthScreen()),
+                        (route) => false,
+                      );
+                    },
+                    child: const Text("Logout"),
+                  )
+                ],
+              )
             ],
           ),
         ),
       ),
-    ),
-  );
-}
-Future<void> showAboutAppDialog(BuildContext context) async {
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    builder: (context) => Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      backgroundColor: Colors.black87,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        width: 300,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 40,
-              backgroundColor: GlobalVariables.btncolor,
-              child: const Icon(Icons.code, size: 40, color: Colors.white),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "Code Sync App",
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              "Version: 1.0.0",
-              style: TextStyle(color: Colors.white70),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              "Code Sync App helps you detect errors in your code and provides corrected code instantly. Improve your coding workflow and save time with AI-powered suggestions.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: GlobalVariables.btncolor,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Close"),
-            )
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
- 
- 
-  int _currentIndex = 3;
-
-  void onTabTapped(int index) {
-    setState(() => _currentIndex = index);
-
-    switch (index) {
-      case 0:
-        Navigator.pushReplacementNamed(context, '/home');
-        break;
-      case 1:
-        Navigator.pushReplacementNamed(context, '/art');
-        break;
-      case 2:
-        Navigator.pushReplacementNamed(context, '/saved');
-        break;
-      case 3:
-        break;
-    }
-  }
-
-  // ================= SECTION TITLE =================
-  Widget sectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-      child: Text(
-        title.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 12,
-          letterSpacing: 1.5,
-          color: Colors.grey,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 
-  // ================= SETTINGS TILE =================
-  Widget settingsTile({
+  // ================= TILE =================
+  Widget tile({
     required IconData icon,
     required String title,
     required String subtitle,
-    Color? iconColor,
+    required Color color,
     VoidCallback? onTap,
-    Widget? trailing,
   }) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
+    return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF121212),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              height: 46,
-              width: 46,
+      child: AnimatedBuilder(
+        animation: _floatController,
+        builder: (_, __) {
+          return Transform.translate(
+            offset: Offset(0, _floatAnimation.value),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    (iconColor ?? GlobalVariables.btncolor).withOpacity(0.9),
-                    (iconColor ?? GlobalVariables.btncolor).withOpacity(0.5),
-                  ],
-                ),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withOpacity(0.15),
+                    blurRadius: 15,
+                    offset: const Offset(0, 6),
+                  )
+                ],
               ),
-              child: Icon(icon, color: Colors.white),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                  CircleAvatar(
+                    backgroundColor: color.withOpacity(0.15),
+                    child: Icon(icon, color: color),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold)),
+                        Text(subtitle,
+                            style: const TextStyle(
+                                color: Colors.grey, fontSize: 12)),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: Colors.grey,
-                    ),
-                  ),
+                  const Icon(Icons.arrow_forward_ios, size: 14),
                 ],
               ),
             ),
-            trailing ??
-                const Icon(
-                  Icons.arrow_forward_ios_rounded,
-                  size: 14,
-                  color: Colors.grey,
-                ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
+  // ================= BACKGROUND =================
+  Widget _background() {
+    return Container(
+      color: Colors.white,
+      child: Stack(
+        children: [
+          ...bubbles.map((b) {
+            return Positioned(
+              left: b.x * MediaQuery.of(context).size.width,
+              top: b.y * MediaQuery.of(context).size.height,
+              child: Container(
+                width: b.size,
+                height: b.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.blue.withOpacity(0.06),
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  // ================= HEADER =================
+Widget header(user) {
+  final size = MediaQuery.of(context).size;
+
+  return Container(
+    height: 200,
+    width: double.infinity,
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        colors: [
+          Colors.purple.shade200,
+          Colors.blue.shade200,
+          Colors.pink.shade100,
+        ],
+      ),
+      borderRadius: const BorderRadius.only(
+        bottomLeft: Radius.circular(35),
+        bottomRight: Radius.circular(35),
+      ),
+    ),
+    child: Stack(
+      children: [
+
+        // 🌊 Animated glow bubble
+        AnimatedBuilder(
+          animation: _pulseController,
+          builder: (context, _) {
+            return Positioned(
+              top: -30,
+              right: -30,
+              child: Container(
+                width: 120 + (_pulseController.value * 30),
+                height: 120 + (_pulseController.value * 30),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.15),
+                ),
+              ),
+            );
+          },
+        ),
+
+        SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+
+                // TOP ROW
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+
+                    // LEFT (LOGO + FLOAT)
+                    AnimatedBuilder(
+                      animation: _floatController,
+                      builder: (context, _) {
+                        return Transform.translate(
+                          offset: Offset(0, _floatAnimation.value),
+                          child: Row(
+                            children: [
+
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.25),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Image.asset(
+                                  "assets/images/logo.png",
+                                  width: 32,
+                                  height: 32,
+                                ),
+                              ),
+
+                              const SizedBox(width: 10),
+
+                              const Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "MAGIC STORY",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Adventure Awaits ✨",
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.white70,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
+                    // USER CHIP
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.25),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.person, color: Colors.white, size: 14),
+                          const SizedBox(width: 6),
+                          Text(
+                            user.name.split(" ")[0],
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 18),
+
+                // BIG ANIMATED TITLE
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, _) {
+                    return Transform.scale(
+                      scale: 1 + (_pulseController.value * 0.04),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            "Magic Setting ✨",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+  
+  // ================= BUILD =================
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user;
 
     return Scaffold(
-      backgroundColor: Colors.black,
-
-      // ================= HOME STYLE APP BAR =================
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF151F2B), Color(0xFF223447)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          title: Column(
-            children: [
-              const Text(
-                "Settings",
-                style: TextStyle(
-                  fontFamily: 'Poppins-Bold',
-                  letterSpacing: 1.0,
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                "${user.name} • ${user.email}",
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white.withOpacity(0.7),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12.0),
-              child: CircleAvatar(
-                backgroundColor: Colors.white24,
-                child: IconButton(
-                  icon: const Icon(Icons.settings_backup_restore,
-                      color: Colors.white),
-                  onPressed: () {
-                    // optional refresh/reset logic
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-
-      // ================= BODY =================
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      backgroundColor: Colors.white,
+      body: Stack(
         children: [
-
-          // ================= PROFILE CARD =================
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(22),
-              gradient: LinearGradient(
-                colors: [
-                  GlobalVariables.btncolor.withOpacity(0.25),
-                  Colors.black,
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  height: 60,
-                  width: 60,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        GlobalVariables.btncolor,
-                        GlobalVariables.btncolor.withOpacity(0.6),
-                      ],
-                    ),
-                  ),
-                  child: const Icon(Icons.person,
-                      color: Colors.white, size: 30),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          _background(),
+          Column(
+            children: [
+              header(user),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
                   children: [
-                    Text(
-                      user.name,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
+                    tile(
+                      icon: Icons.person,
+                      title: "Profile",
+                      subtitle: "See your magical info",
+                      color: Colors.purple,
+                      onTap: () => showProfileDialog(context, user.email),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      user.email,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey,
-                      ),
+                    tile(
+                      icon: Icons.lock,
+                      title: "Password",
+                      subtitle: "Change secret password",
+                      color: Colors.blue,
+                    ),
+                    tile(
+                      icon: Icons.info,
+                      title: "About App",
+                      subtitle: "Magic world ✨",
+                      color: Colors.orange,
+                    ),
+                    tile(
+                      icon: Icons.logout,
+                      title: "Logout",
+                      subtitle: "Leave magical world",
+                      color: Colors.red,
+                      onTap: () => showLogoutDialog(context),
                     ),
                   ],
                 ),
-              ],
-            ),
+              )
+            ],
           ),
-
-          const SizedBox(height: 30),
-
-          // ================= ACCOUNT =================
-          sectionTitle("Account"),
-
-settingsTile(
-  icon: Icons.person_outline,
-  title: "Profile",
-  subtitle: "Manage personal information",
-  onTap: () {
-    final user = Provider.of<UserProvider>(context, listen: false).user;
-    showProfileDialog(context, user.email);
-  },
-),
-
-
-          const SizedBox(height: 12),
-    settingsTile(
-  icon: Icons.lock_outline,
-  title: "Change Password",
-  subtitle: "Update your account password",
-  onTap: () {
-    final user = Provider.of<UserProvider>(context, listen: false).user;
-    showResetPasswordDialog(context, user.email);
-  },
-),
-
-
-          const SizedBox(height: 30),
-
-          // ================= APPLICATION =================
-          sectionTitle("Application"),
-
-       settingsTile(
-  icon: Icons.info_outline,
-  title: "About App",
-  subtitle: "Version, privacy & legal",
-  onTap: () {
-    showAboutAppDialog(context);
-  },
-),
-
-
-          const SizedBox(height: 30),
-
-          // ================= DANGER ZONE =================
-          sectionTitle("Danger Zone"),
-
-          settingsTile(
-            icon: Icons.logout,
-            iconColor: Colors.redAccent,
-            title: "Logout",
-            subtitle: "Sign out from this device",
-            trailing:
-                const Icon(Icons.exit_to_app, color: Colors.redAccent),
-            onTap: () {
-  showLogoutDialog(context);
-},
-
-          ),
-
-          const SizedBox(height: 40),
         ],
       ),
     );
   }
+}
+
+// ================= BUBBLE =================
+class _Bubble {
+  double x;
+  double y;
+  double size;
+  double speed;
+
+  _Bubble({
+    required this.x,
+    required this.y,
+    required this.size,
+    required this.speed,
+  });
 }

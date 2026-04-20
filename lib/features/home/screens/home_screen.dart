@@ -854,15 +854,31 @@ Widget _buildMoodSelectionModalContent() {
                                         color: Colors.white.withOpacity(0.2),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: AnimatedBuilder(
-                                        animation: _sparkleController1,
-                                        builder: (context, child) {
-                                          return Transform.scale(
-                                            scale: 0.9 + (_sparkleController1.value * 0.2),
-                                            child: const Text("✨", style: TextStyle(fontSize: 20)),
-                                          );
-                                        },
-                                      ),
+                                        child: AnimatedBuilder(
+  animation: _sparkleController1,
+  builder: (context, child) {
+    return Transform.scale(
+      scale: 0.9 + (_sparkleController1.value * 0.2),
+      child: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.white.withOpacity(0.6),
+              blurRadius: 10,
+              spreadRadius: 1,
+            )
+          ],
+        ),
+        child: Image.asset(
+          "assets/images/logo.png",
+          width: 30,
+          height: 30,
+        ),
+      ),
+    );
+  },
+),
+                                      
                                     ),
                                     const SizedBox(width: 8),
                                     Column(

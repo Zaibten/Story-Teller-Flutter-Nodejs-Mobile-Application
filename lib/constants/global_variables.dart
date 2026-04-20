@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 // String uri = 'http://192.168.100.37:9000';
 // String uri = 'https://code-sync-server-kappa.vercel.app';
-String uri = 'http://10.189.144.221:9000';
+String uri = 'http://192.168.100.177:9000';
 
 class GlobalVariables {
   // COLORS
@@ -16,8 +16,9 @@ class GlobalVariables {
 
   static const secondaryColor = Color.fromRGBO(255, 153, 0, 1);
   //static const secondaryColor = Colors.white;
-  static const backgroundColor = Color(0xff191919);
-  static const btncolor = Color(0xff684fd8);
+  // static const backgroundColor = Color(0xff191919);
+  static const backgroundColor = Color.fromARGB(255, 255, 255, 255);
+  static const btncolor = Color.fromARGB(255, 255, 255, 255);
   static const whitecolor = Color.fromRGBO(255, 255, 255, 1);
   static const textcolor = Color.fromARGB(226, 59, 23, 44);
   static const Color greyBackgroundCOlor = Color(0xffebecee);
