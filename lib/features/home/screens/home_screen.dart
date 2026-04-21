@@ -357,314 +357,336 @@ void showStoryReader() {
   _speakCurrentSlide();
 });
 
-  showDialog(
-    context: context,
-    barrierColor: Colors.black.withOpacity(0.6),
-    builder: (_) {
-      return StatefulBuilder(
-        builder: (context, setStateDialog) {
-          final character = _selectedCharacterData;
-          final world = _selectedWorldData;
+showDialog(
+  context: context,
+  barrierColor: Colors.black.withOpacity(0.6),
+  builder: (_) {
+    return StatefulBuilder(
+      builder: (context, setStateDialog) {
+        final character = _selectedCharacterData;
+        final world = _selectedWorldData;
 
-          return TweenAnimationBuilder(
-            duration: const Duration(milliseconds: 600),
-            tween: Tween<double>(begin: 0.8, end: 1.0),
-            curve: Curves.easeOutBack,
-            builder: (context, scale, child) {
-              return Transform.scale(
-                scale: scale,
-                child: Dialog(
-                  backgroundColor: Colors.transparent,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
+        return TweenAnimationBuilder(
+          duration: const Duration(milliseconds: 600),
+          tween: Tween<double>(begin: 0.8, end: 1.0),
+          curve: Curves.easeOutBack,
+          builder: (context, scale, child) {
+            return Transform.scale(
+              scale: scale,
+              child: Dialog(
+                backgroundColor: Colors.transparent,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
 
-                      /// 🌌 BACKGROUND GLOW CARD
-                      Container(
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF6A11CB),
-                              Color(0xFF2575FC),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(30),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.purple.withOpacity(0.5),
-                              blurRadius: 30,
-                              spreadRadius: 5,
-                            )
+                    /// 🌌 BACKGROUND GLOW CARD
+                    Container(
+                      width: MediaQuery.of(context).size.width * 0.9,
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.85,
+                      ),
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF6A11CB),
+                            Color(0xFF2575FC),
                           ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.purple.withOpacity(0.5),
+                            blurRadius: 30,
+                            spreadRadius: 5,
+                          )
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
 
-                            /// 🌟 HEADER WITH CHARACTER + WORLD
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
+                          /// 🌟 HEADER WITH CHARACTER + WORLD
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
 
-                                /// Character
-                                Column(
-                                  children: [
-                                    AnimatedContainer(
-                                      duration: const Duration(milliseconds: 300),
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white.withOpacity(0.2),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.white.withOpacity(0.3),
-                                            blurRadius: 10,
-                                          )
-                                        ],
-                                      ),
-                                      child: Image.asset(
-                                        character?.gifPath ?? "",
-                                        height: 70,
-                                        width: 70,
-                                      ),
+                              /// Character
+                              Column(
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white.withOpacity(0.2),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.white.withOpacity(0.3),
+                                          blurRadius: 10,
+                                        )
+                                      ],
                                     ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      character?.name ?? "",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  ],
-                                ),
-
-                                /// MAGIC ICON
-                                const Text("✨📖✨",
-                                    style: TextStyle(fontSize: 24)),
-
-                                /// World
-                                Column(
-                                  children: [
-                                    AnimatedContainer(
-                                      duration: const Duration(milliseconds: 300),
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white.withOpacity(0.2),
-                                      ),
-                                      child: Image.asset(
-                                        world?.gifPath ?? "",
-                                        height: 70,
-                                        width: 70,
-                                      ),
+                                    child: Image.asset(
+                                      character?.gifPath ?? "",
+                                      height: 70,
+                                      width: 70,
                                     ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      world?.name ?? "",
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              ],
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            /// 📖 STORY CARD (ANIMATED)
-                            AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 500),
-                              transitionBuilder: (child, animation) {
-                                return FadeTransition(
-                                  opacity: animation,
-                                  child: SlideTransition(
-                                    position: Tween<Offset>(
-                                      begin: const Offset(0.2, 0),
-                                      end: Offset.zero,
-                                    ).animate(animation),
-                                    child: child,
                                   ),
-                                );
-                              },
-                              child: Container(
-                                key: ValueKey(currentStoryIndex),
-                                padding: const EdgeInsets.all(18),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.2),
-                                      blurRadius: 15,
-                                    )
-                                  ],
-                                ),
-                                child: Column(
-                                  children: [
-
-                                    // const Text("📖 Magical Story",
-                                    //     style: TextStyle(
-                                    //         fontWeight: FontWeight.bold,
-                                    //         fontSize: 16)),
-
-                                    // const SizedBox(height: 10),
-
-                                    Text(
-                                      currentStories.isNotEmpty
-                                          ? currentStories[currentStoryIndex]
-                                          : "No Story Found",
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        height: 1.5,
-                                      ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    character?.name ?? "",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
                                     ),
+                                  )
+                                ],
+                              ),
 
-                                    const SizedBox(height: 10),
+                              /// MAGIC ICON
+                              const Text("✨📖✨",
+                                  style: TextStyle(fontSize: 24)),
 
-                                    // Text(
-                                    //   "Page ${currentStoryIndex + 1} / ${currentStories.length}",
-                                    //   style: TextStyle(
-                                    //     fontSize: 12,
-                                    //     color: Colors.grey.shade600,
-                                    //   ),
-                                    // ),
-                                  ],
+                              /// World
+                              Column(
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.white.withOpacity(0.2),
+                                    ),
+                                    child: Image.asset(
+                                      world?.gifPath ?? "",
+                                      height: 70,
+                                      width: 70,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    world?.name ?? "",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          /// 📖 SCROLLABLE STORY CARD
+                          Container(
+                            constraints: BoxConstraints(
+                              maxHeight: MediaQuery.of(context).size.height * 0.4,
+                            ),
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 500),
+                                transitionBuilder: (child, animation) {
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: Tween<Offset>(
+                                        begin: const Offset(0.2, 0),
+                                        end: Offset.zero,
+                                      ).animate(animation),
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  key: ValueKey(currentStoryIndex),
+                                  padding: const EdgeInsets.all(18),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.2),
+                                        blurRadius: 15,
+                                      )
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        currentStories.isNotEmpty
+                                            ? currentStories[currentStoryIndex]
+                                            : "No Story Found",
+                                        textAlign: TextAlign.justify,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
+                          ),
 
-                            const SizedBox(height: 20),
+                          const SizedBox(height: 20),
 
-                            /// 🎮 CONTROLS
-                            // Row(
-                            //   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            //   children: [
+                          /// 📖 PAGE INDICATOR
+                          // if (currentStories.length > 1)
+                          //   Container(
+                          //     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          //     decoration: BoxDecoration(
+                          //       color: Colors.white.withOpacity(0.2),
+                          //       borderRadius: BorderRadius.circular(20),
+                          //     ),
+                          //     child: Text(
+                          //       "Page ${currentStoryIndex + 1} / ${currentStories.length}",
+                          //       style: const TextStyle(
+                          //         color: Colors.white,
+                          //         fontSize: 12,
+                          //       ),
+                          //     ),
+                          //   ),
 
-                            //     /// PREV
-                            //     ElevatedButton.icon(
-                            //       style: ElevatedButton.styleFrom(
-                            //         backgroundColor: Colors.white,
-                            //         foregroundColor: Colors.purple,
-                            //         shape: RoundedRectangleBorder(
-                            //           borderRadius: BorderRadius.circular(20),
-                            //         ),
-                            //       ),
-                            //       onPressed: currentStoryIndex > 0
-                            //           ? () {
-                            //               setStateDialog(() {
-                            //                 currentStoryIndex--;
-                            //               });
-                            //             }
-                            //           : null,
-                            //       icon: const Icon(Icons.arrow_back),
-                            //       label: const Text("Prev"),
-                            //     ),
+                          // const SizedBox(height: 15),
 
-                            //     /// NEXT
-                            //     ElevatedButton.icon(
-                            //       style: ElevatedButton.styleFrom(
-                            //         backgroundColor: Colors.white,
-                            //         foregroundColor: Colors.purple,
-                            //         shape: RoundedRectangleBorder(
-                            //           borderRadius: BorderRadius.circular(20),
-                            //         ),
-                            //       ),
-                            //       onPressed: currentStoryIndex <
-                            //               currentStories.length - 1
-                            //           ? () {
-                            //               setStateDialog(() {
-                            //                 currentStoryIndex++;
-                            //               });
-                            //             }
-                            //           : null,
-                            //       icon: const Icon(Icons.arrow_forward),
-                            //       label: const Text("Next"),
-                            //     ),
-                            //   ],
-                            // ),
+                          /// 🎮 PAGE NAVIGATION BUTTONS
+                          // if (currentStories.length > 1)
+                          //   Row(
+                          //     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          //     children: [
+                          //       /// PREV BUTTON
+                          //       ElevatedButton.icon(
+                          //         style: ElevatedButton.styleFrom(
+                          //           backgroundColor: Colors.white,
+                          //           foregroundColor: Colors.purple,
+                          //           shape: RoundedRectangleBorder(
+                          //             borderRadius: BorderRadius.circular(20),
+                          //           ),
+                          //         ),
+                          //         onPressed: currentStoryIndex > 0
+                          //             ? () {
+                          //                 setStateDialog(() {
+                          //                   currentStoryIndex--;
+                          //                 });
+                          //               }
+                          //             : null,
+                          //         icon: const Icon(Icons.arrow_back, size: 18),
+                          //         label: const Text("Prev"),
+                          //       ),
 
-                            const SizedBox(height: 5),
-Center(
-  child: GestureDetector(
-    onTap: _togglePlayPause,
-    child: AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: _isPlaying ? Colors.red : Colors.green,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 10,
-          )
-        ],
+                          //       /// NEXT BUTTON
+                          //       ElevatedButton.icon(
+                          //         style: ElevatedButton.styleFrom(
+                          //           backgroundColor: Colors.white,
+                          //           foregroundColor: Colors.purple,
+                          //           shape: RoundedRectangleBorder(
+                          //             borderRadius: BorderRadius.circular(20),
+                          //           ),
+                          //         ),
+                          //         onPressed: currentStoryIndex < currentStories.length - 1
+                          //             ? () {
+                          //                 setStateDialog(() {
+                          //                   currentStoryIndex++;
+                          //                 });
+                          //               }
+                          //             : null,
+                          //         icon: const Icon(Icons.arrow_forward, size: 18),
+                          //         label: const Text("Next"),
+                          //       ),
+                          //     ],
+                          //   ),
+
+                          const SizedBox(height: 15),
+
+                          /// 🎬 PLAY/PAUSE & WATCH BUTTONS
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              /// PLAY/PAUSE BUTTON
+                            GestureDetector(
+      onTap: _togglePlayPause,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: _isPlaying ? Colors.red : Colors.green,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+            )
+          ],
+        ),
+        child: Image.asset(
+          "assets/images/speaker.gif",
+          height: 30,
+          width: 30,
+          color: Colors.white,
+        ),
       ),
-      child: Icon(
-        _isPlaying ? Icons.stop : Icons.play_arrow,
-        color: Colors.white,
-        size: 40,
-      ),
-    ),
-  ),
-),
+    ),  const SizedBox(width: 20),
 
-                            const SizedBox(height: 5),
-                            /// 🎬 WATCH BUTTON
-                            ElevatedButton.icon(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                showVideoStory();
-                              },
-                              icon: const Icon(Icons.play_circle),
-                              label: const Text("Watch Story Movie"),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.orange,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(double.infinity, 45),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
+                              /// WATCH MOVIE BUTTON
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    showVideoStory();
+                                  },
+                                  icon: const Icon(Icons.play_circle, size: 20),
+                                  label: const Text("Watch Story Movie"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
+                            ],
+                          ),
+                        ],
                       ),
+                    ),
 
-                      /// ✨ FLOATING STARS (DECORATION)
-                      Positioned(
-                        top: 10,
-                        left: 20,
-                        child: _floatingStar("✨"),
-                      ),
-                      Positioned(
-                        bottom: 10,
-                        right: 20,
-                        child: _floatingStar("⭐"),
-                      ),
-                      Positioned(
-                        top: 40,
-                        right: 30,
-                        child: _floatingStar("🌙"),
-                      ),
-                    ],
-                  ),
+                    /// ✨ FLOATING STARS (DECORATION)
+                    Positioned(
+                      top: 10,
+                      left: 20,
+                      child: _floatingStar("✨"),
+                    ),
+                    Positioned(
+                      bottom: 10,
+                      right: 20,
+                      child: _floatingStar("⭐"),
+                    ),
+                    Positioned(
+                      top: 40,
+                      right: 30,
+                      child: _floatingStar("🌙"),
+                    ),
+                  ],
                 ),
-              );
-            },
-          );
-        },
-      );
-    },
-  );
+              ),
+            );
+          },
+        );
+      },
+    );
+  },
+);
 }
+
+
 Widget _floatingStar(String emoji) {
   return TweenAnimationBuilder(
     tween: Tween<double>(begin: 0, end: 10),

@@ -1,493 +1,11 @@
-// import 'dart:math' as math;
-// import 'package:flutter/material.dart';
-
-// import 'color_match_screen.dart';
-// import 'game_model.dart';
-// import 'memory_flip_screen.dart';
-// import 'number_pop_screen.dart';
-// import 'sound_service.dart';
-
-// class GamesScreen extends StatefulWidget {
-//   static const String routeName = '/games';
-//   const GamesScreen({Key? key}) : super(key: key);
-
-//   @override
-//   State<GamesScreen> createState() => _GamesScreenState();
-// }
-
-// class _GamesScreenState extends State<GamesScreen> with TickerProviderStateMixin {
-//   late AnimationController _bgCtrl;
-//   late AnimationController _entranceCtrl;
-//   final SoundService _sound = SoundService();
-//   final Map<GameId, int> _highScores = {};
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _bgCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 8))
-//       ..repeat();
-//     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))
-//       ..forward();
-//   }
-
-//   @override
-//   void dispose() {
-//     _bgCtrl.dispose();
-//     _entranceCtrl.dispose();
-//     super.dispose();
-//   }
-
-//   void _openGame(GameModel game) async {
-//     await _sound.playPop();
-//     if (!mounted) return;
-
-//     Widget screen;
-//     switch (game.id) {
-//       case GameId.numberPop:
-//         screen = const NumberPopScreen();
-//         break;
-//       case GameId.colorMatch:
-//         screen = const ColorMatchScreen();
-//         break;
-//       case GameId.memoryFlip:
-//         screen = const MemoryFlipScreen();
-//         break;
-//     }
-
-//     final result = await Navigator.of(context).push<int>(
-//       PageRouteBuilder(
-//         pageBuilder: (_, anim, __) => screen,
-//         transitionsBuilder: (_, anim, __, child) {
-//           return ScaleTransition(
-//             scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
-//             child: FadeTransition(opacity: anim, child: child),
-//           );
-//         },
-//         transitionDuration: const Duration(milliseconds: 400),
-//       ),
-//     );
-
-//     if (result != null) {
-//       setState(() {
-//         final prev = _highScores[game.id] ?? 0;
-//         if (result > prev) _highScores[game.id] = result;
-//       });
-//     }
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: AnimatedBuilder(
-//         animation: _bgCtrl,
-//         builder: (_, __) => Container(
-//           decoration: BoxDecoration(
-//             gradient: LinearGradient(
-//               begin: Alignment.topLeft,
-//               end: Alignment.bottomRight,
-//               colors: [
-//                 Color.lerp(const Color(0xFF1a1a2e), const Color(0xFF16213e), math.sin(_bgCtrl.value * math.pi))!,
-//                 Color.lerp(const Color(0xFF0f3460), const Color(0xFF533483), math.sin(_bgCtrl.value * math.pi))!,
-//               ],
-//             ),
-//           ),
-//           child: SafeArea(
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 _buildHeader(),
-//                 Expanded(
-//                   child: _buildGameGrid(),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _buildHeader() {
-//     return Padding(
-//       padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-//       child: Row(
-//         children: [
-//           Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               FadeTransition(
-//                 opacity: _entranceCtrl,
-//                 child: const Text(
-//                   'Game Zone! 🎮',
-//                   style: TextStyle(
-//                     fontSize: 28,
-//                     fontWeight: FontWeight.w800,
-//                     color: Colors.white,
-//                     letterSpacing: -0.5,
-//                   ),
-//                 ),
-//               ),
-//               const SizedBox(height: 2),
-//               Text(
-//                 'Pick a game and have fun!',
-//                 style: TextStyle(
-//                   fontSize: 14,
-//                   color: Colors.white.withOpacity(0.6),
-//                 ),
-//               ),
-//             ],
-//           ),
-//           const Spacer(),
-//           _MuteButton(sound: _sound),
-//           const SizedBox(width: 8),
-//           _FloatingBubbles(),
-//         ],
-//       ),
-//     );
-//   }
-
-//   Widget _buildGameGrid() {
-//     return Padding(
-//       padding: const EdgeInsets.all(16),
-//       child: Column(
-//         children: [
-//           for (int i = 0; i < kGames.length; i++)
-//             Padding(
-//               padding: const EdgeInsets.only(bottom: 16),
-//               child: SlideTransition(
-//                 position: Tween<Offset>(
-//                   begin: Offset(0, 0.3 + i * 0.1),
-//                   end: Offset.zero,
-//                 ).animate(CurvedAnimation(
-//                   parent: _entranceCtrl,
-//                   curve: Interval(i * 0.15, 1.0, curve: Curves.easeOutCubic),
-//                 )),
-//                 child: FadeTransition(
-//                   opacity: CurvedAnimation(
-//                     parent: _entranceCtrl,
-//                     curve: Interval(i * 0.15, 1.0),
-//                   ),
-//                   child: _GameCard(
-//                     game: kGames[i],
-//                     highScore: _highScores[kGames[i].id],
-//                     onTap: () => _openGame(kGames[i]),
-//                   ),
-//                 ),
-//               ),
-//             ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-
-// // ── Game card ────────────────────────────────────────────────────────────────
-
-// class _GameCard extends StatefulWidget {
-//   final GameModel game;
-//   final int? highScore;
-//   final VoidCallback onTap;
-//   const _GameCard({required this.game, required this.onTap, this.highScore});
-
-//   @override
-//   State<_GameCard> createState() => _GameCardState();
-// }
-
-// class _GameCardState extends State<_GameCard> with SingleTickerProviderStateMixin {
-//   late AnimationController _hoverCtrl;
-//   late Animation<double> _scale;
-//   late Animation<double> _elevate;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _hoverCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 180));
-//     _scale = Tween<double>(begin: 1.0, end: 1.03).animate(
-//       CurvedAnimation(parent: _hoverCtrl, curve: Curves.easeOut),
-//     );
-//     _elevate = Tween<double>(begin: 0, end: 8).animate(_hoverCtrl);
-//   }
-
-//   @override
-//   void dispose() {
-//     _hoverCtrl.dispose();
-//     super.dispose();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return GestureDetector(
-//       onTapDown: (_) => _hoverCtrl.forward(),
-//       onTapUp: (_) { _hoverCtrl.reverse(); widget.onTap(); },
-//       onTapCancel: () => _hoverCtrl.reverse(),
-//       child: AnimatedBuilder(
-//         animation: _hoverCtrl,
-//         builder: (_, __) => Transform.scale(
-//           scale: _scale.value,
-//           child: Container(
-//             height: 120,
-//             decoration: BoxDecoration(
-//               gradient: LinearGradient(
-//                 colors: [widget.game.primaryColor, widget.game.secondaryColor],
-//                 begin: Alignment.topLeft,
-//                 end: Alignment.bottomRight,
-//               ),
-//               borderRadius: BorderRadius.circular(24),
-//               boxShadow: [
-//                 BoxShadow(
-//                   color: widget.game.primaryColor.withOpacity(0.5),
-//                   blurRadius: 16 + _elevate.value,
-//                   offset: Offset(0, 4 + _elevate.value / 2),
-//                 ),
-//               ],
-//             ),
-//             child: Stack(
-//               children: [
-//                 // Background circles
-//                 Positioned(
-//                   right: -20,
-//                   top: -20,
-//                   child: Container(
-//                     width: 100,
-//                     height: 100,
-//                     decoration: BoxDecoration(
-//                       shape: BoxShape.circle,
-//                       color: Colors.white.withOpacity(0.1),
-//                     ),
-//                   ),
-//                 ),
-//                 Positioned(
-//                   right: 30,
-//                   bottom: -30,
-//                   child: Container(
-//                     width: 80,
-//                     height: 80,
-//                     decoration: BoxDecoration(
-//                       shape: BoxShape.circle,
-//                       color: Colors.white.withOpacity(0.08),
-//                     ),
-//                   ),
-//                 ),
-//                 // Content
-//                 Padding(
-//                   padding: const EdgeInsets.all(20),
-//                   child: Row(
-//                     children: [
-//                       Container(
-//                         width: 64,
-//                         height: 64,
-//                         decoration: BoxDecoration(
-//                           color: Colors.white.withOpacity(0.25),
-//                           borderRadius: BorderRadius.circular(18),
-//                         ),
-//                         child: Center(
-//                           child: Text(
-//                             widget.game.emoji,
-//                             style: const TextStyle(fontSize: 32),
-//                           ),
-//                         ),
-//                       ),
-//                       const SizedBox(width: 16),
-//                       Expanded(
-//                         child: Column(
-//                           crossAxisAlignment: CrossAxisAlignment.start,
-//                           mainAxisAlignment: MainAxisAlignment.center,
-//                           children: [
-//                             Text(
-//                               widget.game.title,
-//                               style: const TextStyle(
-//                                 fontSize: 20,
-//                                 fontWeight: FontWeight.w800,
-//                                 color: Colors.white,
-//                                 letterSpacing: -0.3,
-//                               ),
-//                             ),
-//                             const SizedBox(height: 4),
-//                             Text(
-//                               widget.game.description,
-//                               style: TextStyle(
-//                                 fontSize: 12,
-//                                 color: Colors.white.withOpacity(0.85),
-//                               ),
-//                               maxLines: 2,
-//                             ),
-//                             if (widget.highScore != null) ...[
-//                               const SizedBox(height: 6),
-//                               Row(
-//                                 children: [
-//                                   const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFE66D), size: 14),
-//                                   const SizedBox(width: 4),
-//                                   Text(
-//                                     'Best: ${widget.highScore}',
-//                                     style: const TextStyle(
-//                                       fontSize: 12,
-//                                       fontWeight: FontWeight.w600,
-//                                       color: Color(0xFFFFE66D),
-//                                     ),
-//                                   ),
-//                                 ],
-//                               ),
-//                             ],
-//                           ],
-//                         ),
-//                       ),
-//                       Column(
-//                         mainAxisAlignment: MainAxisAlignment.center,
-//                         children: [
-//                           Container(
-//                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-//                             decoration: BoxDecoration(
-//                               color: Colors.white.withOpacity(0.25),
-//                               borderRadius: BorderRadius.circular(20),
-//                             ),
-//                             child: Text(
-//                               'Ages ${widget.game.minAge}-${widget.game.maxAge}',
-//                               style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
-//                             ),
-//                           ),
-//                           const SizedBox(height: 8),
-//                           const Icon(Icons.play_circle_rounded, color: Colors.white, size: 32),
-//                         ],
-//                       ),
-//                     ],
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// // ── Mute button ──────────────────────────────────────────────────────────────
-
-// class _MuteButton extends StatefulWidget {
-//   final SoundService sound;
-//   const _MuteButton({required this.sound});
-
-//   @override
-//   State<_MuteButton> createState() => _MuteButtonState();
-// }
-
-// class _MuteButtonState extends State<_MuteButton> {
-//   @override
-//   Widget build(BuildContext context) {
-//     return GestureDetector(
-//       onTap: () {
-//         setState(() => widget.sound.toggleMute());
-//       },
-//       child: Container(
-//         width: 40,
-//         height: 40,
-//         decoration: BoxDecoration(
-//           color: Colors.white.withOpacity(0.15),
-//           borderRadius: BorderRadius.circular(12),
-//         ),
-//         child: Icon(
-//           widget.sound.isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-//           color: Colors.white,
-//           size: 20,
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// // ── Floating animated bubbles (decorative) ───────────────────────────────────
-
-// class _FloatingBubbles extends StatefulWidget {
-//   @override
-//   State<_FloatingBubbles> createState() => _FloatingBubblesState();
-// }
-
-// class _FloatingBubblesState extends State<_FloatingBubbles> with SingleTickerProviderStateMixin {
-//   late AnimationController _ctrl;
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
-//   }
-
-//   @override
-//   void dispose() {
-//     _ctrl.dispose();
-//     super.dispose();
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return AnimatedBuilder(
-//       animation: _ctrl,
-//       builder: (_, __) => SizedBox(
-//         width: 40,
-//         height: 40,
-//         child: Stack(
-//           children: [
-//             Positioned(
-//               top: 4 + _ctrl.value * 4,
-//               right: 0,
-//               child: _bubble(10, const Color(0xFFFF6B6B)),
-//             ),
-//             Positioned(
-//               bottom: 2 + _ctrl.value * 3,
-//               left: 0,
-//               child: _bubble(8, const Color(0xFF4ECDC4)),
-//             ),
-//             Positioned(
-//               top: 14 + _ctrl.value * 2,
-//               left: 12,
-//               child: _bubble(6, const Color(0xFFFFE66D)),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _bubble(double size, Color color) {
-//     return Container(
-//       width: size,
-//       height: size,
-//       decoration: BoxDecoration(color: color.withOpacity(0.8), shape: BoxShape.circle),
-//     );
-//   }
-// }
-
-
-
-
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
 import 'dart:math';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Game Zone',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: Colors.transparent,
-        primaryColor: Colors.purple,
-      ),
-      home: const GamesScreen(),
-    );
-  }
-}
-
-// ============================================================================
-// GAME MODELS & CONSTANTS
-// ============================================================================
+import '../../providers/user_provider.dart';
+import '../../services/audio.dart';
 
 enum GameId { numberPop, colorMatch, memoryFlip, quickTap, shapeMatcher, patternRepeat }
 
@@ -569,8 +87,8 @@ const List<GameModel> kGames = [
     title: 'Pattern Repeat',
     description: 'Remember and repeat the pattern!',
     emoji: '🔄',
-    primaryColor: Color(0xFFFFE66D),
-    secondaryColor: Color(0xFFE8D44D),
+    primaryColor: Color(0xFFFFB74D),
+    secondaryColor: Color(0xFFFF9800),
     minAge: 6,
     maxAge: 12,
   ),
@@ -580,39 +98,51 @@ const List<GameModel> kGames = [
 // SOUND SERVICE
 // ============================================================================
 
-class SoundService {
-  bool _isMuted = false;
-  bool get isMuted => _isMuted;
+// ============================================================================
+// SOUND SERVICE (Updated with AudioService)
+// ============================================================================
 
-  void toggleMute() {
-    _isMuted = !_isMuted;
+class SoundService {
+  final AudioService _audioService = AudioService();
+  
+  bool get isMuted => _audioService.isMuted;
+
+  Future<void> toggleMute() async {
+    await _audioService.toggleMute();
+  }
+
+  Future<void> pauseMusic() async {
+    await _audioService.pauseMusic();
+  }
+
+  Future<void> resumeMusic() async {
+    await _audioService.resumeMusic();
   }
 
   Future<void> playPop() async {
-    if (!_isMuted) {}
+    await _audioService.playPop();
   }
 
   Future<void> playCorrect() async {
-    if (!_isMuted) {}
+    await _audioService.playCorrect();
   }
 
   Future<void> playWrong() async {
-    if (!_isMuted) {}
+    await _audioService.playWrong();
   }
 
   Future<void> playWin() async {
-    if (!_isMuted) {}
+    await _audioService.playWin();
   }
 
   Future<void> playLevelUp() async {
-    if (!_isMuted) {}
+    await _audioService.playLevelUp();
+  }
+  
+  Future<void> dispose() async {
+    await _audioService.dispose();
   }
 }
-
-// ============================================================================
-// MAIN GAMES SCREEN
-// ============================================================================
-
 class GamesScreen extends StatefulWidget {
   static const String routeName = '/games';
   const GamesScreen({Key? key}) : super(key: key);
@@ -622,143 +152,401 @@ class GamesScreen extends StatefulWidget {
 }
 
 class _GamesScreenState extends State<GamesScreen> with TickerProviderStateMixin {
-  late AnimationController _bgCtrl;
+   late AnimationController _floatCtrl;
   late AnimationController _entranceCtrl;
   final SoundService _sound = SoundService();
   final Map<GameId, int> _highScores = {};
 
+  late AnimationController _bounceController;
+  late AnimationController _waveController;
+  late AnimationController _glowController;
+  late AnimationController _floatController;
+  late AnimationController _pulseController;
+  late AnimationController _sparkleController1;
+  late AnimationController _sparkleController2;
+  late AnimationController _modalController;
+  late AnimationController _moodController;
+  late AnimationController _moodCardController;
+  
+  late Animation<double> _glowAnimation;
+  late Animation<double> _floatAnimation;
+  late Animation<double> _waveAnimation;
+  late Animation<double> _modalScaleAnimation;
+  late Animation<double> _modalFadeAnimation;
+  late Animation<double> _moodScaleAnimation;
+  late Animation<double> _moodFadeAnimation;
+  late Animation<double> _moodCardScaleAnimation;
+
   @override
   void initState() {
     super.initState();
-    _bgCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 8))..repeat();
+    
+    // Initialize animation controllers
+    _floatCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
+    
+    _bounceController = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+    _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _glowController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _floatController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _sparkleController1 = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _sparkleController2 = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _modalController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _moodController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _moodCardController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    
+    // Initialize animations
+    _waveAnimation = CurvedAnimation(parent: _waveController, curve: Curves.easeInOut);
+    _floatAnimation = Tween<double>(begin: -3, end: 3).animate(
+      CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
+    );
+    _glowAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
+    _modalScaleAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _modalController, curve: Curves.elasticOut),
+    );
+    _modalFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _modalController, curve: Curves.easeIn),
+    );
+    _moodScaleAnimation = Tween<double>(begin: 0.5, end: 1).animate(
+      CurvedAnimation(parent: _moodController, curve: Curves.easeOutBack),
+    );
+    _moodFadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _moodController, curve: Curves.easeIn),
+    );
+    _moodCardScaleAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _moodCardController, curve: Curves.easeOutBack),
+    );
+    
+    // Initialize audio service
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AudioService().init();
+    });
   }
 
   @override
   void dispose() {
-    _bgCtrl.dispose();
+    // Dispose all animation controllers
+    _bounceController.dispose();
+    _waveController.dispose();
+    _glowController.dispose();
+    _floatController.dispose();
+    _pulseController.dispose();
+    _sparkleController1.dispose();
+    _sparkleController2.dispose();
+    _modalController.dispose();
+    _moodController.dispose();
+    _moodCardController.dispose();
+    _floatCtrl.dispose();
     _entranceCtrl.dispose();
+    
+    // Dispose audio service
+    _sound.dispose();
+    
     super.dispose();
   }
 
-  void _openGame(GameModel game) async {
-    await _sound.playPop();
-    if (!mounted) return;
+void _openGame(GameModel game) async {
+  await _sound.playPop();
+  if (!mounted) return;
 
-    Widget screen;
-    switch (game.id) {
-      case GameId.numberPop:
-        screen = NumberPopScreen(sound: _sound);
-        break;
-      case GameId.colorMatch:
-        screen = ColorMatchScreen(sound: _sound);
-        break;
-      case GameId.memoryFlip:
-        screen = MemoryFlipScreen(sound: _sound);
-        break;
-      case GameId.quickTap:
-        screen = QuickTapScreen(sound: _sound);
-        break;
-      case GameId.shapeMatcher:
-        screen = ShapeMatcherScreen(sound: _sound);
-        break;
-      case GameId.patternRepeat:
-        screen = PatternRepeatScreen(sound: _sound);
-        break;
-    }
+  // Pause background music when game starts
+  print('Opening game, pausing music');
+  await _sound.pauseMusic();
 
-    final result = await Navigator.of(context).push<int>(
-      PageRouteBuilder(
-        pageBuilder: (_, anim, __) => screen,
-        transitionsBuilder: (_, anim, __, child) {
-          return ScaleTransition(
-            scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
-            child: FadeTransition(opacity: anim, child: child),
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 400),
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        final prev = _highScores[game.id] ?? 0;
-        if (result > prev) _highScores[game.id] = result;
-      });
-    }
+  Widget screen;
+  switch (game.id) {
+    case GameId.numberPop:
+      screen = NumberPopScreen(sound: _sound);
+      break;
+    case GameId.colorMatch:
+      screen = ColorMatchScreen(sound: _sound);
+      break;
+    case GameId.memoryFlip:
+      screen = MemoryFlipScreen(sound: _sound);
+      break;
+    case GameId.quickTap:
+      screen = QuickTapScreen(sound: _sound);
+      break;
+    case GameId.shapeMatcher:
+      screen = ShapeMatcherScreen(sound: _sound);
+      break;
+    case GameId.patternRepeat:
+      screen = PatternRepeatScreen(sound: _sound);
+      break;
   }
 
+  final result = await Navigator.of(context).push<int>(
+    PageRouteBuilder(
+      pageBuilder: (_, anim, __) => screen,
+      transitionsBuilder: (_, anim, __, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+          child: FadeTransition(opacity: anim, child: child),
+        );
+      },
+      transitionDuration: const Duration(milliseconds: 400),
+    ),
+  );
+
+  // Resume background music when returning from game
+  print('Returning from game, resuming music');
+  await _sound.resumeMusic();
+
+  if (result != null) {
+    setState(() {
+      final prev = _highScores[game.id] ?? 0;
+      if (result > prev) _highScores[game.id] = result;
+    });
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: _bgCtrl,
-        builder: (_, __) => Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(const Color(0xFF1a1a2e), const Color(0xFF16213e), math.sin(_bgCtrl.value * math.pi))!,
-                Color.lerp(const Color(0xFF0f3460), const Color(0xFF533483), math.sin(_bgCtrl.value * math.pi))!,
-              ],
-            ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFF5F7FA),
+              Color(0xFFE8ECF1),
+            ],
           ),
-          child: SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: _buildGameGrid(),
-                ),
-              ],
-            ),
+        ),
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: _buildGameGrid(),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: Row(
+  
+
+Widget _buildHeader() {
+  final user = Provider.of<UserProvider>(context).user;
+  final screenHeight = MediaQuery.of(context).size.height;
+  final screenWidth = MediaQuery.of(context).size.width;
+  
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+    child: SafeArea(
+      child: Column(
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Stack(
             children: [
-              FadeTransition(
-                opacity: _entranceCtrl,
-                child: const Text(
-                  'Game Zone! 🎮',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: -0.5,
-                  ),
+              AnimatedBuilder(
+                animation: _waveController,
+                builder: (context, child) {
+                  return Container(
+                    height: screenHeight * 0.19,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color.lerp(const Color(0xFF667EEA), const Color(0xFF764BA2), _waveAnimation.value)!,
+                          Color.lerp(const Color(0xFF764BA2), const Color(0xFFF093FB), _waveAnimation.value)!,
+                        ],
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(35),
+                        bottomRight: Radius.circular(35),
+                      ),
+                    ),
+                  );
+                },
+              ),
+
+              // Speaker Icon at Top Right
+              Positioned(
+                top: 100,
+                right: 16,
+                child: _MuteButton(sound: _sound),
+              ),
+
+              Positioned(
+                top: -30,
+                right: -20,
+                child: AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, child) {
+                    return Container(
+                      width: 80 + _pulseController.value * 15,
+                      height: 80 + _pulseController.value * 15,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.1),
+                      ),
+                    );
+                  },
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                'Pick a game and have fun!',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.white.withOpacity(0.6),
+
+              Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: screenWidth * 0.04,
+                  vertical: screenHeight * 0.015,
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // LEFT SIDE
+                        AnimatedBuilder(
+                          animation: _floatController,
+                          builder: (context, child) {
+                            return Transform.translate(
+                              offset: Offset(0, _floatAnimation.value),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: AnimatedBuilder(
+                                      animation: _sparkleController1,
+                                      builder: (context, child) {
+                                        return Transform.scale(
+                                          scale: 0.9 + (_sparkleController1.value * 0.2),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.white.withOpacity(0.6),
+                                                  blurRadius: 10,
+                                                  spreadRadius: 1,
+                                                )
+                                              ],
+                                            ),
+                                            child: Image.asset(
+                                              "assets/images/logo.png",
+                                              width: 30,
+                                              height: 30,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: const [
+                                      Text(
+                                        "MAGIC STORY",
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1.2,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      Text(
+                                        "Adventure Awaits!",
+                                        style: TextStyle(
+                                          fontSize: 9,
+                                          color: Colors.white70,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+
+                        // RIGHT SIDE USER
+                        AnimatedBuilder(
+                          animation: _glowAnimation,
+                          builder: (context, child) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(Icons.person, color: Color(0xFF667EEA), size: 12),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    user.name.split(" ")[0],
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.verified, color: Colors.yellow, size: 10),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(25),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.auto_awesome, color: Colors.yellow, size: 14),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              "Create Magic Story",
+                              style: const TextStyle(
+                                fontSize: 15,
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const Spacer(),
-          _MuteButton(sound: _sound),
-          const SizedBox(width: 8),
-          _FloatingBubbles(),
         ],
       ),
-    );
-  }
-
+    ),
+  );
+}
   Widget _buildGameGrid() {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -784,6 +572,8 @@ class _GamesScreenState extends State<GamesScreen> with TickerProviderStateMixin
                     game: kGames[i],
                     highScore: _highScores[kGames[i].id],
                     onTap: () => _openGame(kGames[i]),
+                    floatCtrl: _floatCtrl,
+                    index: i,
                   ),
                 ),
               ),
@@ -798,7 +588,16 @@ class _GameCard extends StatefulWidget {
   final GameModel game;
   final int? highScore;
   final VoidCallback onTap;
-  const _GameCard({required this.game, required this.onTap, this.highScore});
+  final AnimationController floatCtrl;
+  final int index;
+  
+  const _GameCard({
+    required this.game,
+    required this.onTap,
+    this.highScore,
+    required this.floatCtrl,
+    required this.index,
+  });
 
   @override
   State<_GameCard> createState() => _GameCardState();
@@ -808,6 +607,7 @@ class _GameCardState extends State<_GameCard> with SingleTickerProviderStateMixi
   late AnimationController _hoverCtrl;
   late Animation<double> _scale;
   late Animation<double> _elevate;
+  late Animation<double> _floatOffset;
 
   @override
   void initState() {
@@ -815,6 +615,12 @@ class _GameCardState extends State<_GameCard> with SingleTickerProviderStateMixi
     _hoverCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 180));
     _scale = Tween<double>(begin: 1.0, end: 1.03).animate(CurvedAnimation(parent: _hoverCtrl, curve: Curves.easeOut));
     _elevate = Tween<double>(begin: 0, end: 8).animate(_hoverCtrl);
+    _floatOffset = Tween<double>(begin: 0, end: 8).animate(
+      CurvedAnimation(
+        parent: widget.floatCtrl,
+        curve: Interval(widget.index * 0.1, 1.0, curve: Curves.easeInOutSine),
+      ),
+    );
   }
 
   @override
@@ -830,136 +636,161 @@ class _GameCardState extends State<_GameCard> with SingleTickerProviderStateMixi
       onTapUp: (_) { _hoverCtrl.reverse(); widget.onTap(); },
       onTapCancel: () => _hoverCtrl.reverse(),
       child: AnimatedBuilder(
-        animation: _hoverCtrl,
-        builder: (_, __) => Transform.scale(
-          scale: _scale.value,
-          child: Container(
-            height: 120,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [widget.game.primaryColor, widget.game.secondaryColor],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: widget.game.primaryColor.withOpacity(0.5),
-                  blurRadius: 16 + _elevate.value,
-                  offset: Offset(0, 4 + _elevate.value / 2),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  right: -20,
-                  top: -20,
-                  child: Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.1),
-                    ),
+        animation: _floatOffset,
+        builder: (_, __) => Transform.translate(
+          offset: Offset(0, -_floatOffset.value),
+          child: AnimatedBuilder(
+            animation: _hoverCtrl,
+            builder: (_, __) => Transform.scale(
+              scale: _scale.value,
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [widget.game.primaryColor, widget.game.secondaryColor],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ),
-                Positioned(
-                  right: 30,
-                  bottom: -30,
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.game.primaryColor.withOpacity(0.3),
+                      blurRadius: 16 + _elevate.value,
+                      offset: Offset(0, 4 + _elevate.value / 2),
                     ),
-                  ),
+                  ],
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Center(
-                          child: Text(
-                            widget.game.emoji,
-                            style: const TextStyle(fontSize: 32),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              widget.game.title,
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.3,
+                child: Stack(
+                  children: [
+                    // Animated background circles
+                    Positioned(
+                      right: -20,
+                      top: -20,
+                      child: TweenAnimationBuilder(
+                        tween: Tween<double>(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 500),
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: 0.8 + value * 0.2,
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.15),
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              widget.game.description,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white.withOpacity(0.85),
-                              ),
-                              maxLines: 2,
-                            ),
-                            if (widget.highScore != null) ...[
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFE66D), size: 14),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Best: ${widget.highScore}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFFFFE66D),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
+                          );
+                        },
                       ),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                    ),
+                    Positioned(
+                      right: 30,
+                      bottom: -30,
+                      child: TweenAnimationBuilder(
+                        tween: Tween<double>(begin: 0, end: 1),
+                        duration: const Duration(milliseconds: 700),
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: 0.7 + value * 0.3,
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withOpacity(0.1),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            width: 64,
+                            height: 64,
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.25),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(18),
                             ),
-                            child: Text(
-                              'Ages ${widget.game.minAge}-${widget.game.maxAge}',
-                              style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
+                            child: Center(
+                              child: Text(
+                                widget.game.emoji,
+                                style: const TextStyle(fontSize: 32),
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          const Icon(Icons.play_circle_rounded, color: Colors.white, size: 32),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  widget.game.title,
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: -0.3,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  widget.game.description,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.white.withOpacity(0.85),
+                                  ),
+                                  maxLines: 2,
+                                ),
+                                if (widget.highScore != null) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFE66D), size: 14),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Best: ${widget.highScore}',
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFFFFE66D),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.25),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  'Ages ${widget.game.minAge}-${widget.game.maxAge}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Icon(Icons.play_circle_rounded, color: Colors.white, size: 32),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
@@ -976,36 +807,66 @@ class _MuteButton extends StatefulWidget {
   State<_MuteButton> createState() => _MuteButtonState();
 }
 
-class _MuteButtonState extends State<_MuteButton> {
+class _MuteButtonState extends State<_MuteButton> with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  bool _isMuted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
+    _isMuted = widget.sound.isMuted;
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        setState(() => widget.sound.toggleMute());
+      onTap: () async {
+        await widget.sound.toggleMute();
+        setState(() {
+          _isMuted = widget.sound.isMuted;
+        });
       },
-      child: Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(
-          widget.sound.isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-          color: Colors.white,
-          size: 20,
-        ),
+      child: AnimatedBuilder(
+        animation: _pulseCtrl,
+        builder: (context, child) {
+          return Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.3),
+                  blurRadius: 8 + _pulseCtrl.value * 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(
+              _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+              color: const Color(0xFF1a1a2e),
+              size: 20,
+            ),
+          );
+        },
       ),
     );
   }
 }
-
-class _FloatingBubbles extends StatefulWidget {
+class _FloatingEmojis extends StatefulWidget {
   @override
-  State<_FloatingBubbles> createState() => _FloatingBubblesState();
+  State<_FloatingEmojis> createState() => _FloatingEmojisState();
 }
 
-class _FloatingBubblesState extends State<_FloatingBubbles> with SingleTickerProviderStateMixin {
+class _FloatingEmojisState extends State<_FloatingEmojis> with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
 
   @override
@@ -1025,24 +886,24 @@ class _FloatingBubblesState extends State<_FloatingBubbles> with SingleTickerPro
     return AnimatedBuilder(
       animation: _ctrl,
       builder: (_, __) => SizedBox(
-        width: 40,
+        width: 60,
         height: 40,
         child: Stack(
           children: [
             Positioned(
               top: 4 + _ctrl.value * 4,
               right: 0,
-              child: _bubble(10, const Color(0xFFFF6B6B)),
+              child: _floatingEmoji('🎮', 24),
             ),
             Positioned(
               bottom: 2 + _ctrl.value * 3,
               left: 0,
-              child: _bubble(8, const Color(0xFF4ECDC4)),
+              child: _floatingEmoji('⭐', 20),
             ),
             Positioned(
               top: 14 + _ctrl.value * 2,
               left: 12,
-              child: _bubble(6, const Color(0xFFFFE66D)),
+              child: _floatingEmoji('🎲', 18),
             ),
           ],
         ),
@@ -1050,17 +911,13 @@ class _FloatingBubblesState extends State<_FloatingBubbles> with SingleTickerPro
     );
   }
 
-  Widget _bubble(double size, Color color) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(color: color.withOpacity(0.8), shape: BoxShape.circle),
-    );
+  Widget _floatingEmoji(String emoji, double size) {
+    return Text(emoji, style: TextStyle(fontSize: size));
   }
 }
 
 // ============================================================================
-// NUMBER POP GAME (with proper highlighting and level animations)
+// NUMBER POP GAME (Enhanced with White Background)
 // ============================================================================
 
 class NumberPopScreen extends StatefulWidget {
@@ -1085,6 +942,7 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
   late AnimationController _popCtrl;
   late AnimationController _levelUpCtrl;
   late AnimationController _comboCtrl;
+  late AnimationController _pulseCtrl;
   late Animation<double> _levelUpScale;
   late Animation<double> _comboScale;
 
@@ -1095,6 +953,7 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
     _popCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
     _levelUpCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
     _comboCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _levelUpScale = Tween<double>(begin: 0.5, end: 1.2).animate(CurvedAnimation(parent: _levelUpCtrl, curve: Curves.elasticOut));
     _comboScale = Tween<double>(begin: 1.0, end: 1.5).animate(CurvedAnimation(parent: _comboCtrl, curve: Curves.easeOutBack));
     _initGame();
@@ -1187,6 +1046,7 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
     _popCtrl.dispose();
     _levelUpCtrl.dispose();
     _comboCtrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -1197,17 +1057,21 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
     
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFFE94560), const Color(0xFFC62A40)],
+            colors: [Color(0xFFF5F7FA), Color(0xFFE8ECF1)],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              _buildGameHeader('Number Pop', 'Tap numbers in order!', score, highScore, level, combo),
+              _buildGameHeader(),
+SizedBox(height: 10),
+              const Text('Number Pop', style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Color(0xFFE94560))),
+                 const Text('Tap numbers in order!', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              
               Expanded(
                 child: Center(
                   child: AnimatedBuilder(
@@ -1245,6 +1109,7 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
                                     isDisabled: isGameOver,
                                     isHighlighted: highlightedNumber == index,
                                     isNext: numbers[index] == currentNumber,
+                                    pulseCtrl: _pulseCtrl,
                                   ),
                                 );
                               },
@@ -1268,9 +1133,9 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        const Icon(Icons.auto_awesome, size: 48, color: Color(0xFFFFE66D)),
+                                        const Icon(Icons.auto_awesome, size: 48, color: Color(0xFFE94560)),
                                         const SizedBox(height: 8),
-                                        Text('Level $level!', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                                        Text('Level $level!', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFFE94560))),
                                         const Text('Great job!', style: TextStyle(fontSize: 16)),
                                       ],
                                     ),
@@ -1295,9 +1160,13 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
     );
   }
 
-  Widget _buildGameHeader(String title, String subtitle, int score, int highScore, int level, int combo) {
+  Widget _buildGameHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
       child: Row(
         children: [
           GestureDetector(
@@ -1305,10 +1174,10 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.arrow_back, color: Colors.white),
+              child: const Icon(Icons.arrow_back, color: Color(0xFFE94560)),
             ),
           ),
           const SizedBox(width: 16),
@@ -1316,25 +1185,28 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.8))),
+                // const Text('Number Pop', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFE94560))),
+                // const Text('Tap numbers in order!', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              
               ],
             ),
           ),
+          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: const Color(0xFFE94560).withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
               children: [
-                const Text('LEVEL', style: TextStyle(fontSize: 10, color: Colors.white70)),
-                Text('$level', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('LEVEL', style: TextStyle(fontSize: 10, color: Color(0xFFE94560))),
+                Text('$level', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFE94560))),
               ],
             ),
           ),
           const SizedBox(width: 8),
+          
           AnimatedBuilder(
             animation: _comboCtrl,
             builder: (context, child) {
@@ -1343,13 +1215,13 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: combo > 0 ? const Color(0xFFFFE66D).withOpacity(0.3) : Colors.white.withOpacity(0.2),
+                    color: combo > 0 ? const Color(0xFFFFB74D).withOpacity(0.2) : Colors.grey[100],
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Column(
                     children: [
-                      const Text('COMBO', style: TextStyle(fontSize: 10, color: Color(0xFFFFE66D))),
-                      Text('$combo', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFE66D))),
+                      const Text('COMBO', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D))),
+                      Text('$combo', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
                     ],
                   ),
                 ),
@@ -1360,13 +1232,13 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.grey[100],
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
               children: [
-                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.white70)),
-                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFE94560))),
               ],
             ),
           ),
@@ -1374,13 +1246,13 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFE66D).withOpacity(0.3),
+              color: const Color(0xFFFFE66D).withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
               children: [
-                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFE66D))),
-                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFE66D))),
+                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D))),
+                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
               ],
             ),
           ),
@@ -1401,7 +1273,7 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(isWin ? Icons.emoji_events : Icons.sentiment_dissatisfied, size: 48, color: isWin ? Color(0xFFFFE66D) : Colors.grey),
+          Icon(isWin ? Icons.emoji_events : Icons.sentiment_dissatisfied, size: 48, color: isWin ? Color(0xFFFFB74D) : Colors.grey),
           const SizedBox(height: 12),
           Text(isWin ? 'Perfect! 🎉' : 'Game Over!', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           Text(isWin ? 'You completed all numbers!' : 'Wrong number! Tap to try again.', style: const TextStyle(color: Colors.grey)),
@@ -1422,9 +1294,9 @@ class _NumberPopScreenState extends State<NumberPopScreen> with TickerProviderSt
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.touch_app, size: 16, color: Colors.white70),
+          Icon(Icons.touch_app, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          Text('Tap numbers from 1 to ${numbers.length} in order!', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          Text('Tap numbers from 1 to ${numbers.length} in order!', style: TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
@@ -1437,6 +1309,7 @@ class _NumberButton extends StatelessWidget {
   final bool isDisabled;
   final bool isHighlighted;
   final bool isNext;
+  final AnimationController pulseCtrl;
   
   const _NumberButton({
     required this.number,
@@ -1444,53 +1317,61 @@ class _NumberButton extends StatelessWidget {
     this.isDisabled = false,
     this.isHighlighted = false,
     this.isNext = false,
+    required this.pulseCtrl,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: isDisabled ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: isHighlighted 
-              ? Colors.white 
-              : (isNext && !isDisabled ? const Color(0xFFFFE66D) : Colors.white),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: isHighlighted 
-                  ? Colors.white.withOpacity(0.5) 
-                  : Colors.black26,
-              blurRadius: isHighlighted ? 16 : 8,
-              offset: Offset(0, isHighlighted ? 8 : 4),
+      child: AnimatedBuilder(
+        animation: pulseCtrl,
+        builder: (context, child) {
+          return Container(
+            decoration: BoxDecoration(
+              gradient: isHighlighted 
+                  ? const LinearGradient(colors: [Color(0xFFFFB74D), Color(0xFFFF9800)])
+                  : (isNext && !isDisabled 
+                      ? const LinearGradient(colors: [Color(0xFFFFE66D), Color(0xFFFFB74D)])
+                      : const LinearGradient(colors: [Colors.white, Colors.white])),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: (isHighlighted || (isNext && !isDisabled))
+                      ? const Color(0xFFFFB74D).withOpacity(0.5) 
+                      : Colors.grey.withOpacity(0.3),
+                  blurRadius: isHighlighted || (isNext && !isDisabled) ? 16 + pulseCtrl.value * 4 : 8,
+                  offset: Offset(0, isHighlighted || (isNext && !isDisabled) ? 8 : 4),
+                ),
+              ],
+              border: Border.all(
+                color: isNext && !isDisabled && !isHighlighted
+                    ? const Color(0xFFFFB74D)
+                    : Colors.grey[200]!,
+                width: 2,
+              ),
             ),
-          ],
-          border: isNext && !isDisabled && !isHighlighted
-              ? Border.all(color: const Color(0xFFFFE66D), width: 3)
-              : null,
-        ),
-        child: Center(
-          child: Text(
-            '$number',
-            style: TextStyle(
-              fontSize: 32, 
-              fontWeight: FontWeight.bold, 
-              color: isDisabled 
-                  ? Colors.grey 
-                  : (isHighlighted 
-                      ? const Color(0xFFE94560) 
-                      : (isNext ? const Color(0xFFE94560) : const Color(0xFFE94560))),
+            child: Center(
+              child: Text(
+                '$number',
+                style: TextStyle(
+                  fontSize: 32, 
+                  fontWeight: FontWeight.bold, 
+                  color: (isHighlighted || (isNext && !isDisabled)) 
+                      ? Colors.white 
+                      : const Color(0xFFE94560),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 }
 
 // ============================================================================
-// COLOR MATCH GAME (Enhanced)
+// COLOR MATCH GAME (White Background)
 // ============================================================================
 
 class ColorMatchScreen extends StatefulWidget {
@@ -1506,7 +1387,7 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
     ColorItem('RED', Colors.red),
     ColorItem('BLUE', Colors.blue),
     ColorItem('GREEN', Colors.green),
-    ColorItem('YELLOW', Colors.yellow),
+    ColorItem('YELLOW', Colors.yellow.shade700),
     ColorItem('PURPLE', Colors.purple),
     ColorItem('ORANGE', Colors.orange),
   ];
@@ -1521,8 +1402,8 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
   Timer? _timer;
   late AnimationController _shakeCtrl;
   late AnimationController _correctCtrl;
-  late AnimationController _timerCtrl;
   late AnimationController _streakCtrl;
+  late AnimationController _pulseCtrl;
   late Animation<double> _streakScale;
 
   @override
@@ -1530,8 +1411,8 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
     super.initState();
     _shakeCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     _correctCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
-    _timerCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 30));
     _streakCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _streakScale = Tween<double>(begin: 1.0, end: 1.3).animate(CurvedAnimation(parent: _streakCtrl, curve: Curves.easeOutBack));
     _startGame();
   }
@@ -1552,8 +1433,6 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
         if (timeLeft == 0) _endGame();
       }
     });
-    _timerCtrl.reset();
-    _timerCtrl.forward();
   }
 
   void _nextQuestion() {
@@ -1598,7 +1477,6 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
   }
 
   void _resetGame() {
-    _timerCtrl.reset();
     _startGame();
   }
 
@@ -1612,8 +1490,8 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
     _timer?.cancel();
     _shakeCtrl.dispose();
     _correctCtrl.dispose();
-    _timerCtrl.dispose();
     _streakCtrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -1621,11 +1499,11 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFF533483), const Color(0xFF3B1E6B)],
+            colors: [Color(0xFFF5F7FA), Color(0xFFE8ECF1)],
           ),
         ),
         child: SafeArea(
@@ -1680,14 +1558,21 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
       child: Row(
         children: [
           GestureDetector(
             onTap: _goBack,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.arrow_back, color: Colors.white),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.arrow_back, color: Color(0xFF533483)),
             ),
           ),
           const SizedBox(width: 16),
@@ -1695,8 +1580,8 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Color Match', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                const Text('Match the word to the color!', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                const Text('Color Match', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF533483))),
+                const Text('Match the word to the color!', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),
@@ -1708,13 +1593,13 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: streak > 0 ? const Color(0xFFFFE66D).withOpacity(0.3) : Colors.white.withOpacity(0.2),
+                    color: streak > 0 ? const Color(0xFFFFB74D).withOpacity(0.2) : Colors.grey[100],
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Column(
                     children: [
-                      const Text('STREAK', style: TextStyle(fontSize: 10, color: Color(0xFFFFE66D))),
-                      Text('$streak', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFE66D))),
+                      const Text('STREAK', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D))),
+                      Text('$streak', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
                     ],
                   ),
                 ),
@@ -1724,22 +1609,28 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.white70)),
-                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF533483))),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: const Color(0xFFFFE66D).withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFB74D).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFE66D))),
-                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFE66D))),
+                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D))),
+                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
               ],
             ),
           ),
@@ -1758,22 +1649,34 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
         children: items.map((item) {
           return GestureDetector(
             onTap: isPlaying && !isGameOver ? () => _checkAnswer(item.text) : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 100,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: item.color,
-                borderRadius: BorderRadius.circular(30),
-                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
-              ),
-              child: Text(
-                item.text,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, shadows: [
-                  Shadow(color: Colors.black38, offset: Offset(1, 1), blurRadius: 2),
-                ]),
-              ),
+            child: AnimatedBuilder(
+              animation: _pulseCtrl,
+              builder: (context, child) {
+                return Container(
+                  width: 100,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [item.color, item.color.withOpacity(0.8)],
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: item.color.withOpacity(0.5),
+                        blurRadius: 8 + _pulseCtrl.value * 4,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    item.text,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, shadows: [
+                      Shadow(color: Colors.black38, offset: Offset(1, 1), blurRadius: 2),
+                    ]),
+                  ),
+                );
+              },
             ),
           );
         }).toList(),
@@ -1810,13 +1713,13 @@ class _ColorMatchScreenState extends State<ColorMatchScreen> with TickerProvider
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.timer, size: 16, color: Colors.white70),
+          Icon(Icons.timer, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          Text('Time Left: ${timeLeft}s', style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
+          Text('Time Left: ${timeLeft}s', style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(width: 24),
-          Icon(Icons.color_lens, size: 16, color: Colors.white70),
+          Icon(Icons.color_lens, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          const Text('Tap the matching color!', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const Text('Tap the matching color!', style: TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
@@ -1830,7 +1733,7 @@ class ColorItem {
 }
 
 // ============================================================================
-// MEMORY FLIP GAME (Enhanced)
+// MEMORY FLIP GAME (White Background)
 // ============================================================================
 
 class MemoryFlipScreen extends StatefulWidget {
@@ -1853,6 +1756,7 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
   late AnimationController _flipCtrl;
   late AnimationController _matchCtrl;
   late AnimationController _winCtrl;
+  late AnimationController _pulseCtrl;
 
   final List<String> emojis = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼'];
 
@@ -1862,6 +1766,7 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
     _flipCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     _matchCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _winCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _initGame();
   }
 
@@ -1951,6 +1856,7 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
     _flipCtrl.dispose();
     _matchCtrl.dispose();
     _winCtrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -1958,11 +1864,11 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFF0F3460), const Color(0xFF16213E)],
+            colors: [Color(0xFFF5F7FA), Color(0xFFE8ECF1)],
           ),
         ),
         child: SafeArea(
@@ -1989,6 +1895,7 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
                             card: cards[index],
                             onTap: () => _onCardTap(index),
                             isDisabled: isGameOver || isWaiting,
+                            pulseCtrl: _pulseCtrl,
                           ),
                         );
                       },
@@ -2008,14 +1915,21 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
       child: Row(
         children: [
           GestureDetector(
             onTap: _goBack,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.arrow_back, color: Colors.white),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.arrow_back, color: Color(0xFF0F3460)),
             ),
           ),
           const SizedBox(width: 16),
@@ -2023,29 +1937,35 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Memory Flip', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                const Text('Find matching pairs!', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                const Text('Memory Flip', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F3460))),
+                const Text('Find matching pairs!', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.white70)),
-                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F3460))),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Text('MOVES', style: TextStyle(fontSize: 10, color: Colors.white70)),
-                Text('$moves', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('MOVES', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text('$moves', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0F3460))),
               ],
             ),
           ),
@@ -2067,7 +1987,7 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.emoji_events, size: 48, color: Color(0xFFFFE66D)),
+                const Icon(Icons.emoji_events, size: 48, color: Color(0xFFFFB74D)),
                 const SizedBox(height: 12),
                 const Text('You Won! 🎉', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                 Text('Score: $score | Moves: $moves', style: const TextStyle(fontSize: 16)),
@@ -2091,9 +2011,9 @@ class _MemoryFlipScreenState extends State<MemoryFlipScreen> with TickerProvider
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.style, size: 16, color: Colors.white70),
+          Icon(Icons.style, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          Text('Pairs Matched: ${matchedPairs}/${emojis.length}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          Text('Pairs Matched: ${matchedPairs}/${emojis.length}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
@@ -2122,36 +2042,55 @@ class _MemoryCardWidget extends StatelessWidget {
   final MemoryCard card;
   final VoidCallback onTap;
   final bool isDisabled;
-  const _MemoryCardWidget({required this.card, required this.onTap, this.isDisabled = false});
+  final AnimationController pulseCtrl;
+  
+  const _MemoryCardWidget({
+    required this.card,
+    required this.onTap,
+    this.isDisabled = false,
+    required this.pulseCtrl,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: isDisabled || card.isMatched ? null : onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        decoration: BoxDecoration(
-          color: card.isFlipped || card.isMatched ? Colors.white : const Color(0xFF1A1A2E),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
-          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4))],
-        ),
-        child: Center(
-          child: (card.isFlipped || card.isMatched)
-              ? AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: Text(card.emoji, key: ValueKey(card.emoji), style: const TextStyle(fontSize: 32)),
-                )
-              : const Icon(Icons.question_mark, size: 32, color: Colors.white54),
-        ),
+      child: AnimatedBuilder(
+        animation: pulseCtrl,
+        builder: (context, child) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            decoration: BoxDecoration(
+              gradient: card.isFlipped || card.isMatched 
+                  ? const LinearGradient(colors: [Colors.white, Colors.white])
+                  : const LinearGradient(colors: [Color(0xFF0F3460), Color(0xFF1A1A4E)]),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: (card.isFlipped || card.isMatched) ? Colors.grey.withOpacity(0.3) : const Color(0xFF0F3460).withOpacity(0.3),
+                  blurRadius: 8 + (card.isFlipped ? pulseCtrl.value * 4 : 0),
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: (card.isFlipped || card.isMatched)
+                  ? AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Text(card.emoji, key: ValueKey(card.emoji), style: const TextStyle(fontSize: 32)),
+                    )
+                  : const Icon(Icons.question_mark, size: 32, color: Colors.white54),
+            ),
+          );
+        },
       ),
     );
   }
 }
 
 // ============================================================================
-// QUICK TAP GAME (New)
+// QUICK TAP GAME (White Background)
 // ============================================================================
 
 class QuickTapScreen extends StatefulWidget {
@@ -2173,13 +2112,14 @@ class _QuickTapScreenState extends State<QuickTapScreen> with TickerProviderStat
   Timer? _moveTimer;
   late AnimationController _tapCtrl;
   late AnimationController _targetCtrl;
-  List<int> positions = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+  late AnimationController _pulseCtrl;
 
   @override
   void initState() {
     super.initState();
     _tapCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 100));
     _targetCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _startGame();
   }
 
@@ -2265,6 +2205,7 @@ class _QuickTapScreenState extends State<QuickTapScreen> with TickerProviderStat
     _moveTimer?.cancel();
     _tapCtrl.dispose();
     _targetCtrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -2272,11 +2213,11 @@ class _QuickTapScreenState extends State<QuickTapScreen> with TickerProviderStat
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFFFF6B6B), const Color(0xFFEE5A5A)],
+            colors: [Color(0xFFF5F7FA), Color(0xFFE8ECF1)],
           ),
         ),
         child: SafeArea(
@@ -2300,31 +2241,44 @@ class _QuickTapScreenState extends State<QuickTapScreen> with TickerProviderStat
                           scale: targetIndex == index && _targetCtrl.isAnimating ? 1.1 : 1.0,
                           child: GestureDetector(
                             onTap: () => _onTap(index),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              decoration: BoxDecoration(
-                                color: targetIndex == index ? const Color(0xFFFFE66D) : Colors.white.withOpacity(0.3),
-                                borderRadius: BorderRadius.circular(20),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: targetIndex == index ? const Color(0xFFFFE66D).withOpacity(0.5) : Colors.black26,
-                                    blurRadius: targetIndex == index ? 16 : 8,
-                                  ),
-                                ],
-                              ),
-                              child: AnimatedBuilder(
-                                animation: _tapCtrl,
-                                builder: (context, child) {
-                                  return Transform.scale(
-                                    scale: _tapCtrl.isAnimating ? 0.9 : 1.0,
-                                    child: Center(
-                                      child: targetIndex == index
-                                          ? const Icon(Icons.star, size: 40, color: Color(0xFFE94560))
-                                          : const Icon(Icons.circle_outlined, size: 40, color: Colors.white54),
+                            child: AnimatedBuilder(
+                              animation: _pulseCtrl,
+                              builder: (context, child) {
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    gradient: targetIndex == index 
+                                        ? const LinearGradient(colors: [Color(0xFFFFB74D), Color(0xFFFF9800)])
+                                        : const LinearGradient(colors: [Colors.white, Colors.white]),
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: targetIndex == index 
+                                            ? const Color(0xFFFFB74D).withOpacity(0.5) 
+                                            : Colors.grey.withOpacity(0.3),
+                                        blurRadius: targetIndex == index ? 16 + _pulseCtrl.value * 4 : 8,
+                                        offset: Offset(0, 4),
+                                      ),
+                                    ],
+                                    border: Border.all(
+                                      color: targetIndex == index ? const Color(0xFFFFB74D) : Colors.grey[200]!,
+                                      width: 2,
                                     ),
-                                  );
-                                },
-                              ),
+                                  ),
+                                  child: AnimatedBuilder(
+                                    animation: _tapCtrl,
+                                    builder: (context, child) {
+                                      return Transform.scale(
+                                        scale: _tapCtrl.isAnimating ? 0.9 : 1.0,
+                                        child: Center(
+                                          child: targetIndex == index
+                                              ? const Icon(Icons.star, size: 40, color: Colors.white)
+                                              : const Icon(Icons.circle_outlined, size: 40, color: Colors.grey),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
                             ),
                           ),
                         );
@@ -2345,14 +2299,21 @@ class _QuickTapScreenState extends State<QuickTapScreen> with TickerProviderStat
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
       child: Row(
         children: [
           GestureDetector(
             onTap: _goBack,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.arrow_back, color: Colors.white),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.arrow_back, color: Color(0xFFFF6B6B)),
             ),
           ),
           const SizedBox(width: 16),
@@ -2360,29 +2321,35 @@ class _QuickTapScreenState extends State<QuickTapScreen> with TickerProviderStat
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Quick Tap', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                const Text('Tap the star as fast as you can!', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                const Text('Quick Tap', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFF6B6B))),
+                const Text('Tap the star as fast as you can!', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.white70)),
-                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFF6B6B))),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: const Color(0xFFFFE66D).withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFB74D).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFE66D))),
-                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFE66D))),
+                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D))),
+                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
               ],
             ),
           ),
@@ -2420,13 +2387,13 @@ class _QuickTapScreenState extends State<QuickTapScreen> with TickerProviderStat
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.timer, size: 16, color: Colors.white70),
+          Icon(Icons.timer, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          Text('Time Left: ${timeLeft}s', style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
+          Text('Time Left: ${timeLeft}s', style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(width: 24),
-          Icon(Icons.star, size: 16, color: Colors.white70),
+          Icon(Icons.star, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          const Text('Tap the glowing star!', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const Text('Tap the glowing star!', style: TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
@@ -2434,7 +2401,7 @@ class _QuickTapScreenState extends State<QuickTapScreen> with TickerProviderStat
 }
 
 // ============================================================================
-// SHAPE MATCHER GAME (New)
+// SHAPE MATCHER GAME (White Background)
 // ============================================================================
 
 class ShapeMatcherScreen extends StatefulWidget {
@@ -2450,7 +2417,7 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
     ShapeItem('🔴', 'Red Circle', Colors.red),
     ShapeItem('🔵', 'Blue Square', Colors.blue),
     ShapeItem('🟢', 'Green Triangle', Colors.green),
-    ShapeItem('🟡', 'Yellow Star', Colors.yellow),
+    ShapeItem('🟡', 'Yellow Star', Colors.yellow.shade700),
     ShapeItem('🟣', 'Purple Heart', Colors.purple),
     ShapeItem('🟠', 'Orange Diamond', Colors.orange),
   ];
@@ -2465,12 +2432,14 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
   Timer? _timer;
   late AnimationController _correctCtrl;
   late AnimationController _levelUpCtrl;
+  late AnimationController _pulseCtrl;
 
   @override
   void initState() {
     super.initState();
     _correctCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
     _levelUpCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _startGame();
   }
 
@@ -2558,6 +2527,7 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
     _timer?.cancel();
     _correctCtrl.dispose();
     _levelUpCtrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -2565,11 +2535,11 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFF4ECDC4), const Color(0xFF44B3A8)],
+            colors: [Color(0xFFF5F7FA), Color(0xFFE8ECF1)],
           ),
         ),
         child: SafeArea(
@@ -2589,7 +2559,7 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(40),
-                            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20)],
+                            boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.3), blurRadius: 20)],
                           ),
                           child: Center(
                             child: Column(
@@ -2602,7 +2572,7 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
                                 const SizedBox(height: 16),
                                 Text(
                                   'Find the ${currentShape!.name}',
-                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF4ECDC4)),
                                 ),
                               ],
                             ),
@@ -2626,18 +2596,31 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
                       itemBuilder: (context, index) {
                         return GestureDetector(
                           onTap: () => _checkAnswer(shapes[index]),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: shapes[index].color,
-                              borderRadius: BorderRadius.circular(20),
-                              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
-                            ),
-                            child: Center(
-                              child: Text(
-                                shapes[index].emoji,
-                                style: const TextStyle(fontSize: 40),
-                              ),
-                            ),
+                          child: AnimatedBuilder(
+                            animation: _pulseCtrl,
+                            builder: (context, child) {
+                              return Container(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [shapes[index].color, shapes[index].color.withOpacity(0.8)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: shapes[index].color.withOpacity(0.5),
+                                      blurRadius: 8 + _pulseCtrl.value * 4,
+                                      offset: Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    shapes[index].emoji,
+                                    style: const TextStyle(fontSize: 40),
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         );
                       },
@@ -2657,14 +2640,21 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
       child: Row(
         children: [
           GestureDetector(
             onTap: _goBack,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.arrow_back, color: Colors.white),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.arrow_back, color: Color(0xFF4ECDC4)),
             ),
           ),
           const SizedBox(width: 16),
@@ -2672,40 +2662,49 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Shape Matcher', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                const Text('Match the shapes!', style: TextStyle(fontSize: 12, color: Colors.white70)),
+                const Text('Shape Matcher', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF4ECDC4))),
+                const Text('Match the shapes!', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-            child: Column(
-              children: [
-                const Text('LEVEL', style: TextStyle(fontSize: 10, color: Colors.white70)),
-                Text('$level', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-              ],
+            decoration: BoxDecoration(
+              color: const Color(0xFF4ECDC4).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
             child: Column(
               children: [
-                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.white70)),
-                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                const Text('LEVEL', style: TextStyle(fontSize: 10, color: Color(0xFF4ECDC4))),
+                Text('$level', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF4ECDC4))),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: const Color(0xFFFFE66D).withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFE66D))),
-                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFE66D))),
+                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF4ECDC4))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFB74D).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D))),
+                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
               ],
             ),
           ),
@@ -2743,13 +2742,13 @@ class _ShapeMatcherScreenState extends State<ShapeMatcherScreen> with TickerProv
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.timer, size: 16, color: Colors.white70),
+          Icon(Icons.timer, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          Text('Time Left: ${timeLeft}s', style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.bold)),
+          Text('Time Left: ${timeLeft}s', style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
           const SizedBox(width: 24),
-          Icon(Icons.category, size: 16, color: Colors.white70),
+          Icon(Icons.category, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          const Text('Tap the matching shape!', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const Text('Tap the matching shape!', style: TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
@@ -2764,7 +2763,7 @@ class ShapeItem {
 }
 
 // ============================================================================
-// PATTERN REPEAT GAME (New)
+// PATTERN REPEAT GAME (White Background)
 // ============================================================================
 
 class PatternRepeatScreen extends StatefulWidget {
@@ -2777,7 +2776,7 @@ class PatternRepeatScreen extends StatefulWidget {
 
 class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerProviderStateMixin {
   final List<Color> patternColors = [
-    Colors.red, Colors.blue, Colors.green, Colors.yellow, Colors.purple, Colors.orange
+    Colors.red, Colors.blue, Colors.green, Colors.yellow.shade700, Colors.purple, Colors.orange
   ];
   final List<String> patternNames = ['Red', 'Blue', 'Green', 'Yellow', 'Purple', 'Orange'];
   
@@ -2791,12 +2790,14 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
   int currentHighlightIndex = -1;
   late AnimationController _blinkCtrl;
   late AnimationController _levelUpCtrl;
+  late AnimationController _pulseCtrl;
 
   @override
   void initState() {
     super.initState();
     _blinkCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
     _levelUpCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
     _startNewRound();
   }
 
@@ -2890,6 +2891,7 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
   void dispose() {
     _blinkCtrl.dispose();
     _levelUpCtrl.dispose();
+    _pulseCtrl.dispose();
     super.dispose();
   }
 
@@ -2897,11 +2899,11 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [const Color(0xFFFFE66D), const Color(0xFFE8D44D)],
+            colors: [Color(0xFFF5F7FA), Color(0xFFE8ECF1)],
           ),
         ),
         child: SafeArea(
@@ -2913,6 +2915,27 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      AnimatedBuilder(
+                        animation: _levelUpCtrl,
+                        builder: (context, child) {
+                          if (_levelUpCtrl.isAnimating) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 20),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(30),
+                                boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.3), blurRadius: 10)],
+                              ),
+                              child: Text(
+                                'Level $level!',
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D)),
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                      ),
                       Text(
                         isShowingPattern ? 'Watch the pattern...' : 'Repeat the pattern!',
                         style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1a1a2e)),
@@ -2934,32 +2957,39 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
                             builder: (context, child) {
                               return GestureDetector(
                                 onTap: isShowingPattern || isGameOver ? null : () => _onColorTap(index),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  decoration: BoxDecoration(
-                                    color: currentHighlightIndex == index 
-                                        ? patternColors[index].withOpacity(1.0) 
-                                        : patternColors[index].withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(20),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: currentHighlightIndex == index 
-                                            ? patternColors[index].withOpacity(0.8) 
-                                            : Colors.black26,
-                                        blurRadius: currentHighlightIndex == index ? 20 : 8,
+                                child: AnimatedBuilder(
+                                  animation: _pulseCtrl,
+                                  builder: (context, child) {
+                                    return Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: currentHighlightIndex == index 
+                                              ? [patternColors[index], patternColors[index].withOpacity(0.8)]
+                                              : [patternColors[index].withOpacity(0.6), patternColors[index].withOpacity(0.4)],
+                                        ),
+                                        borderRadius: BorderRadius.circular(20),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: currentHighlightIndex == index 
+                                                ? patternColors[index].withOpacity(0.8) 
+                                                : Colors.grey.withOpacity(0.3),
+                                            blurRadius: currentHighlightIndex == index ? 20 + _pulseCtrl.value * 4 : 8,
+                                            offset: Offset(0, 4),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      patternNames[index],
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        shadows: [Shadow(color: Colors.black38, offset: Offset(1, 1))],
+                                      child: Center(
+                                        child: Text(
+                                          patternNames[index],
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.white,
+                                            shadows: [Shadow(color: Colors.black38, offset: Offset(1, 1))],
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
+                                    );
+                                  },
                                 ),
                               );
                             },
@@ -2982,14 +3012,21 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 2))],
+      ),
       child: Row(
         children: [
           GestureDetector(
             onTap: _goBack,
             child: Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.arrow_back, color: Color(0xFF1a1a2e)),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.arrow_back, color: Color(0xFFFFB74D)),
             ),
           ),
           const SizedBox(width: 16),
@@ -2997,40 +3034,49 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Pattern Repeat', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1a1a2e))),
-                const Text('Remember and repeat!', style: TextStyle(fontSize: 12, color: Color(0xFF1a1a2e))),
+                const Text('Pattern Repeat', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
+                const Text('Remember and repeat!', style: TextStyle(fontSize: 12, color: Colors.grey)),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
-            child: Column(
-              children: [
-                const Text('LEVEL', style: TextStyle(fontSize: 10, color: Color(0xFF1a1a2e))),
-                Text('$level', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1a1a2e))),
-              ],
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFB74D).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
             child: Column(
               children: [
-                const Text('SCORE', style: TextStyle(fontSize: 10, color: Color(0xFF1a1a2e))),
-                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1a1a2e))),
+                const Text('LEVEL', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D))),
+                Text('$level', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.3), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: Column(
               children: [
-                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFF1a1a2e))),
-                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1a1a2e))),
+                const Text('SCORE', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                Text('$score', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFB74D).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                const Text('BEST', style: TextStyle(fontSize: 10, color: Color(0xFFFFB74D))),
+                Text('$highScore', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFFFFB74D))),
               ],
             ),
           ),
@@ -3054,7 +3100,7 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _resetGame,
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFE66D), foregroundColor: const Color(0xFF1a1a2e), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFB74D), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
             child: const Padding(padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12), child: Text('Play Again', style: TextStyle(fontSize: 16))),
           ),
         ],
@@ -3068,9 +3114,9 @@ class _PatternRepeatScreenState extends State<PatternRepeatScreen> with TickerPr
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.visibility, size: 16, color: const Color(0xFF1a1a2e).withOpacity(0.7)),
+          Icon(Icons.visibility, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          Text('Watch then repeat the pattern!', style: TextStyle(color: const Color(0xFF1a1a2e).withOpacity(0.7), fontSize: 12)),
+          Text('Watch then repeat the pattern!', style: TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       ),
     );
