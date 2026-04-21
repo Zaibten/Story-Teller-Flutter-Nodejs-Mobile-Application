@@ -887,6 +887,7 @@ class _LoadingDialogState extends State<_LoadingDialog> with SingleTickerProvide
   }
   @override void dispose() { _c.dispose(); super.dispose(); }
 
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -1021,7 +1022,41 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
       await widget.tts.speak(clean.isEmpty ? _story : clean);
     }
   }
+Widget _buildHighlightedStory() {
+    if (_plainStory.isEmpty) {
+      return Text(_story, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.82));
+    }
 
+    final List<TextSpan> spans = [];
+    int currentPos = 0;
+
+    final words = _plainStory.split(RegExp(r'(\s+)')).where((w) => w.isNotEmpty).toList();
+
+    for (final word in words) {
+      final wordStart = currentPos;
+      final wordEnd   = currentPos + word.length;
+
+      final isHighlighted = (wordStart >= _highlightStart && wordStart < _highlightEnd) ||
+                            (wordEnd   > _highlightStart && wordEnd <= _highlightEnd);
+
+      spans.add(TextSpan(
+        text: word,
+        style: TextStyle(
+          color: Colors.white,
+          backgroundColor: isHighlighted ? Colors.amber.shade700 : Colors.transparent,
+          fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w400,
+          fontSize: 15,
+          height: 1.82,
+        ),
+      ));
+      currentPos += word.length;
+    }
+
+    return RichText(
+      text: TextSpan(children: spans),
+    );
+  }
+  
   void _newStory() async {
     await widget.tts.stop();
     setState(() => _speaking = false);
@@ -1110,18 +1145,29 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
                               color: Colors.white.withOpacity(0.07),
                               borderRadius: BorderRadius.circular(22),
                               border: Border.all(color: Colors.white.withOpacity(0.1))),
+                            // child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            //   Row(children: const [
+                            //     Text('📖', style: TextStyle(fontSize: 17)),
+                            //     SizedBox(width: 8),
+                            //     Text('Your Magical Story',
+                            //       style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                            //   ]),
+                            //   const SizedBox(height: 12),
+                            //   Text(_story, style: const TextStyle(
+                            //     color: Colors.white, fontSize: 15, height: 1.82,
+                            //     fontWeight: FontWeight.w400, letterSpacing: 0.15)),
+                            // ]),
+
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Row(children: const [
-                                Text('📖', style: TextStyle(fontSize: 17)),
-                                SizedBox(width: 8),
-                                Text('Your Magical Story',
-                                  style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
-                              ]),
-                              const SizedBox(height: 12),
-                              Text(_story, style: const TextStyle(
-                                color: Colors.white, fontSize: 15, height: 1.82,
-                                fontWeight: FontWeight.w400, letterSpacing: 0.15)),
-                            ]),
+  Row(children: const [
+    Text('📖', style: TextStyle(fontSize: 17)),
+    SizedBox(width: 8),
+    Text('Your Magical Story',
+      style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+  ]),
+  const SizedBox(height: 12),
+  _buildHighlightedStory(),
+]),
                           )))),
                   ),
                 ),
