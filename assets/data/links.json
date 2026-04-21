@@ -1,0 +1,158 @@
+{
+  "Cat": {
+    "Forest": {
+      "Happy":     "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "Funny":     "https://www.youtube.com/embed/L_jWHffIx5E",
+      "Adventure": "https://www.youtube.com/embed/9bZkp7q19f0",
+      "Bedtime":   "https://www.youtube.com/embed/YQHsXMglC9A"
+    },
+    "Space": {
+      "Happy":     "https://www.youtube.com/embed/ZRtdQ81jPUQ",
+      "Funny":     "https://www.youtube.com/embed/kffacxfA7G4",
+      "Adventure": "https://www.youtube.com/embed/hT_nvWreIhg",
+      "Bedtime":   "https://www.youtube.com/embed/JGwWNGJdvx8"
+    },
+    "Castle": {
+      "Happy":     "https://www.youtube.com/embed/CevxZvSJLk8",
+      "Funny":     "https://www.youtube.com/embed/2vjPBrBU-TM",
+      "Adventure": "https://www.youtube.com/embed/fJ9rUzIMcZQ",
+      "Bedtime":   "https://www.youtube.com/embed/OPf0YbXqDm0"
+    },
+    "City": {
+      "Happy":     "https://www.youtube.com/embed/nfWlot6h_JM",
+      "Funny":     "https://www.youtube.com/embed/09R8_2nJtjg",
+      "Adventure": "https://www.youtube.com/embed/hHW1oY26kxQ",
+      "Bedtime":   "https://www.youtube.com/embed/u9Dg-g7t2l4"
+    }
+  },
+  "Lion": {
+    "Forest": {
+      "Happy":     "https://www.youtube.com/embed/ZZ5LpwO-An4",
+      "Funny":     "https://www.youtube.com/embed/pRpeEdMmmQ0",
+      "Adventure": "https://www.youtube.com/embed/lp-EO5I60KA",
+      "Bedtime":   "https://www.youtube.com/embed/nmos9a92MUY"
+    },
+    "Space": {
+      "Happy":     "https://www.youtube.com/embed/e-ORhEE9VVg",
+      "Funny":     "https://www.youtube.com/embed/YykjpeuMNEk",
+      "Adventure": "https://www.youtube.com/embed/7PCkvCPvDXk",
+      "Bedtime":   "https://www.youtube.com/embed/FTQbiNvZqaY"
+    },
+    "Castle": {
+      "Happy":     "https://www.youtube.com/embed/m7Bc3pLyij0",
+      "Funny":     "https://www.youtube.com/embed/qWNQUvIk954",
+      "Adventure": "https://www.youtube.com/embed/YBHQbu5IDkc",
+      "Bedtime":   "https://www.youtube.com/embed/PT2_F-1esPk"
+    },
+    "City": {
+      "Happy":     "https://www.youtube.com/embed/KQ6zr6kCPj8",
+      "Funny":     "https://www.youtube.com/embed/XqZsoesa55w",
+      "Adventure": "https://www.youtube.com/embed/IcrbM1l_BoI",
+      "Bedtime":   "https://www.youtube.com/embed/HgzGwKwLmgM"
+    }
+  },
+  "Elephant": {
+    "Forest": {
+      "Happy":     "https://www.youtube.com/embed/ru0K8uYEZWw",
+      "Funny":     "https://www.youtube.com/embed/lp-EO5I60KA",
+      "Adventure": "https://www.youtube.com/embed/2vjPBrBU-TM",
+      "Bedtime":   "https://www.youtube.com/embed/YQHsXMglC9A"
+    },
+    "Space": {
+      "Happy":     "https://www.youtube.com/embed/kffacxfA7G4",
+      "Funny":     "https://www.youtube.com/embed/ZRtdQ81jPUQ",
+      "Adventure": "https://www.youtube.com/embed/hT_nvWreIhg",
+      "Bedtime":   "https://www.youtube.com/embed/JGwWNGJdvx8"
+    },
+    "Castle": {
+      "Happy":     "https://www.youtube.com/embed/CevxZvSJLk8",
+      "Funny":     "https://www.youtube.com/embed/fJ9rUzIMcZQ",
+      "Adventure": "https://www.youtube.com/embed/OPf0YbXqDm0",
+      "Bedtime":   "https://www.youtube.com/embed/2vjPBrBU-TM"
+    },
+    "City": {
+      "Happy":     "https://www.youtube.com/embed/09R8_2nJtjg",
+      "Funny":     "https://www.youtube.com/embed/nfWlot6h_JM",
+      "Adventure": "https://www.youtube.com/embed/hHW1oY26kxQ",
+      "Bedtime":   "https://www.youtube.com/embed/u9Dg-g7t2l4"
+    }
+  },
+  "Mouse": {
+    "Forest": {
+      "Happy":     "https://www.youtube.com/embed/pRpeEdMmmQ0",
+      "Funny":     "https://www.youtube.com/embed/ZZ5LpwO-An4",
+      "Adventure": "https://www.youtube.com/embed/nmos9a92MUY",
+      "Bedtime":   "https://www.youtube.com/embed/lp-EO5I60KA"
+    },
+    "Space": {
+      "Happy":     "https://www.youtube.com/embed/e-ORhEE9VVg",
+      "Funny":     "https://www.youtube.com/embed/7PCkvCPvDXk",
+      "Adventure": "https://www.youtube.com/embed/YykjpeuMNEk",
+      "Bedtime":   "https://www.youtube.com/embed/FTQbiNvZqaY"
+    },
+    "Castle": {
+      "Happy":     "https://www.youtube.com/embed/qWNQUvIk954",
+      "Funny":     "https://www.youtube.com/embed/m7Bc3pLyij0",
+      "Adventure": "https://www.youtube.com/embed/PT2_F-1esPk",
+      "Bedtime":   "https://www.youtube.com/embed/YBHQbu5IDkc"
+    },
+    "City": {
+      "Happy":     "https://www.youtube.com/embed/XqZsoesa55w",
+      "Funny":     "https://www.youtube.com/embed/KQ6zr6kCPj8",
+      "Adventure": "https://www.youtube.com/embed/HgzGwKwLmgM",
+      "Bedtime":   "https://www.youtube.com/embed/IcrbM1l_BoI"
+    }
+  },
+  "Monkey": {
+    "Forest": {
+      "Happy":     "https://www.youtube.com/embed/ru0K8uYEZWw",
+      "Funny":     "https://www.youtube.com/embed/dQw4w9WgXcQ",
+      "Adventure": "https://www.youtube.com/embed/L_jWHffIx5E",
+      "Bedtime":   "https://www.youtube.com/embed/9bZkp7q19f0"
+    },
+    "Space": {
+      "Happy":     "https://www.youtube.com/embed/hT_nvWreIhg",
+      "Funny":     "https://www.youtube.com/embed/ZRtdQ81jPUQ",
+      "Adventure": "https://www.youtube.com/embed/kffacxfA7G4",
+      "Bedtime":   "https://www.youtube.com/embed/JGwWNGJdvx8"
+    },
+    "Castle": {
+      "Happy":     "https://www.youtube.com/embed/fJ9rUzIMcZQ",
+      "Funny":     "https://www.youtube.com/embed/CevxZvSJLk8",
+      "Adventure": "https://www.youtube.com/embed/2vjPBrBU-TM",
+      "Bedtime":   "https://www.youtube.com/embed/OPf0YbXqDm0"
+    },
+    "City": {
+      "Happy":     "https://www.youtube.com/embed/hHW1oY26kxQ",
+      "Funny":     "https://www.youtube.com/embed/u9Dg-g7t2l4",
+      "Adventure": "https://www.youtube.com/embed/nfWlot6h_JM",
+      "Bedtime":   "https://www.youtube.com/embed/09R8_2nJtjg"
+    }
+  },
+  "Crocodile": {
+    "Forest": {
+      "Happy":     "https://www.youtube.com/embed/lp-EO5I60KA",
+      "Funny":     "https://www.youtube.com/embed/pRpeEdMmmQ0",
+      "Adventure": "https://www.youtube.com/embed/ZZ5LpwO-An4",
+      "Bedtime":   "https://www.youtube.com/embed/nmos9a92MUY"
+    },
+    "Space": {
+      "Happy":     "https://www.youtube.com/embed/7PCkvCPvDXk",
+      "Funny":     "https://www.youtube.com/embed/FTQbiNvZqaY",
+      "Adventure": "https://www.youtube.com/embed/e-ORhEE9VVg",
+      "Bedtime":   "https://www.youtube.com/embed/YykjpeuMNEk"
+    },
+    "Castle": {
+      "Happy":     "https://www.youtube.com/embed/YBHQbu5IDkc",
+      "Funny":     "https://www.youtube.com/embed/PT2_F-1esPk",
+      "Adventure": "https://www.youtube.com/embed/m7Bc3pLyij0",
+      "Bedtime":   "https://www.youtube.com/embed/qWNQUvIk954"
+    },
+    "City": {
+      "Happy":     "https://www.youtube.com/embed/IcrbM1l_BoI",
+      "Funny":     "https://www.youtube.com/embed/HgzGwKwLmgM",
+      "Adventure": "https://www.youtube.com/embed/XqZsoesa55w",
+      "Bedtime":   "https://www.youtube.com/embed/KQ6zr6kCPj8"
+    }
+  }
+}
