@@ -590,7 +590,12 @@ app.get('/', (req, res) => {
     <div class="login-wrap">
       <div class="login-box">
         <div class="login-card">
-          <div class="login-logo">✨</div>
+          <div class="login-logo" style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+  <img src="/assets/logo.png" alt="Logo" 
+       style="width: 80px; height: 80px; object-fit: contain; border-radius: 15px; box-shadow: 0 6px 15px rgba(0,0,0,0.25); transition: transform 0.3s ease;"
+       onmouseover="this.style.transform='scale(1.1)'" 
+       onmouseout="this.style.transform='scale(1)'">
+</div>
           <div class="login-title">Welcome back</div>
           <div class="login-sub">Sign in to Magic Story Admin Panel</div>
           <form action="/login" method="POST">
