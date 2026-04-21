@@ -2,1462 +2,980 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
-const {MongoClient} = require('mongodb');
 const mongoose = require('mongoose');
-const app = express();
-const PORT = process.env.PORT;
 const methodOverride = require('method-override');
 
-// Middleware to serve static files from 'assets' folder
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// ─── Middleware ────────────────────────────────────────────────────────────────
 app.use('/assets', express.static(path.join(__dirname, 'assets')));
-
-// Middleware for body parsing
-app.use(bodyParser.urlencoded({extended: true}));
-
-// Serve Login Page
-app.get('/', (req, res) => {
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Magic Story Admin Panel</title>
-      <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
-      <link rel="icon" href="assets/logo.png">
-      <style>
-        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
-        * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-        }
-        body {
-          font-family: 'Poppins', sans-serif;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          height: 100vh;
-          background: #000;
-          color: #fff;
-          overflow: hidden;
-        }
-        #particles-js {
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          z-index: -1;
-        }
-        .login-container {
-          text-align: center;
-          background: rgba(0, 0, 0, 0.6);
-          padding: 50px 30px;
-          border-radius: 20px;
-          box-shadow: 0 10px 20px rgba(0, 0, 0, 0.8);
-          max-width: 500px;
-          width: 95%;
-          animation: slideIn 1s ease-out forwards;
-          transition: transform 0.3s ease;
-        }
-        .login-container:hover {
-          transform: scale(1.05);
-        }
-        .logo {
-          width: 120px;
-          height: 120px;
-          margin-bottom: 20px;
-          border-radius: 50%;
-          border: 3px solid #fff;
-          animation: pulse 1.5s infinite;
-        }
-        h1 {
-          font-size: 36px;
-          font-weight: 600;
-          margin-bottom: 20px;
-          color: #fff;
-          text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.7);
-        }
-        input {
-          width: 85%;
-          padding: 12px 15px;
-          margin: 15px 0;
-          border: 2px solid #fff;
-          border-radius: 5px;
-          background: rgba(255, 255, 255, 0.2);
-          color: #fff;
-          font-size: 16px;
-          transition: all 0.3s ease;
-        }
-        input:focus {
-          border-color: #4CAF50;
-          background: rgba(255, 255, 255, 0.1);
-          outline: none;
-        }
-        button {
-          width: 90%;
-          padding: 12px 20px;
-          border: none;
-          border-radius: 5px;
-          background-color: #4CAF50;
-          color: #fff;
-          font-size: 18px;
-          cursor: pointer;
-          margin-top: 20px;
-          transition: all 0.3s ease;
-        }
-        button:hover {
-          background-color: #45a049;
-        }
-        @keyframes slideIn {
-          from {
-            transform: translateY(50px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        @keyframes pulse {
-          0% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.1);
-          }
-          100% {
-            transform: scale(1);
-          }
-        }
-        @media (max-width: 768px) {
-          .login-container {
-            padding: 40px 20px;
-          }
-          h1 {
-            font-size: 28px;
-          }
-          input {
-            width: 90%;
-          }
-          button {
-            width: 95%;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <script>
-        // Check if user is already logged in
-        if (localStorage.getItem('loggedIn') === 'true') {
-          window.location.href = '/home'; // Redirect to home if logged in
-        }
-      </script>
-      <div id="particles-js"></div>
-      <div class="login-container">
-        <img src="/assets/logo.png" alt="App Logo" class="logo">
-        <h1>Magic Story Admin Login</h1>
-        <form action="/login" method="POST">
-          <input type="text" name="username" placeholder="Username" required>
-          <input type="password" name="password" placeholder="Password" required>
-          <button type="submit">Login</button>
-        </form>
-      </div>
-      <script>
-        particlesJS("particles-js", {
-          particles: {
-            number: { value: 150, density: { enable: true, value_area: 800 } },
-            color: { value: "#ffffff" },
-            shape: {
-              type: "circle",
-              stroke: { width: 0, color: "#000000" },
-              polygon: { nb_sides: 5 }
-            },
-            opacity: {
-              value: 0.5,
-              random: false,
-              anim: { enable: false }
-            },
-            size: {
-              value: 5,
-              random: true,
-              anim: { enable: false }
-            },
-            line_linked: {
-              enable: true,
-              distance: 150,
-              color: "#ffffff",
-              opacity: 0.4,
-              width: 1
-            },
-            move: {
-              enable: true,
-              speed: 4,
-              direction: "none",
-              random: false,
-              straight: false,
-              out_mode: "out",
-              bounce: false,
-              attract: { enable: false }
-            }
-          },
-          interactivity: {
-            detect_on: "canvas",
-            events: {
-              onhover: { enable: true, mode: "repulse" },
-              onclick: { enable: true, mode: "push" },
-              resize: true
-            },
-            modes: {
-              grab: { distance: 400, line_linked: { opacity: 1 } },
-              bubble: { distance: 400, size: 40, duration: 2, opacity: 8, speed: 3 },
-              repulse: { distance: 200, duration: 0.4 },
-              push: { particles_nb: 4 },
-              remove: { particles_nb: 2 }
-            }
-          },
-          retina_detect: true
-        });
-      </script>
-    </body>
-    </html>
-  `);
-});
-
-// Handle Login
-app.post('/login', (req, res) => {
-  const {username, password} = req.body;
-  if (
-    username === process.env.ADMIN_USERNAME &&
-    password === process.env.ADMIN_PASSWORD
-  ) {
-    // Save login data to localStorage (in the browser context)
-    res.send(`
-      <script>
-        localStorage.setItem('loggedIn', 'true');
-        localStorage.setItem('username', '${username}');
-        window.location.href = '/home';
-      </script>
-    `);
-  } else {
-    res.send(`
-      <script>
-        alert('Invalid Username or Password');
-        window.location.href = '/'; // Redirect back to login page
-      </script>
-    `);
-  }
-});
-
-// Middleware to parse JSON
+app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(methodOverride('_method'));
 
-// MongoDB connection URI from environment variables
-const MONGO_URI = process.env.MONGO_URI;
-
-// Connect to MongoDB
+// ─── MongoDB ───────────────────────────────────────────────────────────────────
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/magicstory';
 mongoose
-  .connect(MONGO_URI, {useNewUrlParser: true, useUnifiedTopology: true})
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.log('MongoDB connection error:', err));
+  .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => console.log('❌ MongoDB connection error:', err));
 
-// User Schema and Model
+// ─── Schemas ───────────────────────────────────────────────────────────────────
 const userSchema = new mongoose.Schema({
   name: String,
   email: String,
   password: String,
   otp: Number,
   otpExpiry: Date,
+  createdAt: { type: Date, default: Date.now },
 });
-
 const User = mongoose.model('User', userSchema);
 
-// Define the Quiz Schema
 const quizSchema = new mongoose.Schema({
-  BasicQuiz: {type: Boolean, default: false},
-  AdvanceQuiz: {type: Boolean, default: null},
-  BasicQuizMarks: {type: Number, default: null},
-  AdvanceQuizMarks: {type: Number, default: null},
-  email: {type: String, required: true},
-  // Add other fields as necessary
+  BasicQuiz: { type: Boolean, default: false },
+  AdvanceQuiz: { type: Boolean, default: null },
+  BasicQuizMarks: { type: Number, default: null },
+  AdvanceQuizMarks: { type: Number, default: null },
+  email: { type: String, required: true },
 });
-
-// Register the Quiz model
 const Quiz = mongoose.model('Quiz', quizSchema);
 
-// Middleware
-app.use(express.urlencoded({extended: true})); // For parsing form data
-app.use(methodOverride('_method')); // For method spoofing
-
-// Delete user route
-app.post('/delete-user/:id', async (req, res) => {
-  try {
-    const {id} = req.params;
-    await User.findByIdAndDelete(id);
-    res.redirect('/home'); // Redirect to the home page or wherever you want after deletion
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Failed to delete user');
-  }
-});
-
-app.get('/home', async (req, res) => {
-  try {
-    const users = await User.find(); // Fetch all users from MongoDB
-    const totalUsers = users.length; // Count total users
-
-    // Count the basic and advanced quizzes
-    const basicQuizCount = await Quiz.countDocuments({BasicQuiz: true});
-    const advanceQuizCount = await Quiz.countDocuments({
-      AdvanceQuiz: {$ne: null},
-    });
-    
-
-    // Create the data for the charts
-    const chartData1 = {
-      labels: ['Basic Quizzes', 'Advanced Quizzes', 'Total Users'],
-      datasets: [{
-        label: 'Counts',
-        data: [basicQuizCount, advanceQuizCount, totalUsers],
-        backgroundColor: ['#ffe066', '#80d4ff', '#ff6666'], // Shiny solid colors
-        borderColor: ['#ffd11a', '#33bbff', '#ff3333'], // Slightly darker shiny borders
-        borderWidth: 2 // Slightly thicker borders for a shiny effect
-      }]
-    };
-    
-    const chartData2 = {
-      labels: ['Basic Quizzes', 'Advanced Quizzes'],
-      datasets: [{
-        label: 'Quiz Comparison',
-        data: [basicQuizCount, advanceQuizCount],
-        backgroundColor: ['#ff99ff', '#66ffff'], // Vibrant solid colors
-        borderColor: ['#ff33ff', '#33ffff'], // More saturated shiny borders
-        borderWidth: 2 // Enhanced border visibility
-      }]
-    };
-    
-    let quizData = await Quiz.find(); // Fetch all quiz data from MongoDB
-
-    let quizTable = quizData
-        .map(
-            (quiz, index) => `
-          <tr>
-            <td class="text-center">${index + 1}</td>
-            <td>${quiz.email}</td>
-            <td class="text-center">${quiz.BasicQuiz ? 'Yes' : 'No'}</td>
-            <td class="text-center">${quiz.BasicQuizMarks || 'N/A'}</td>
-            <td class="text-center">${quiz.AdvanceQuiz !== null ? 'Yes' : 'No'}</td>
-            <td class="text-center">${quiz.AdvanceQuizMarks || 'N/A'}</td>
-          </tr>
-        `,
-        )
-        .join('');
-        
-    let usersTable = users
-  .map(
-    (user, index) => `
-      <tr>
-        <td class="text-center">${index + 1}</td>
-        <td>${user.name}</td>
-        <td class="text-center">${user.email}</td>
-        <td class="text-center">
-          ${
-            user.password
-              ? `${user.password.slice(0, Math.floor(user.password.length / 2))}.....`
-              : 'N/A'
-          }
-        </td>
-        <td class="text-center">
-          <div class="badge badge-warning">Active</div>
-        </td>
-        <td class="text-center">
-          <form action="/delete-user/${user._id}" method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');">
-            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-          </form>
-        </td>
-      </tr>
-    `
-  )
-  .join('');
-
-
-    res.send(`
-    
-<!doctype html>
+// ─── Shared HTML Helpers ───────────────────────────────────────────────────────
+const getShell = (title, bodyContent, activePage = 'home') => `
+<!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset=
-    "utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta http-equiv="Content-Language" content="en">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <link rel="icon" href="assets/logo.png">
-    <title>Magic Story Admin Dashboard - This is an example dashboard created using built-in elements and components.</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />
-    <meta name="description" content="This is an example dashboard created using built-in elements and components.">
-    <meta name="msapplication-tap-highlight" content="no">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    // <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>${title} — Magic Story Admin</title>
+  <link rel="icon" href="/assets/logo.png"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* ── Reset & Tokens ─────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    <!-- Include ArchitectUI styles -->
-    <link href="https://demo.dashboardpack.com/architectui-html-free/main.css" rel="stylesheet">
-
-    <!-- Include Stroke 7 Icon Font styles -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pe-icon-7-stroke/1.2.0/pe-icon-7-stroke.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
-<style>
-        .script-font {
-            font-family: 'Pacifico', cursive;
-            font-size: 30px;
-            color: black;
-        }
-    </style>
-    </head>
-<body>
-    <div class="app-container app-theme-white body-tabs-shadow fixed-sidebar fixed-header">
-        <div class="app-header header-shadow">
-            <div class="app-header__logo">
-                <div class="script-font">Magic Story</div>
-                <div class="header__pane ml-auto">
-                    <div>
-                        <button type="button" class="hamburger close-sidebar-btn hamburger--elastic" data-class="closed-sidebar">
-                            <span class="hamburger-box">
-                                <span class="hamburger-inner"></span>
-                            </span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="app-header__mobile-menu">
-                <div>
-                    <button type="button" class="hamburger hamburger--elastic mobile-toggle-nav">
-                        <span class="hamburger-box">
-                            <span class="hamburger-inner"></span>
-                        </span>
-                    </button>
-                </div>
-            </div>
-            <div class="app-header__menu">
-                <span>
-                    <button type="button" class="btn-icon btn-icon-only btn btn-primary btn-sm mobile-toggle-header-nav">
-                        <span class="btn-icon-wrapper">
-                            <i class="fa fa-ellipsis-v fa-w-6"></i>
-                        </span>
-                    </button>
-                </span>
-            </div>    <div class="app-header__content">
-                <div class="app-header-left">
-                    <div class="search-wrapper">
-                        <div class="input-holder">
-                            <input type="text" class="search-input" placeholder="Type to search">
-                            <button class="search-icon"><span></span></button>
-                        </div>
-                        <button class="close"></button>
-                    </div>
-                    </div>
-                <div class="app-header-right">
-                    <div class="header-btn-lg pr-0">
-                        <div class="widget-content p-0">
-                            <div class="widget-content-wrapper">
-                                <div class="widget-content-left">
-                                    <div class="btn-group">
-                                        <a data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="p-0 btn">
-                                            <img width="42" class="rounded-circle" src="assets/images/avatars/1.jpg" alt="">
-                                            <i class="fa fa-sign-out-alt ml-2 opacity-8" style="font-size: 15px; background: linear-gradient(145deg, #ff4b5c, #ff1e41); border-radius: 50%; padding: 10px; color: white; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), inset 0 4px 6px rgba(255, 255, 255, 0.3);"></i>
-
-                                        </a>
-                                        <div tabindex="-1" role="menu" aria-hidden="true" class="dropdown-menu dropdown-menu-right">
-<a href="/logout" class="dropdown-item" tabindex="0">Logout</a>                                        </div>
-                                    </div>
-                                </div>
-                                <div class="widget-content-left  ml-3 header-user-info">
-                                    <div class="widget-heading">
-                                        ADMIN
-                                    </div>
-                                    <div class="widget-subheading">
-                                        Magic Story Admin
-                                    </div>
-                                </div>
-                                <div class="widget-content-right header-user-info ml-3">
-                                    <button type="button" class="btn-shadow p-1 btn btn-primary btn-sm show-toastr-example">
-                                        <i class="fa text-white fa-calendar pr-1 pl-1"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>        </div>
-            </div>
-        </div>        <div class="ui-theme-settings">
-            <button type="button" id="TooltipDemo" class="btn-open-options btn btn-warning">
-                <i class="fa fa-cog fa-w-16 fa-spin fa-2x"></i>
-            </button>
-            <div class="theme-settings__inner">
-                <div class="scrollbar-container">
-                    <div class="theme-settings__options-wrapper">
-                        <h3 class="themeoptions-heading">Layout Options
-                        </h3>
-                        <div class="p-3">
-                            <ul class="list-group">
-                                <li class="list-group-item">
-                                    <div class="widget-content p-0">
-                                        <div class="widget-content-wrapper">
-                                            <div class="widget-content-left mr-3">
-                                                <div class="switch has-switch switch-container-class" data-class="fixed-header">
-                                                    <div class="switch-animate switch-on">
-                                                        <input type="checkbox" checked data-toggle="toggle" data-onstyle="success">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="widget-content-left">
-                                                <div class="widget-heading">Fixed Header
-                                                </div>
-                                                <div class="widget-subheading">Makes the header top fixed, always visible!
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </li>
-                                <li class="list-group-item">
-                                    <div class="widget-content p-0">
-                                        <div class="widget-content-wrapper">
-                                            <div class="widget-content-left mr-3">
-                                                <div class="switch has-switch switch-container-class" data-class="fixed-sidebar">
-                                                    <div class="switch-animate switch-on">
-                                                        <input type="checkbox" checked data-toggle="toggle" data-onstyle="success">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="widget-content-left">
-                                                <div class="widget-heading">Fixed Sidebar
-                                                </div>
-                                                <div class="widget-subheading">Makes the sidebar left fixed, always visible!
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </li>
-                                <li class="list-group-item">
-                                    <div class="widget-content p-0">
-                                        <div class="widget-content-wrapper">
-                                            <div class="widget-content-left mr-3">
-                                                <div class="switch has-switch switch-container-class" data-class="fixed-footer">
-                                                    <div class="switch-animate switch-off">
-                                                        <input type="checkbox" data-toggle="toggle" data-onstyle="success">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="widget-content-left">
-                                                <div class="widget-heading">Fixed Footer
-                                                </div>
-                                                <div class="widget-subheading">Makes the app footer bottom fixed, always visible!
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                        <h3 class="themeoptions-heading">
-                            <div>
-                                Header Options
-                            </div>
-                            <button type="button" class="btn-pill btn-shadow btn-wide ml-auto btn btn-focus btn-sm switch-header-cs-class" data-class="">
-                                Restore Default
-                            </button>
-                        </h3>
-                        <div class="p-3">
-                            <ul class="list-group">
-                                <li class="list-group-item">
-                                    <h5 class="pb-2">Choose Color Scheme
-                                    </h5>
-                                    <div class="theme-settings-swatches">
-                                        <div class="swatch-holder bg-primary switch-header-cs-class" data-class="bg-primary header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-secondary switch-header-cs-class" data-class="bg-secondary header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-success switch-header-cs-class" data-class="bg-success header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-info switch-header-cs-class" data-class="bg-info header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-warning switch-header-cs-class" data-class="bg-warning header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-danger switch-header-cs-class" data-class="bg-danger header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-light switch-header-cs-class" data-class="bg-light header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-dark switch-header-cs-class" data-class="bg-dark header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-focus switch-header-cs-class" data-class="bg-focus header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-alternate switch-header-cs-class" data-class="bg-alternate header-text-light">
-                                        </div>
-                                        <div class="divider">
-                                        </div>
-                                        <div class="swatch-holder bg-vicious-stance switch-header-cs-class" data-class="bg-vicious-stance header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-midnight-bloom switch-header-cs-class" data-class="bg-midnight-bloom header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-night-sky switch-header-cs-class" data-class="bg-night-sky header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-slick-carbon switch-header-cs-class" data-class="bg-slick-carbon header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-asteroid switch-header-cs-class" data-class="bg-asteroid header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-royal switch-header-cs-class" data-class="bg-royal header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-warm-flame switch-header-cs-class" data-class="bg-warm-flame header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-night-fade switch-header-cs-class" data-class="bg-night-fade header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-sunny-morning switch-header-cs-class" data-class="bg-sunny-morning header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-tempting-azure switch-header-cs-class" data-class="bg-tempting-azure header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-amy-crisp switch-header-cs-class" data-class="bg-amy-crisp header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-heavy-rain switch-header-cs-class" data-class="bg-heavy-rain header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-mean-fruit switch-header-cs-class" data-class="bg-mean-fruit header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-malibu-beach switch-header-cs-class" data-class="bg-malibu-beach header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-deep-blue switch-header-cs-class" data-class="bg-deep-blue header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-ripe-malin switch-header-cs-class" data-class="bg-ripe-malin header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-arielle-smile switch-header-cs-class" data-class="bg-arielle-smile header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-plum-plate switch-header-cs-class" data-class="bg-plum-plate header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-happy-fisher switch-header-cs-class" data-class="bg-happy-fisher header-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-happy-itmeo switch-header-cs-class" data-class="bg-happy-itmeo header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-mixed-hopes switch-header-cs-class" data-class="bg-mixed-hopes header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-strong-bliss switch-header-cs-class" data-class="bg-strong-bliss header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-grow-early switch-header-cs-class" data-class="bg-grow-early header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-love-kiss switch-header-cs-class" data-class="bg-love-kiss header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-premium-dark switch-header-cs-class" data-class="bg-premium-dark header-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-happy-green switch-header-cs-class" data-class="bg-happy-green header-text-light">
-                                        </div>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                        <h3 class="themeoptions-heading">
-                            <div>Sidebar Options</div>
-                            <button type="button" class="btn-pill btn-shadow btn-wide ml-auto btn btn-focus btn-sm switch-sidebar-cs-class" data-class="">
-                                Restore Default
-                            </button>
-                        </h3>
-                        <div class="p-3">
-                            <ul class="list-group">
-                                <li class="list-group-item">
-                                    <h5 class="pb-2">Choose Color Scheme
-                                    </h5>
-                                    <div class="theme-settings-swatches">
-                                        <div class="swatch-holder bg-primary switch-sidebar-cs-class" data-class="bg-primary sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-secondary switch-sidebar-cs-class" data-class="bg-secondary sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-success switch-sidebar-cs-class" data-class="bg-success sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-info switch-sidebar-cs-class" data-class="bg-info sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-warning switch-sidebar-cs-class" data-class="bg-warning sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-danger switch-sidebar-cs-class" data-class="bg-danger sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-light switch-sidebar-cs-class" data-class="bg-light sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-dark switch-sidebar-cs-class" data-class="bg-dark sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-focus switch-sidebar-cs-class" data-class="bg-focus sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-alternate switch-sidebar-cs-class" data-class="bg-alternate sidebar-text-light">
-                                        </div>
-                                        <div class="divider">
-                                        </div>
-                                        <div class="swatch-holder bg-vicious-stance switch-sidebar-cs-class" data-class="bg-vicious-stance sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-midnight-bloom switch-sidebar-cs-class" data-class="bg-midnight-bloom sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-night-sky switch-sidebar-cs-class" data-class="bg-night-sky sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-slick-carbon switch-sidebar-cs-class" data-class="bg-slick-carbon sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-asteroid switch-sidebar-cs-class" data-class="bg-asteroid sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-royal switch-sidebar-cs-class" data-class="bg-royal sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-warm-flame switch-sidebar-cs-class" data-class="bg-warm-flame sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-night-fade switch-sidebar-cs-class" data-class="bg-night-fade sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-sunny-morning switch-sidebar-cs-class" data-class="bg-sunny-morning sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-tempting-azure switch-sidebar-cs-class" data-class="bg-tempting-azure sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-amy-crisp switch-sidebar-cs-class" data-class="bg-amy-crisp sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-heavy-rain switch-sidebar-cs-class" data-class="bg-heavy-rain sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-mean-fruit switch-sidebar-cs-class" data-class="bg-mean-fruit sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-malibu-beach switch-sidebar-cs-class" data-class="bg-malibu-beach sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-deep-blue switch-sidebar-cs-class" data-class="bg-deep-blue sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-ripe-malin switch-sidebar-cs-class" data-class="bg-ripe-malin sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-arielle-smile switch-sidebar-cs-class" data-class="bg-arielle-smile sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-plum-plate switch-sidebar-cs-class" data-class="bg-plum-plate sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-happy-fisher switch-sidebar-cs-class" data-class="bg-happy-fisher sidebar-text-dark">
-                                        </div>
-                                        <div class="swatch-holder bg-happy-itmeo switch-sidebar-cs-class" data-class="bg-happy-itmeo sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-mixed-hopes switch-sidebar-cs-class" data-class="bg-mixed-hopes sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-strong-bliss switch-sidebar-cs-class" data-class="bg-strong-bliss sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-grow-early switch-sidebar-cs-class" data-class="bg-grow-early sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-love-kiss switch-sidebar-cs-class" data-class="bg-love-kiss sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-premium-dark switch-sidebar-cs-class" data-class="bg-premium-dark sidebar-text-light">
-                                        </div>
-                                        <div class="swatch-holder bg-happy-green switch-sidebar-cs-class" data-class="bg-happy-green sidebar-text-light">
-                                        </div>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                        <h3 class="themeoptions-heading">
-                            <div>Main Content Options</div>
-                            <button type="button" class="btn-pill btn-shadow btn-wide ml-auto active btn btn-focus btn-sm">Restore Default
-                            </button>
-                        </h3>
-                        <div class="p-3">
-                            <ul class="list-group">
-                                <li class="list-group-item">
-                                    <h5 class="pb-2">Page Section Tabs
-                                    </h5>
-                                    <div class="theme-settings-swatches">
-                                        <div role="group" class="mt-2 btn-group">
-                                            <button type="button" class="btn-wide btn-shadow btn-primary btn btn-secondary switch-theme-class" data-class="body-tabs-line">
-                                                Line
-                                            </button>
-                                            <button type="button" class="btn-wide btn-shadow btn-primary active btn btn-secondary switch-theme-class" data-class="body-tabs-shadow">
-                                                Shadow
-                                            </button>
-                                        </div>
-                                    </div>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>        <div class="app-main">
-                <div class="app-sidebar sidebar-shadow">
-                    <div class="app-header__logo">
-                         <div class="script-font">Magic Story</div>
-                        <div class="header__pane ml-auto">
-                            <div>
-                                <button type="button" class="hamburger close-sidebar-btn hamburger--elastic" data-class="closed-sidebar">
-                                    <span class="hamburger-box">
-                                        <span class="hamburger-inner"></span>
-                                    </span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="app-header__mobile-menu">
-                        <div>
-                            <button type="button" class="hamburger hamburger--elastic mobile-toggle-nav">
-                                <span class="hamburger-box">
-                                    <span class="hamburger-inner"></span>
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="app-header__menu">
-                        <span>
-                            <button type="button" class="btn-icon btn-icon-only btn btn-primary btn-sm mobile-toggle-header-nav">
-                                <span class="btn-icon-wrapper">
-                                    <i class="fa fa-ellipsis-v fa-w-6"></i>
-                                </span>
-                            </button>
-                        </span>
-                    </div>    <div class="scrollbar-sidebar">
-                        <div class="app-sidebar__inner">
-                            <ul class="vertical-nav-menu">
-                                <li class="app-sidebar__heading">Dashboards Options</li>
-<li>
-    <a href="/home" class="mm-active" style="display: flex; align-items: center; background: linear-gradient(to right, #007bff, #a6c8ff); color: white; padding: 10px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 0 5px rgba(255, 255, 255, 0.3);">
-        <i class="fa fa-home" style="margin-right: 10px; font-size: 15px;"></i> <!-- Modern home icon -->
-        Home
-    </a>
-</li>
-
-<hr>
-
-<li>
-    <a href="/logout" class="mm-active" style="display: flex; align-items: center; background: linear-gradient(to right, #ff0000, #ffcccc); color: white; padding: 10px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), inset 0 0 5px rgba(255, 255, 255, 0.3);">
-        <i class="fa fa-sign-out-alt" style="margin-right: 10px; font-size: 15px;"></i> <!-- Logout icon -->
-        Logout
-    </a>
-</li>
-
-
-
-
-
-                            </ul>
-                        </div>
-                    </div>
-                </div>    
-                <div class="app-main__outer">
-                    <div class="app-main__inner">
-                        <div class="app-page-title">
-                            <div class="page-title-wrapper">
-                                <div class="page-title-heading">
-                                   <div class="page-title-icon" style="border-radius: 15px; display: flex; justify-content: center; align-items: center; width: 60px; height: 60px; padding: 10px;">
-    <i class="fas fa-user-shield icon-gradient bg-mean-fruit"></i>
-</div>
-
-                                    <div>Magic Story Admin Dashboard
-<div class="page-title-subheading">
-  Magic Story is an advanced AI-powered error detection and monitoring platform built with a modern full-stack architecture.
-</div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="page-title-actions">
-                                    
-                                    
-                                </div>    
-                                </div>
-                        </div>            
-                       
-                        
-                        
-<div class="row">
-    <div class="col-md-6 col-xl-4">
-        <div class="card mb-3 widget-content bg-midnight-bloom">
-            <div class="widget-content-wrapper text-white">
-                <div class="widget-content-left">
-                    <div class="widget-heading">Total Users</div>
-                    <div class="widget-subheading">Magic Story Users</div>
-                </div>
-                <div class="widget-content-right">
-                    <div class="widget-numbers text-white"><span>${totalUsers}</span></div>
-                </div>
-                <!-- Font Awesome Icon -->
-                <div class="widget-icon">
-                    <i class="fas fa-users-cog fa-3x"></i>  <!-- Modern Icon for Total Users -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-        <div class="card mb-3 widget-content bg-arielle-smile">
-            <div class="widget-content-wrapper text-white">
-                <div class="widget-content-left">
-                    <div class="widget-heading">No of Servers</div>
-                    <div class="widget-subheading">Total Users Of Servers</div>
-                </div>
-                <div class="widget-content-right">
-                    <div class="widget-numbers text-white"><span>3</span></div>
-                </div>
-                <!-- Font Awesome Icon -->
-                <div class="widget-icon">
-                    <i class="fas fa-chalkboard-teacher fa-3x"></i>  <!-- Modern Icon for Basic Quiz Users -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-6 col-xl-4">
-        <div class="card mb-3 widget-content bg-grow-early">
-            <div class="widget-content-wrapper text-white">
-                <div class="widget-content-left">
-                    <div class="widget-heading">Magic Story Versions</div>
-                    <div class="widget-subheading">Total Versions Of Magic Story</div>
-                </div>
-                <div class="widget-content-right">
-                    <div class="widget-numbers text-white"><span>21</span></div>
-                </div>
-                <!-- Font Awesome Icon -->
-                <div class="widget-icon">
-                    <i class="fas fa-rocket fa-3x"></i>  <!-- Modern Icon for Advanced Quiz -->
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<style>
-    .widget-icon {
-        text-align: center; /* Center align the icon */
-        margin-top: 20px;
-        transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease; /* Smooth transition */
+    :root {
+      --bg:        #0a0b10;
+      --surface:   #111219;
+      --surface2:  #181a24;
+      --border:    rgba(255,255,255,0.07);
+      --accent:    #7c5cfc;
+      --accent2:   #e85d8a;
+      --accent3:   #3ecfb0;
+      --text:      #e8eaf0;
+      --muted:     #6b7280;
+      --danger:    #f43f5e;
+      --success:   #10b981;
+      --warning:   #f59e0b;
+      --sidebar-w: 260px;
+      --header-h:  64px;
+      --radius:    14px;
+      --font-head: 'Syne', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
     }
 
-    .widget-icon i {
-        color:rgb(235, 235, 235); /* Default white color for icons */
-        font-size: 2.5rem; /* Smaller icon size */
-        transition: transform 0.3s ease, color 0.5s ease, box-shadow 0.3s ease, filter 0.3s ease; /* Smooth transition */
-        margin-right: 10px; /* Add margin on the right side of the icon */
-        margin-left: 10px; /* Add margin on the right side of the icon */
-    }
+    html, body { height: 100%; font-family: var(--font-body); background: var(--bg); color: var(--text); overflow-x: hidden; }
+    a { text-decoration: none; color: inherit; }
+    button { cursor: pointer; font-family: var(--font-body); }
 
-    /* Vibrant Icon Colors */
-    .fa-users {
-        color: #FF6347; /* Tomato red for Total Users icon */
-    }
+    /* ── Scrollbar ──────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 99px; }
 
-    .fa-puzzle-piece {
-        color: #FFD700; /* Gold for Basic Quiz Users icon */
-    }
+    /* ── Layout ─────────────────────────────────────── */
+    .layout { display: flex; height: 100vh; overflow: hidden; }
 
-    .fa-cogs {
-        color: #20B2AA; /* Light Sea Green for Advanced Quiz icon */
+    /* ── Sidebar ────────────────────────────────────── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      overflow-y: auto;
+      transition: transform .3s ease, width .3s ease;
+      position: relative;
+      z-index: 100;
     }
+    .sidebar.collapsed { width: 72px; }
+    .sidebar.collapsed .nav-label,
+    .sidebar.collapsed .sidebar-logo-text,
+    .sidebar.collapsed .nav-section-title { display: none; }
+    .sidebar.collapsed .nav-item { justify-content: center; }
+    .sidebar.collapsed .nav-item i { margin-right: 0; }
 
-    /* Hover Effects for icons */
-    .widget-icon:hover i {
-        transform: rotate(360deg) scale(1.2); /* Rotate and scale on hover */
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2); /* Larger shadow on hover */
-        filter: brightness(1.2); /* Slight brightness increase on hover */
+    .sidebar-brand {
+      display: flex; align-items: center; gap: 12px;
+      padding: 20px 22px 16px;
+      border-bottom: 1px solid var(--border);
     }
-
-    /* Animation for Icons */
-    .widget-icon i {
-        animation: fadeIn 1s ease-in-out, bounce 1.5s ease infinite;
+    .sidebar-logo {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
     }
+    .sidebar-logo-text { font-family: var(--font-head); font-size: 18px; font-weight: 800; }
 
-    /* Fade-in Animation */
-    @keyframes fadeIn {
-        0% {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        100% {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    .sidebar-nav { flex: 1; padding: 14px 12px; }
+    .nav-section-title {
+      font-size: 10px; font-weight: 600; letter-spacing: .12em;
+      color: var(--muted); text-transform: uppercase; padding: 12px 10px 6px;
     }
-
-    /* Bounce Animation */
-    @keyframes bounce {
-        0%, 100% {
-            transform: translateY(0);
-        }
-        50% {
-            transform: translateY(-10px);
-        }
+    .nav-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px; border-radius: 10px; margin-bottom: 2px;
+      font-size: 14px; font-weight: 500; color: var(--muted);
+      transition: background .2s, color .2s;
     }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active {
+      background: linear-gradient(90deg, rgba(124,92,252,.18), rgba(232,93,138,.08));
+      color: var(--text);
+      border-left: 3px solid var(--accent);
+    }
+    .nav-item i { width: 18px; text-align: center; font-size: 15px; }
 
-    /* Optional: Hover effect for the entire card (container) */
+    .sidebar-footer {
+      padding: 14px 12px;
+      border-top: 1px solid var(--border);
+    }
+    .sidebar-user {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      background: var(--surface2);
+    }
+    .sidebar-user-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .sidebar-user-info .name { font-size: 13px; font-weight: 600; }
+    .sidebar-user-info .role { font-size: 11px; color: var(--muted); }
+
+    /* ── Main ───────────────────────────────────────── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* ── Header ─────────────────────────────────────── */
+    .header {
+      height: var(--header-h); display: flex; align-items: center;
+      justify-content: space-between; padding: 0 28px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .toggle-btn {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .2s, border-color .2s;
+    }
+    .toggle-btn:hover { color: var(--text); border-color: var(--accent); }
+    .breadcrumb { font-size: 13px; color: var(--muted); }
+    .breadcrumb span { color: var(--text); font-weight: 600; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-icon-btn {
+      position: relative;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--muted); width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .2s;
+    }
+    .header-icon-btn:hover { color: var(--text); }
+    .badge-dot {
+      position: absolute; top: 7px; right: 7px;
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--accent2); border: 1px solid var(--surface);
+    }
+    .logout-btn {
+      display: flex; align-items: center; gap: 7px;
+      background: linear-gradient(135deg, var(--danger), #c0392b);
+      color: #fff; border: none; padding: 8px 16px;
+      border-radius: 9px; font-size: 13px; font-weight: 600;
+      transition: opacity .2s, transform .15s;
+    }
+    .logout-btn:hover { opacity: .88; transform: translateY(-1px); }
+
+    /* ── Content ─────────────────────────────────────── */
+    .content { flex: 1; overflow-y: auto; padding: 28px; }
+
+    /* ── Page Title ──────────────────────────────────── */
+    .page-title { font-family: var(--font-head); font-size: 26px; font-weight: 800; margin-bottom: 4px; }
+    .page-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+
+    /* ── Stat Cards ──────────────────────────────────── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 28px; }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px 24px;
+      position: relative; overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+    .stat-card::before {
+      content: ''; position: absolute; inset: 0;
+      opacity: .06; border-radius: inherit;
+    }
+    .stat-card.purple::before { background: var(--accent); }
+    .stat-card.pink::before   { background: var(--accent2); }
+    .stat-card.teal::before   { background: var(--accent3); }
+    .stat-card.amber::before  { background: var(--warning); }
+    .stat-glow {
+      position: absolute; top: -20px; right: -20px;
+      width: 80px; height: 80px; border-radius: 50%; opacity: .15; filter: blur(20px);
+    }
+    .stat-card.purple .stat-glow { background: var(--accent); }
+    .stat-card.pink   .stat-glow { background: var(--accent2); }
+    .stat-card.teal   .stat-glow { background: var(--accent3); }
+    .stat-card.amber  .stat-glow { background: var(--warning); }
+    .stat-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; margin-bottom: 14px;
+    }
+    .stat-card.purple .stat-icon { background: rgba(124,92,252,.15); color: var(--accent); }
+    .stat-card.pink   .stat-icon { background: rgba(232,93,138,.15); color: var(--accent2); }
+    .stat-card.teal   .stat-icon { background: rgba(62,207,176,.15); color: var(--accent3); }
+    .stat-card.amber  .stat-icon { background: rgba(245,158,11,.15); color: var(--warning); }
+    .stat-value { font-family: var(--font-head); font-size: 32px; font-weight: 800; margin-bottom: 4px; }
+    .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; }
+    .stat-trend { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+    .stat-trend.up   { color: var(--success); }
+    .stat-trend.down { color: var(--danger); }
+
+    /* ── Charts Row ──────────────────────────────────── */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px; }
+    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+
+    /* ── Card ────────────────────────────────────────── */
     .card {
-        transition: transform 0.3s ease-in-out, box-shadow 0.3s ease;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden;
+    }
+    .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 22px; border-bottom: 1px solid var(--border);
+    }
+    .card-title { font-family: var(--font-head); font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .card-title i { color: var(--accent); }
+    .card-body { padding: 22px; }
+    .card-body.no-pad { padding: 0; }
+
+    /* ── Table ───────────────────────────────────────── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    thead tr { border-bottom: 1px solid var(--border); }
+    thead th {
+      padding: 12px 16px; text-align: left;
+      font-size: 11px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--muted);
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface2); }
+    tbody td { padding: 13px 16px; vertical-align: middle; }
+
+    .avatar-cell { display: flex; align-items: center; gap: 10px; }
+    .avatar {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700;
+    }
+    .user-name { font-weight: 500; font-size: 13.5px; }
+    .user-email { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+    .pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px; border-radius: 99px;
+      font-size: 11px; font-weight: 600;
+    }
+    .pill.active  { background: rgba(16,185,129,.15); color: var(--success); }
+    .pill.yes     { background: rgba(124,92,252,.15);  color: var(--accent); }
+    .pill.no      { background: rgba(255,255,255,.06); color: var(--muted); }
+
+    .pass-cell { font-family: monospace; font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+
+    .btn-del {
+      background: rgba(244,63,94,.1); color: var(--danger);
+      border: 1px solid rgba(244,63,94,.25); padding: 5px 12px;
+      border-radius: 7px; font-size: 12px; font-weight: 600;
+      transition: background .2s, transform .15s;
+    }
+    .btn-del:hover { background: rgba(244,63,94,.22); transform: scale(1.04); }
+
+    /* ── Search / Filter bar ─────────────────────────── */
+    .table-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px; border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap;
+    }
+    .search-box {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 9px; padding: 7px 14px; min-width: 220px;
+    }
+    .search-box i { color: var(--muted); font-size: 13px; }
+    .search-box input {
+      background: none; border: none; outline: none;
+      color: var(--text); font-family: var(--font-body); font-size: 13px; flex: 1;
+    }
+    .search-box input::placeholder { color: var(--muted); }
+    .table-count { font-size: 13px; color: var(--muted); }
+
+    /* ── Server Progress ─────────────────────────────── */
+    .prog-list { display: flex; flex-direction: column; gap: 16px; }
+    .prog-row {}
+    .prog-meta { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+    .prog-label { font-weight: 500; }
+    .prog-val { color: var(--muted); font-size: 12px; }
+    .prog-bar { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 99px; transition: width 1s ease; }
+
+    /* ── Quiz table ──────────────────────────────────── */
+    .score-chip {
+      font-family: var(--font-head); font-size: 13px; font-weight: 700;
+      padding: 2px 9px; border-radius: 6px;
+      background: rgba(62,207,176,.12); color: var(--accent3);
     }
 
-    .card:hover {
-        transform: translateY(-5px); /* Slight lift on hover */
-        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1); /* Add shadow effect on hover */
+    /* ── Toast ───────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 28px; right: 28px; z-index: 9999;
+      background: var(--surface); border: 1px solid var(--border);
+      padding: 14px 20px; border-radius: 12px;
+      font-size: 14px; display: flex; align-items: center; gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      transform: translateY(80px); opacity: 0;
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+      pointer-events: none;
     }
-</style>
+    #toast.show { transform: translateY(0); opacity: 1; }
+    #toast i { color: var(--success); }
 
-
-
-
-
-
-
-
-                        
-                        <div class="row">
-    <div class="col-md-12">
-        <div class="main-card mb-3 card">
-            <div class="card-header">Magic Story Daily Active Users
-                <div class="btn-actions-pane-right"></div>
-            </div>
-            <div class="table-responsive" style="
-                max-height: 400px; 
-                overflow-y: auto; 
-                scrollbar-width: thin; 
-                scrollbar-color: #888 #f1f1f1;">
-                <table class="align-middle mb-0 table table-borderless table-striped table-hover">
-                    <thead>
-                        <tr>
-                            <th class="text-center">#</th>
-                            <th>Username</th>
-                            <th class="text-center">Email</th>
-                            <th class="text-center">Password (Encrypted)</th>
-                            <th class="text-center">Status</th>
-                            <th class="text-center">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${usersTable}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-
-
-
-
-
-                        
-
-
-<style>
-  /* Gradient Shiny Light Theme with White Shades and Light Colors */
-  .custom-card {
-    background: linear-gradient(145deg, #ffffff, #f7f7f7, #e6e6e6); /* Soft white gradient shades */
-    border-radius: 15px; /* Rounded corners */
-    box-shadow: 0px 4px 20px rgba(255, 255, 255, 0.5); /* Shiny white shadow effect */
-    transition: box-shadow 0.3s ease-in-out; /* Smooth hover animation */
-  }
-
-  /* Hover Effect */
-  .custom-card:hover {
-    box-shadow: 0px 6px 25px rgba(255, 255, 255, 0.7); /* More pronounced white shadow on hover */
-  }
-
-  /* Header Style */
-  .custom-card-header {
-    background-color: #ffffff; /* Pure white background for the header */
-    border-bottom: 2px solid #f0f0f0; /* Light grey border for separation */
-    padding: 20px;
-    border-top-left-radius: 15px; /* Rounded top-left corner */
-    border-top-right-radius: 15px; /* Rounded top-right corner */
-    box-shadow: 0px 2px 5px rgba(255, 255, 255, 0.3); /* Light shadow for floating effect */
-    display: flex;
-    align-items: center;
-  }
-
-  /* Icon and Title Style */
-  .custom-card-header-title {
-    font-size: 1.25rem;
-    font-weight: bold;
-    margin-left: 15px;
-    color: #333; /* Darker color for text for better contrast */
-  }
-
-  /* Body of the Card */
-  .custom-card-body {
-    background-color: #ffffff; /* White background for the body */
-    padding: 25px;
-    border-bottom-left-radius: 15px; /* Rounded bottom-left corner */
-    border-bottom-right-radius: 15px; /* Rounded bottom-right corner */
-  }
-
-  /* Colorful Gradient on Icons */
-  .icon-gradient {
-    background: linear-gradient(45deg, #ff6b6b, #ffb3b3, #ffdb99); /* Soft, colorful gradient */
-    -webkit-background-clip: text;
-    color: transparent;
-  }
-
-  /* Layout for the Dashboard */
-  .dashboard-row {
-    display: flex;
-    flex-wrap: wrap; /* Wrap content in a row-wise manner */
-    justify-content: space-around; /* Evenly space the cards */
-  }
-
-  .col-md-12, .col-lg-6 {
-    width: 48%; /* Set width to 48% for the cards */
-    margin-bottom: 20px; /* Add some space between the cards */
-  }
-
-  /* Ensure it works well on smaller screens */
-  @media (max-width: 768px) {
-    .col-md-12, .col-lg-6 {
-      width: 100%; /* Stack cards vertically on small screens */
+    /* ── Responsive ──────────────────────────────────── */
+    @media (max-width: 768px) {
+      .sidebar { position: fixed; left: 0; top: 0; height: 100%; transform: translateX(-100%); }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .content { padding: 18px; }
+      .header { padding: 0 16px; }
     }
-  }
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .breadcrumb { display: none; }
+    }
 
-  /* Scrollable area for overflow content */
-  .scroll-area-small {
-    max-height: 200px;
-    overflow-y: auto;
-    margin-top: 20px;
-  }
+    /* ── Mobile overlay ──────────────────────────────── */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99; }
+    .overlay.active { display: block; }
 
-  /* Text styles */
-  .text-muted {
-    color: #6c757d !important;
-  }
+    /* ── Animations ──────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp .45s ease both; }
+    .delay-1 { animation-delay: .05s; }
+    .delay-2 { animation-delay: .1s; }
+    .delay-3 { animation-delay: .15s; }
+    .delay-4 { animation-delay: .2s; }
 
-  .text-uppercase {
-    text-transform: uppercase;
-  }
-
-  .font-size-md {
-    font-size: 1rem;
-  }
-
-  .opacity-5 {
-    opacity: 0.5;
-  }
-
-  .font-weight-normal {
-    font-weight: normal;
-  }
-</style>
-
-<div class="dashboard-row">
-  <!-- First Graph: Quiz Statistics -->
-  <div class="col-md-12 col-lg-6">
-    <div class="mb-3 custom-card">
-      <div class="custom-card-header">
-        <i class="icon-header lnr-apartment icon-gradient"></i>
-        <div class="custom-card-header-title">Magic Story User Statistics</div>
-      </div>
-      <div class="custom-card-body">
-        <canvas id="salesChartCanvas" width="auto" height="300"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- Second Graph: Quiz Comparison -->
-<div class="col-md-12 col-lg-6">
-  <div class="mb-3 custom-card">
-    <div class="custom-card-header">
-      <i class="icon-header lnr-pie-chart icon-gradient"></i>
-      <div class="custom-card-header-title">Magic Story Engagement Comparison</div>
-    </div>
-    <div class="custom-card-body">
-      <canvas id="comparisonChartCanvas" width="auto" height="200"></canvas>
-    </div>
-  </div>
-</div>
-
-
-<!-- Include Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    /* ── Login page ──────────────────────────────────── */
+    .login-wrap {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+      background-image: radial-gradient(ellipse at 20% 50%, rgba(124,92,252,.12) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 20%, rgba(232,93,138,.1) 0%, transparent 55%);
+    }
+    .login-box {
+      width: 100%; max-width: 420px; padding: 0 20px;
+    }
+    .login-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 40px 36px;
+      animation: fadeUp .5s ease both;
+    }
+    .login-logo {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; margin-bottom: 22px;
+    }
+    .login-title { font-family: var(--font-head); font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+    .login-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 7px; }
+    .form-input {
+      width: 100%; padding: 11px 14px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; color: var(--text);
+      font-family: var(--font-body); font-size: 14px; outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,252,.15); }
+    .form-input::placeholder { color: var(--muted); }
+    .submit-btn {
+      width: 100%; padding: 13px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; border: none; border-radius: 10px;
+      font-family: var(--font-body); font-size: 15px; font-weight: 600;
+      margin-top: 6px; transition: opacity .2s, transform .15s;
+    }
+    .submit-btn:hover { opacity: .9; transform: translateY(-1px); }
+    .error-msg { color: var(--danger); font-size: 13px; margin-top: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+${bodyContent}
+<div id="toast"><i class="fas fa-check-circle"></i><span id="toast-msg"></span></div>
 <script>
-  // Dynamic chart data for salesChartCanvas
-  const ctx1 = document.getElementById('salesChartCanvas').getContext('2d');
-  const chartData1 = ${JSON.stringify(chartData1)};
-  const salesChart = new Chart(ctx1, {
-    type: 'bar', // Type of chart
-    data: chartData1, // Data for the chart
-    options: {
-      responsive: true,
-      animation: {
-        duration: 1000, // Animation duration
-        easing: 'easeOutBounce' // Animation type
-      },
-      scales: {
-        y: { beginAtZero: true }
-      },
-      plugins: {
-        legend: { position: 'top' },
-        tooltip: { callbacks: { label: function(tooltipItem) { return tooltipItem.raw; } } }
+  // ── Sidebar toggle ────────────────────────────────
+  const sidebar   = document.getElementById('sidebar');
+  const overlay   = document.getElementById('overlay');
+  const toggleBtn = document.getElementById('toggleBtn');
+  if (toggleBtn && sidebar) {
+    toggleBtn.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        sidebar.classList.toggle('mobile-open');
+        overlay && overlay.classList.toggle('active');
+      } else {
+        sidebar.classList.toggle('collapsed');
       }
-    }
-  });
+    });
+    overlay && overlay.addEventListener('click', () => {
+      sidebar.classList.remove('mobile-open');
+      overlay.classList.remove('active');
+    });
+  }
 
-  // Dynamic chart data for comparisonChartCanvas
-  document.addEventListener("DOMContentLoaded", () => {
-    const ctx = document.getElementById("comparisonChartCanvas");
+  // ── Live search in user table ─────────────────────
+  const searchInput = document.getElementById('userSearch');
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      const q = this.value.toLowerCase();
+      document.querySelectorAll('#usersBody tr').forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+      document.getElementById('tableCount').textContent =
+        [...document.querySelectorAll('#usersBody tr')].filter(r => r.style.display !== 'none').length + ' users';
+    });
+  }
 
-    new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: ["Detected Errors", "Resolved Errors", "Unresolved", "API Scans", "User Activity"],
-        datasets: [
-          {
-            label: "This Month",
-            data: [120, 90, 30, 220, 150], // Dummy values
-            backgroundColor: "rgba(54, 162, 235, 0.6)",
-            borderColor: "rgba(54, 162, 235, 1)",
-            borderWidth: 2,
-            borderRadius: 8
-          },
-          {
-            label: "Last Month",
-            data: [100, 70, 20, 180, 130], // Dummy values
-            backgroundColor: "rgba(255, 99, 132, 0.6)",
-            borderColor: "rgba(255, 99, 132, 1)",
-            borderWidth: 2,
-            borderRadius: 8
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        plugins: {
-          legend: {
-            position: "top",
-          },
-          title: {
-            display: true,
-            text: "Engagement Comparison (Dummy Data)",
-            font: { size: 16 },
-          },
-        },
-        scales: {
-          y: { beginAtZero: true },
-        },
-      },
+  // ── Toast ─────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ── Confirm delete ────────────────────────────────
+  document.querySelectorAll('.del-form').forEach(f => {
+    f.addEventListener('submit', e => {
+      if (!confirm('Delete this user? This cannot be undone.')) e.preventDefault();
     });
   });
 </script>
+</body>
+</html>`;
 
+const sidebarNav = (active) => `
+<div class="overlay" id="overlay"></div>
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-logo">✨</div>
+    <div class="sidebar-logo-text">Magic Story</div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-title">Main</div>
+    <a href="/home" class="nav-item ${active === 'home' ? 'active' : ''}">
+      <i class="fas fa-chart-pie"></i><span class="nav-label">Dashboard</span>
+    </a>
+    <a href="/users" class="nav-item ${active === 'users' ? 'active' : ''}">
+      <i class="fas fa-users"></i><span class="nav-label">Users</span>
+    </a>
+    
+    <div class="nav-section-title">System</div>
+    <a href="/servers" class="nav-item ${active === 'servers' ? 'active' : ''}">
+      <i class="fas fa-server"></i><span class="nav-label">Servers</span>
+    </a>
+    <a href="/logout" class="nav-item" onclick="return confirmLogout(event)">
+  <i class="fas fa-sign-out-alt"></i>
+  <span class="nav-label">Logout</span>
+</a>
+<script>
+  function confirmLogout(event) {
+    event.preventDefault(); // stop immediate redirect
 
+    const confirmAction = confirm("Are you sure you want to logout?");
 
-                            <div>
-    <div class="mb-3 card">
-        <div class="card-header-tab card-header">
-            <div class="card-header-title">
-                <i class="header-icon lnr-rocket icon-gradient bg-tempting-azure"> </i>
-                Magic Story Server Status
-            </div>
-            <div class="btn-actions-pane-right">
-                <div class="nav">
-                    <a href="javascript:void(0);" class="border-0 btn-pill btn-wide btn-transition active btn btn-outline-alternate">Server Statistics</a>
-                    <a href="javascript:void(0);" class="ml-1 btn-pill btn-wide border-0 btn-transition  btn btn-outline-alternate second-tab-toggle-alt">Server Performance</a>
-                </div>
-            </div>
-        </div>
-        <div class="tab-content">
-            <div class="tab-pane fade active show" id="tab-eg-55">
-                <div class="widget-chart p-3">
-                    <div style="height: 350px">
-                        <canvas id="line-chart"></canvas>
-                    </div>
-                    <div class="widget-chart-content text-center mt-5">
-                        <div class="widget-description mt-0 text-warning">
-                            <i class="fa fa-arrow-left"></i>
-                            <span class="pl-1">85%</span>
-                            <span class="text-muted opacity-8 pl-1">Average Server Performance</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="pt-2 card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="widget-content">
-                                <div class="widget-content-outer">
-                                    <div class="widget-content-wrapper">
-                                        <div class="widget-content-left">
-                                            <div class="widget-numbers fsize-3 text-muted">92%</div>
-                                        </div>
-                                        <div class="widget-content-right">
-                                            <div class="text-muted opacity-6">Backup Ratio Since 30 Days</div>
-                                        </div>
-                                    </div>
-                                    <div class="widget-progress-wrapper mt-1">
-                                        <div class="progress-bar-sm progress-bar-animated-alt progress">
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="92" aria-valuemin="0" aria-valuemax="100" style="width: 92%;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="widget-content">
-                                <div class="widget-content-outer">
-                                    <div class="widget-content-wrapper">
-                                        <div class="widget-content-left">
-                                            <div class="widget-numbers fsize-3 text-muted">8%</div>
-                                        </div>
-                                        <div class="widget-content-right">
-                                            <div class="text-muted opacity-6">Shutdown Ratio</div>
-                                        </div>
-                                    </div>
-                                    <div class="widget-progress-wrapper mt-1">
-                                        <div class="progress-bar-sm progress-bar-animated-alt progress">
-                                            <div class="progress-bar bg-danger" role="progressbar" aria-valuenow="8" aria-valuemin="0" aria-valuemax="100" style="width: 8%;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="widget-content">
-                                <div class="widget-content-outer">
-                                    <div class="widget-content-wrapper">
-                                        <div class="widget-content-left">
-                                            <div class="widget-numbers fsize-3 text-muted">95%</div>
-                                        </div>
-                                        <div class="widget-content-right">
-                                            <div class="text-muted opacity-6">Server Speed Ratio</div>
-                                        </div>
-                                    </div>
-                                    <div class="widget-progress-wrapper mt-1">
-                                        <div class="progress-bar-sm progress-bar-animated-alt progress">
-                                            <div class="progress-bar bg-primary" role="progressbar" aria-valuenow="95" aria-valuemin="0" aria-valuemax="100" style="width: 95%;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="widget-content">
-                                <div class="widget-content-outer">
-                                    <div class="widget-content-wrapper">
-                                        <div class="widget-content-left">
-                                            <div class="widget-numbers fsize-3 text-muted">60%</div>
-                                        </div>
-                                        <div class="widget-content-right">
-                                            <div class="text-muted opacity-6">Average Time Ratio</div>
-                                        </div>
-                                    </div>
-                                    <div class="widget-progress-wrapper mt-1">
-                                        <div class="progress-bar-sm progress-bar-animated-alt progress">
-                                            <div class="progress-bar bg-warning" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: 60%;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="tab-pane fade" id="tab-eg-56">
-                <div class="widget-chart p-3">
-                    <div class="text-center">
-                        <h5>Quiz Performance Overview</h5>
-                        <div style="height: 300px">
-                            <canvas id="performance-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-                <div class="pt-2 card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="widget-content">
-                                <div class="widget-content-outer">
-                                    <div class="widget-content-wrapper">
-                                        <div class="widget-content-left">
-                                            <div class="widget-numbers fsize-3 text-muted">78%</div>
-                                        </div>
-                                        <div class="widget-content-right">
-                                            <div class="text-muted opacity-6">Passed Quizzes</div>
-                                        </div>
-                                    </div>
-                                    <div class="widget-progress-wrapper mt-1">
-                                        <div class="progress-bar-sm progress-bar-animated-alt progress">
-                                            <div class="progress-bar bg-success" role="progressbar" aria-valuenow="78" aria-valuemin="0" aria-valuemax="100" style="width: 78%;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="widget-content">
-                                <div class="widget-content-outer">
-                                    <div class="widget-content-wrapper">
-                                        <div class="widget-content-left">
-                                            <div class="widget-numbers fsize-3 text-muted">22%</div>
-                                        </div>
-                                        <div class="widget-content-right">
-                                            <div class="text-muted opacity-6">Failed Quizzes</div>
-                                        </div>
-                                    </div>
-                                    <div class="widget-progress-wrapper mt-1">
-                                        <div class="progress-bar-sm progress-bar-animated-alt progress">
-                                            <div class="progress-bar bg-danger" role="progressbar" aria-valuenow="22" aria-valuemin="0" aria-valuemax="100" style="width: 22%;"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    if (confirmAction) {
+      window.location.href = "/logout"; // proceed
+    }
+
+    return false;
+  }
+</script>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="sidebar-user-avatar">A</div>
+      <div class="sidebar-user-info">
+        <div class="name">Admin</div>
+        <div class="role">Super Admin</div>
+      </div>
     </div>
-</div>
+  </div>
+</div>`;
 
+const header = (title, sub) => `
+<div class="header">
+  <div class="header-left">
+    <button class="toggle-btn" id="toggleBtn"><i class="fas fa-bars"></i></button>
+    <div class="breadcrumb">Magic Story &rsaquo; <span>${title}</span></div>
+  </div>
+  <div class="header-right">
+    <button class="header-icon-btn"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
+    <button class="header-icon-btn"><i class="fas fa-cog"></i></button>
+    <a href="/logout" class="logout-btn"  onclick="return confirmLogout(event)"><i class="fas fa-sign-out-alt"></i>Logout</a>
 
-<div class="app-wrapper-footer">
-                        <div class="app-footer">
-                            <div class="app-footer__inner">
-                                <div class="app-footer-left">
-                                    <ul class="nav">
-                                        <li class="nav-item">
-                                            <a href="javascript:void(0);" class="nav-link">
-                                                Magic Story Private Limited
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="javascript:void(0);" class="nav-link">
-                                                Developed By Magic Story
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </div>
-                                <div class="app-footer-right">
-                                    <ul class="nav">
-                                        <li class="nav-item">
-                                            <a href="javascript:void(0);" class="nav-link">
-                                                Where Technology Meet Revolution
-                                            </a>
-                                        </li>
-                                        <li class="nav-item">
-                                            <a href="javascript:void(0);" class="nav-link">
-                                                <div class="badge badge-success mr-1 ml-0">
-                                                    <small>1.0 Version</small>
-                                                </div>
-                                                Beta Version
-                                            </a>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>    </div>
+  <i class="fas fa-sign-out-alt"></i>
+  <span class="nav-label">Logout</span>
+</a>
+<script>
+  function confirmLogout(event) {
+    event.preventDefault(); // stop immediate redirect
 
-                    
-                <script src="http://maps.google.com/maps/api/js?sensor=true"></script>
+    const confirmAction = confirm("Are you sure you want to logout?");
+
+    if (confirmAction) {
+      window.location.href = "/logout"; // proceed
+    }
+
+    return false;
+  }
+</script>
+  </div>
+</div>`;
+
+// ─── Auth guard ────────────────────────────────────────────────────────────────
+// Simple cookie-based session (no express-session dep; lightweight)
+const sessions = new Set();
+function requireAuth(req, res, next) {
+  const cookie = req.headers.cookie || '';
+  const sid = cookie.split(';').map(c => c.trim()).find(c => c.startsWith('sid='));
+  if (sid && sessions.has(sid.split('=')[1])) return next();
+  res.redirect('/');
+}
+
+// ─── Routes ────────────────────────────────────────────────────────────────────
+
+// LOGIN PAGE
+app.get('/', (req, res) => {
+  const error = req.query.error ? '<p class="error-msg"><i class="fas fa-exclamation-circle"></i> Invalid username or password.</p>' : '';
+  res.send(getShell('Login', `
+    <div class="login-wrap">
+      <div class="login-box">
+        <div class="login-card">
+          <div class="login-logo">✨</div>
+          <div class="login-title">Welcome back</div>
+          <div class="login-sub">Sign in to Magic Story Admin Panel</div>
+          <form action="/login" method="POST">
+            <div class="form-group">
+              <label class="form-label">Username</label>
+              <input class="form-input" type="text" name="username" placeholder="Enter username" required autofocus/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input class="form-input" type="password" name="password" placeholder="Enter password" required/>
+            </div>
+            <button class="submit-btn" type="submit">Sign In</button>
+            ${error}
+          </form>
         </div>
+      </div>
     </div>
-<script type="text/javascript" src="https://demo.dashboardpack.com/architectui-html-free/assets/scripts/main.js"></script></body>
-</html>
+  `));
+});
 
-  `);
-  } catch (error) {
-    console.error(error);
+// LOGIN POST
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  if (username === (process.env.ADMIN_USERNAME || 'admin') &&
+      password === (process.env.ADMIN_PASSWORD || 'admin123')) {
+    const sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    sessions.add(sid);
+    res.setHeader('Set-Cookie', `sid=${sid}; Path=/; HttpOnly; SameSite=Lax`);
+    return res.redirect('/home');
+  }
+  res.redirect('/?error=1');
+});
+
+// LOGOUT
+app.get('/logout', (req, res) => {
+  const cookie = req.headers.cookie || '';
+  const sid = cookie.split(';').map(c => c.trim()).find(c => c.startsWith('sid='));
+  if (sid) sessions.delete(sid.split('=')[1]);
+  res.setHeader('Set-Cookie', 'sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
+  res.redirect('/');
+});
+
+// ── DASHBOARD (HOME) ───────────────────────────────────────────────────────────
+app.get('/home', requireAuth, async (req, res) => {
+  try {
+    const users         = await User.find();
+    const totalUsers    = users.length;
+    const basicCount    = await Quiz.countDocuments({ BasicQuiz: true });
+    const advanceCount  = await Quiz.countDocuments({ AdvanceQuiz: { $ne: null } });
+
+    const body = `
+    <div class="layout">
+      ${sidebarNav('home')}
+      <div class="main">
+        ${header('Dashboard', 'Overview')}
+        <div class="content">
+          <div class="page-title fade-up">Dashboard</div>
+          <div class="page-subtitle fade-up delay-1">Welcome back, Admin — here's what's happening with Magic Story.</div>
+
+          <!-- Stat Cards -->
+          <div class="stats-grid">
+            <div class="stat-card purple fade-up delay-1">
+              <div class="stat-glow"></div>
+              <div class="stat-icon"><i class="fas fa-users"></i></div>
+              <div class="stat-value">${totalUsers}</div>
+              <div class="stat-label">Total Users</div>
+              <div class="stat-trend up"><i class="fas fa-arrow-up"></i> Live from DB</div>
+            </div>
+            <div class="stat-card pink fade-up delay-2">
+              <div class="stat-glow"></div>
+              <div class="stat-icon"><i class="fas fa-book-open"></i></div>
+              <div class="stat-value">${basicCount}</div>
+              <div class="stat-label">Basic Quizzes</div>
+              <div class="stat-trend up"><i class="fas fa-arrow-up"></i> Completed</div>
+            </div>
+            <div class="stat-card teal fade-up delay-3">
+              <div class="stat-glow"></div>
+              <div class="stat-icon"><i class="fas fa-brain"></i></div>
+              <div class="stat-value">${advanceCount}</div>
+              <div class="stat-label">Advanced Quizzes</div>
+              <div class="stat-trend up"><i class="fas fa-arrow-up"></i> Completed</div>
+            </div>
+            <div class="stat-card amber fade-up delay-4">
+              <div class="stat-glow"></div>
+              <div class="stat-icon"><i class="fas fa-server"></i></div>
+              <div class="stat-value">3</div>
+              <div class="stat-label">Active Servers</div>
+              <div class="stat-trend up"><i class="fas fa-circle" style="font-size:7px"></i> All Online</div>
+            </div>
+          </div>
+
+          <!-- Charts -->
+          <div class="charts-grid">
+            <div class="card fade-up delay-2">
+              <div class="card-header">
+                <div class="card-title"><i class="fas fa-chart-bar"></i>User Statistics</div>
+              </div>
+              <div class="card-body">
+                <canvas id="barChart" height="220"></canvas>
+              </div>
+            </div>
+            <div class="card fade-up delay-3">
+              <div class="card-header">
+                <div class="card-title"><i class="fas fa-chart-doughnut"></i>Quiz Distribution</div>
+              </div>
+              <div class="card-body">
+                <canvas id="doughnutChart" height="220"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Server Status -->
+          <div class="card fade-up delay-4">
+            <div class="card-header">
+              <div class="card-title"><i class="fas fa-server"></i>Server Health</div>
+            </div>
+            <div class="card-body">
+              <div class="prog-list">
+                <div class="prog-row">
+                  <div class="prog-meta"><span class="prog-label">Backup Ratio</span><span class="prog-val">92%</span></div>
+                  <div class="prog-bar"><div class="prog-fill" style="width:92%;background:var(--success)"></div></div>
+                </div>
+                <div class="prog-row">
+                  <div class="prog-meta"><span class="prog-label">Server Speed</span><span class="prog-val">95%</span></div>
+                  <div class="prog-bar"><div class="prog-fill" style="width:95%;background:var(--accent)"></div></div>
+                </div>
+                <div class="prog-row">
+                  <div class="prog-meta"><span class="prog-label">Average Uptime</span><span class="prog-val">60%</span></div>
+                  <div class="prog-bar"><div class="prog-fill" style="width:60%;background:var(--warning)"></div></div>
+                </div>
+                <div class="prog-row">
+                  <div class="prog-meta"><span class="prog-label">Shutdown Ratio</span><span class="prog-val">8%</span></div>
+                  <div class="prog-bar"><div class="prog-fill" style="width:8%;background:var(--danger)"></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Bar Chart
+      new Chart(document.getElementById('barChart'), {
+        type: 'bar',
+        data: {
+          labels: ['Total Users','Basic Quiz','Advanced Quiz'],
+          datasets: [{
+            label: 'Count',
+            data: [${totalUsers}, ${basicCount}, ${advanceCount}],
+            backgroundColor: ['rgba(124,92,252,.7)','rgba(232,93,138,.7)','rgba(62,207,176,.7)'],
+            borderColor:      ['#7c5cfc','#e85d8a','#3ecfb0'],
+            borderWidth: 2, borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true, animation: { duration: 900, easing: 'easeOutQuart' },
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#6b7280' } },
+            x: { grid: { display: false }, ticks: { color: '#6b7280' } }
+          }
+        }
+      });
+      // Doughnut Chart
+      new Chart(document.getElementById('doughnutChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Basic Quiz','Advanced Quiz','No Quiz'],
+          datasets: [{
+            data: [${basicCount}, ${advanceCount}, Math.max(0, ${totalUsers} - ${basicCount})],
+            backgroundColor: ['rgba(124,92,252,.8)','rgba(232,93,138,.8)','rgba(255,255,255,.08)'],
+            borderColor: ['#7c5cfc','#e85d8a','transparent'],
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true, cutout: '68%',
+          plugins: { legend: { labels: { color: '#6b7280', padding: 16 } } }
+        }
+      });
+    </script>`;
+
+    res.send(getShell('Dashboard', body, 'home'));
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error loading dashboard');
+  }
+});
+
+// ── USERS PAGE ─────────────────────────────────────────────────────────────────
+app.get('/users', requireAuth, async (req, res) => {
+  try {
+    const users = await User.find().sort({ createdAt: -1 });
+
+    const rows = users.map((u, i) => {
+      const initials = (u.name || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+      const halfPass = u.password ? u.password.slice(0, Math.ceil(u.password.length / 2)) + '••••' : 'N/A';
+      return `
+      <tr>
+        <td style="color:var(--muted);font-size:12px">${i + 1}</td>
+        <td>
+          <div class="avatar-cell">
+            <div class="avatar">${initials}</div>
+            <div>
+              <div class="user-name">${u.name || '—'}</div>
+              <div class="user-email">${u.email || '—'}</div>
+            </div>
+          </div>
+        </td>
+        <td class="pass-cell">${halfPass}</td>
+        <td><span class="pill active"><i class="fas fa-circle" style="font-size:6px"></i>Active</span></td>
+        <td>
+          <form class="del-form" action="/delete-user/${u._id}" method="POST">
+            <button class="btn-del" type="submit"><i class="fas fa-trash-alt"></i> Delete</button>
+          </form>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const body = `
+    <div class="layout">
+      ${sidebarNav('users')}
+      <div class="main">
+        ${header('Users', 'Manage')}
+        <div class="content">
+          <div class="page-title fade-up">Users</div>
+          <div class="page-subtitle fade-up delay-1">Manage all registered Magic Story users.</div>
+          <div class="card fade-up delay-2">
+            <div class="table-toolbar">
+              <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input id="userSearch" type="text" placeholder="Search by name or email…"/>
+              </div>
+              <div class="table-count" id="tableCount">${users.length} users</div>
+            </div>
+            <div class="table-wrap card-body no-pad">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th><th>User</th><th>Password (partial)</th><th>Status</th><th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="usersBody">${rows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    res.send(getShell('Users', body, 'users'));
+  } catch (err) {
     res.status(500).send('Error fetching users');
   }
 });
 
-// Logout Route
-app.get('/logout', (req, res) => {
-  res.send(`
-    <script>
-      if (confirm('Are you sure you want to log out?')) {
-        localStorage.removeItem('loggedIn');
-        localStorage.removeItem('username');
-        window.location.href = '/';
-      } else {
-        window.location.href = '/home';  // Redirect back to the home page if canceled
-      }
-    </script>
-  `);
+// ── QUIZ PAGE ──────────────────────────────────────────────────────────────────
+app.get('/quiz', requireAuth, async (req, res) => {
+  try {
+    const quizzes = await Quiz.find();
+
+    const rows = quizzes.map((q, i) => `
+      <tr>
+        <td style="color:var(--muted);font-size:12px">${i + 1}</td>
+        <td>${q.email}</td>
+        <td><span class="pill ${q.BasicQuiz ? 'yes' : 'no'}">${q.BasicQuiz ? 'Yes' : 'No'}</span></td>
+        <td>${q.BasicQuizMarks !== null ? `<span class="score-chip">${q.BasicQuizMarks}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+        <td><span class="pill ${q.AdvanceQuiz ? 'yes' : 'no'}">${q.AdvanceQuiz ? 'Yes' : 'No'}</span></td>
+        <td>${q.AdvanceQuizMarks !== null ? `<span class="score-chip">${q.AdvanceQuizMarks}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
+      </tr>`).join('');
+
+    const body = `
+    <div class="layout">
+      ${sidebarNav('quiz')}
+      <div class="main">
+        ${header('Quiz Results', 'Review')}
+        <div class="content">
+          <div class="page-title fade-up">Quiz Results</div>
+          <div class="page-subtitle fade-up delay-1">View all user quiz attempts and scores.</div>
+          <div class="card fade-up delay-2">
+            <div class="table-toolbar">
+              <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input id="userSearch" type="text" placeholder="Search by email…"/>
+              </div>
+              <div class="table-count" id="tableCount">${quizzes.length} records</div>
+            </div>
+            <div class="table-wrap card-body no-pad">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th><th>Email</th><th>Basic Quiz</th><th>Basic Score</th><th>Advanced Quiz</th><th>Advanced Score</th>
+                  </tr>
+                </thead>
+                <tbody id="usersBody">${rows}</tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+    res.send(getShell('Quiz Results', body, 'quiz'));
+  } catch (err) {
+    res.status(500).send('Error fetching quiz data');
+  }
 });
 
-// Export instead of listen
+// ── SERVERS PAGE ───────────────────────────────────────────────────────────────
+app.get('/servers', requireAuth, (req, res) => {
+  const servers = [
+    { name: 'Production Server', region: 'US-East', status: 'online', uptime: '99.9%', load: '34%', latency: '18ms' },
+    { name: 'Staging Server',    region: 'EU-West', status: 'online', uptime: '98.2%', load: '12%', latency: '42ms' },
+    { name: 'Backup Server',     region: 'AP-South', status: 'online', uptime: '97.1%', load: '5%',  latency: '91ms' },
+  ];
+
+  const rows = servers.map((s, i) => `
+    <tr>
+      <td style="color:var(--muted);font-size:12px">${i + 1}</td>
+      <td><strong>${s.name}</strong></td>
+      <td><span style="color:var(--muted)">${s.region}</span></td>
+      <td><span class="pill active"><i class="fas fa-circle" style="font-size:6px"></i>${s.status}</span></td>
+      <td>${s.uptime}</td>
+      <td>${s.load}</td>
+      <td>${s.latency}</td>
+    </tr>`).join('');
+
+  const body = `
+  <div class="layout">
+    ${sidebarNav('servers')}
+    <div class="main">
+      ${header('Servers', 'Monitor')}
+      <div class="content">
+        <div class="page-title fade-up">Server Monitor</div>
+        <div class="page-subtitle fade-up delay-1">Real-time overview of all Magic Story servers.</div>
+
+        <div class="stats-grid fade-up delay-1">
+          <div class="stat-card teal">
+            <div class="stat-glow"></div>
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-value">3/3</div>
+            <div class="stat-label">Servers Online</div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-glow"></div>
+            <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
+            <div class="stat-value">18ms</div>
+            <div class="stat-label">Best Latency</div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-glow"></div>
+            <div class="stat-icon"><i class="fas fa-microchip"></i></div>
+            <div class="stat-value">34%</div>
+            <div class="stat-label">Peak CPU Load</div>
+          </div>
+        </div>
+
+        <div class="card fade-up delay-2">
+          <div class="card-header">
+            <div class="card-title"><i class="fas fa-server"></i>All Servers</div>
+          </div>
+          <div class="table-wrap card-body no-pad">
+            <table>
+              <thead>
+                <tr><th>#</th><th>Name</th><th>Region</th><th>Status</th><th>Uptime</th><th>CPU Load</th><th>Latency</th></tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  res.send(getShell('Servers', body, 'servers'));
+});
+
+// ── DELETE USER ────────────────────────────────────────────────────────────────
+app.post('/delete-user/:id', requireAuth, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.redirect('/users');
+  } catch (err) {
+    res.status(500).send('Failed to delete user');
+  }
+});
+
+// ─── Start ─────────────────────────────────────────────────────────────────────
+// app.listen(PORT, () => console.log(`🚀 Magic Story Admin running on http://localhost:${PORT}`));
+
 module.exports = app;
