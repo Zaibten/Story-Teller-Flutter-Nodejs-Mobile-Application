@@ -29,6 +29,7 @@ dependencies:
   audioplayers: ^5.2.1
   cached_network_image: ^3.3.1
   flutter_tts: ^3.8.5
+  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:
@@ -51,6 +52,7 @@ flutter:
     - assets/images/
     - assets/sounds/
     - assets/data/story.json
+    - assets/data/links.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware
