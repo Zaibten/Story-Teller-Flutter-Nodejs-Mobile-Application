@@ -265,7 +265,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   final _ctrl = TextEditingController();
   final _tts  = FlutterTts();
   final _rng  = Random();
-  static const _base = 'http://192.168.100.177:9000';
+  static const _base = 'https://magicstoryserver.vercel.app';
 
 
    late AnimationController _bounceController;

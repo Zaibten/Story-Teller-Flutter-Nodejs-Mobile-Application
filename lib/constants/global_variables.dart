@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 // String uri = 'http://192.168.100.37:9000';
 // String uri = 'https://code-sync-server-kappa.vercel.app';
-String uri = 'http://192.168.100.177:9000';
+String uri = 'https://magicstoryserver.vercel.app';
 
 class GlobalVariables {
   // COLORS
