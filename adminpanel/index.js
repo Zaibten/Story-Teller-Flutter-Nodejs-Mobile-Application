@@ -493,7 +493,10 @@ const sidebarNav = (active) => `
 <div class="overlay" id="overlay"></div>
 <div class="sidebar" id="sidebar">
   <div class="sidebar-brand">
-    <div class="sidebar-logo">✨</div>
+    <div class="sidebar-logo" style="display: flex; align-items: center; justify-content: center; padding: 12px;">
+  <img src="/assets/logo.png" alt="Logo" 
+       style="width: 60px; height: 60px; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+</div>
     <div class="sidebar-logo-text">Magic Story</div>
   </div>
   <nav class="sidebar-nav">
@@ -976,6 +979,4 @@ app.post('/delete-user/:id', requireAuth, async (req, res) => {
 });
 
 // ─── Start ─────────────────────────────────────────────────────────────────────
-// app.listen(PORT, () => console.log(`🚀 Magic Story Admin running on http://localhost:${PORT}`));
-
-module.exports = app;
+app.listen(PORT, () => console.log(`🚀 Magic Story Admin running on http://localhost:${PORT}`));
