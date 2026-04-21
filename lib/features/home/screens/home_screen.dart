@@ -1038,18 +1038,48 @@ Widget _buildHighlightedStory() {
     );
   }
 
+  // ─── Manual tokenizer (no regex) ──────────────────────────────
+  final List<String> tokens = [];
+  final List<int> tokenStarts = []; // start index of each token in _plainStory
+
+  int i = 0;
+  final int len = _plainStory.length;
+
+  while (i < len) {
+    final char = _plainStory[i];
+    final bool isWordChar = _isWordCharacter(char);
+    final bool isSpace = char == ' ';
+
+    if (isSpace) {
+      // Single space token
+      tokens.add(' ');
+      tokenStarts.add(i);
+      i++;
+    } else if (isWordChar) {
+      // Collect consecutive word characters (letters, apostrophe, numbers)
+      final start = i;
+      while (i < len && _isWordCharacter(_plainStory[i])) {
+        i++;
+      }
+      tokens.add(_plainStory.substring(start, i));
+      tokenStarts.add(start);
+    } else {
+      // Punctuation or other symbol – treat as separate token
+      tokens.add(char);
+      tokenStarts.add(i);
+      i++;
+    }
+  }
+
+  // ─── Build spans with highlighting ────────────────────────────
   final List<TextSpan> spans = [];
-  // Split while keeping spaces and words
-  final RegExp splitPattern = RegExp(r'(\w+\'?\w*|\s+|[^\w\s])');
-  final tokens = _plainStory.split(splitPattern).where((t) => t.isNotEmpty).toList();
+  for (int idx = 0; idx < tokens.length; idx++) {
+    final token = tokens[idx];
+    final tokenStart = tokenStarts[idx];
+    final tokenEnd = tokenStart + token.length;
 
-  int currentPos = 0;
-  for (final token in tokens) {
-    final tokenStart = currentPos;
-    final tokenEnd = currentPos + token.length;
-
-    final isHighlighted = (tokenStart >= _highlightStart && tokenStart < _highlightEnd) ||
-                          (tokenEnd > _highlightStart && tokenEnd <= _highlightEnd);
+    final bool isHighlighted = (tokenStart >= _highlightStart && tokenStart < _highlightEnd) ||
+                               (tokenEnd > _highlightStart && tokenEnd <= _highlightEnd);
 
     spans.add(TextSpan(
       text: token,
@@ -1060,16 +1090,13 @@ Widget _buildHighlightedStory() {
         fontSize: 15,
         height: 1.9,
         wordSpacing: 2.5,
-        // subtle shadow for highlighted words
         shadows: isHighlighted
-            ? [const Shadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1))]
+            ? const [Shadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1))]
             : null,
       ),
     ));
-    currentPos += token.length;
   }
 
-  // Wrap with AnimatedSwitcher to get a fade+scale animation when the highlight changes
   return AnimatedSwitcher(
     duration: const Duration(milliseconds: 180),
     switchInCurve: Curves.easeOutCubic,
@@ -1084,12 +1111,21 @@ Widget _buildHighlightedStory() {
       );
     },
     child: RichText(
-      key: ValueKey('$_highlightStart-$_highlightEnd'), // forces rebuild when highlight changes
+      key: ValueKey('$_highlightStart-$_highlightEnd'),
       text: TextSpan(children: spans),
     ),
   );
 }
 
+// Helper: what counts as part of a word (letters, apostrophe, numbers)
+bool _isWordCharacter(String c) {
+  final code = c.codeUnitAt(0);
+  // Letters (A-Z, a-z), apostrophe, numbers
+  return (code >= 65 && code <= 90) ||
+         (code >= 97 && code <= 122) ||
+         code == 39 || // apostrophe
+         (code >= 48 && code <= 57);
+}
 
 
   void _newStory() async {
