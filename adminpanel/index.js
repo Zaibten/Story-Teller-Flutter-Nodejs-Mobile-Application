@@ -22,7 +22,7 @@ app.get('/', (req, res) => {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Code Sync Admin Panel</title>
+      <title>Magic Story Admin Panel</title>
       <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
       <link rel="icon" href="assets/logo.png">
       <style>
@@ -155,7 +155,7 @@ app.get('/', (req, res) => {
       <div id="particles-js"></div>
       <div class="login-container">
         <img src="/assets/logo.png" alt="App Logo" class="logo">
-        <h1>Admin Login</h1>
+        <h1>Magic Story Admin Login</h1>
         <form action="/login" method="POST">
           <input type="text" name="username" placeholder="Username" required>
           <input type="password" name="password" placeholder="Password" required>
@@ -392,7 +392,7 @@ app.get('/home', async (req, res) => {
     <meta http-equiv="Content-Language" content="en">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <link rel="icon" href="assets/logo.png">
-    <title>Code Sync Admin Dashboard - This is an example dashboard created using built-in elements and components.</title>
+    <title>Magic Story Admin Dashboard - This is an example dashboard created using built-in elements and components.</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no" />
     <meta name="description" content="This is an example dashboard created using built-in elements and components.">
     <meta name="msapplication-tap-highlight" content="no">
@@ -418,7 +418,7 @@ app.get('/home', async (req, res) => {
     <div class="app-container app-theme-white body-tabs-shadow fixed-sidebar fixed-header">
         <div class="app-header header-shadow">
             <div class="app-header__logo">
-                <div class="script-font">Code Sync</div>
+                <div class="script-font">Magic Story</div>
                 <div class="header__pane ml-auto">
                     <div>
                         <button type="button" class="hamburger close-sidebar-btn hamburger--elastic" data-class="closed-sidebar">
@@ -476,7 +476,7 @@ app.get('/home', async (req, res) => {
                                         ADMIN
                                     </div>
                                     <div class="widget-subheading">
-                                        Code Sync Admin
+                                        Magic Story Admin
                                     </div>
                                 </div>
                                 <div class="widget-content-right header-user-info ml-3">
@@ -769,7 +769,7 @@ app.get('/home', async (req, res) => {
         </div>        <div class="app-main">
                 <div class="app-sidebar sidebar-shadow">
                     <div class="app-header__logo">
-                         <div class="script-font">Code Sync</div>
+                         <div class="script-font">Magic Story</div>
                         <div class="header__pane ml-auto">
                             <div>
                                 <button type="button" class="hamburger close-sidebar-btn hamburger--elastic" data-class="closed-sidebar">
@@ -834,9 +834,9 @@ app.get('/home', async (req, res) => {
     <i class="fas fa-user-shield icon-gradient bg-mean-fruit"></i>
 </div>
 
-                                    <div>Code Sync Admin Dashboard
+                                    <div>Magic Story Admin Dashboard
 <div class="page-title-subheading">
-  Code Sync is an advanced AI-powered error detection and monitoring platform built with a modern full-stack architecture.
+  Magic Story is an advanced AI-powered error detection and monitoring platform built with a modern full-stack architecture.
 </div>
                                         </div>
                                     </div>
@@ -856,7 +856,7 @@ app.get('/home', async (req, res) => {
             <div class="widget-content-wrapper text-white">
                 <div class="widget-content-left">
                     <div class="widget-heading">Total Users</div>
-                    <div class="widget-subheading">Code Sync Users</div>
+                    <div class="widget-subheading">Magic Story Users</div>
                 </div>
                 <div class="widget-content-right">
                     <div class="widget-numbers text-white"><span>${totalUsers}</span></div>
@@ -891,8 +891,8 @@ app.get('/home', async (req, res) => {
         <div class="card mb-3 widget-content bg-grow-early">
             <div class="widget-content-wrapper text-white">
                 <div class="widget-content-left">
-                    <div class="widget-heading">Code Sync Versions</div>
-                    <div class="widget-subheading">Total Versions Of Code Sync</div>
+                    <div class="widget-heading">Magic Story Versions</div>
+                    <div class="widget-subheading">Total Versions Of Magic Story</div>
                 </div>
                 <div class="widget-content-right">
                     <div class="widget-numbers text-white"><span>21</span></div>
@@ -990,7 +990,7 @@ app.get('/home', async (req, res) => {
                         <div class="row">
     <div class="col-md-12">
         <div class="main-card mb-3 card">
-            <div class="card-header">Code Sync Daily Active Users
+            <div class="card-header">Magic Story Daily Active Users
                 <div class="btn-actions-pane-right"></div>
             </div>
             <div class="table-responsive" style="
@@ -1130,7 +1130,7 @@ app.get('/home', async (req, res) => {
     <div class="mb-3 custom-card">
       <div class="custom-card-header">
         <i class="icon-header lnr-apartment icon-gradient"></i>
-        <div class="custom-card-header-title">Code Sync User Statistics</div>
+        <div class="custom-card-header-title">Magic Story User Statistics</div>
       </div>
       <div class="custom-card-body">
         <canvas id="salesChartCanvas" width="auto" height="300"></canvas>
@@ -1143,7 +1143,7 @@ app.get('/home', async (req, res) => {
   <div class="mb-3 custom-card">
     <div class="custom-card-header">
       <i class="icon-header lnr-pie-chart icon-gradient"></i>
-      <div class="custom-card-header-title">Code Sync Engagement Comparison</div>
+      <div class="custom-card-header-title">Magic Story Engagement Comparison</div>
     </div>
     <div class="custom-card-body">
       <canvas id="comparisonChartCanvas" width="auto" height="200"></canvas>
@@ -1231,7 +1231,7 @@ app.get('/home', async (req, res) => {
         <div class="card-header-tab card-header">
             <div class="card-header-title">
                 <i class="header-icon lnr-rocket icon-gradient bg-tempting-azure"> </i>
-                Code Sync Server Status
+                Magic Story Server Status
             </div>
             <div class="btn-actions-pane-right">
                 <div class="nav">
@@ -1399,12 +1399,12 @@ app.get('/home', async (req, res) => {
                                     <ul class="nav">
                                         <li class="nav-item">
                                             <a href="javascript:void(0);" class="nav-link">
-                                                Code Sync Private Limited
+                                                Magic Story Private Limited
                                             </a>
                                         </li>
                                         <li class="nav-item">
                                             <a href="javascript:void(0);" class="nav-link">
-                                                Developed By Code Sync
+                                                Developed By Magic Story
                                             </a>
                                         </li>
                                     </ul>
@@ -1459,7 +1459,5 @@ app.get('/logout', (req, res) => {
   `);
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Export instead of listen
+module.exports = app;
