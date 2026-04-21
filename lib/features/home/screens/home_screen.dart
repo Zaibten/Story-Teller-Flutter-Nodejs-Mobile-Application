@@ -961,7 +961,7 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
     // NEW: for highlighting the spoken portion
   int _highlightStart = 0;
   int _highlightEnd   = 0;
-  String _plainStory   = '';  
+  String _plainStory   = '';
 
   @override
   void initState() {
@@ -1002,12 +1002,12 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
   });
 
 
-    _textCtrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _textFade  = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeIn));
-    _textSlide = Tween<double>(begin: 28, end: 0).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic));
-    _textCtrl.forward();
-    widget.tts.setCompletionHandler(() { if (mounted) setState(() => _speaking = false); });
-    widget.tts.setErrorHandler((_)    { if (mounted) setState(() => _speaking = false); });
+    // _textCtrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    // _textFade  = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeIn));
+    // _textSlide = Tween<double>(begin: 28, end: 0).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic));
+    // _textCtrl.forward();
+    // widget.tts.setCompletionHandler(() { if (mounted) setState(() => _speaking = false); });
+    // widget.tts.setErrorHandler((_)    { if (mounted) setState(() => _speaking = false); });
   }
 
   @override void dispose() { _textCtrl.dispose(); super.dispose(); }
@@ -1022,41 +1022,76 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
       await widget.tts.speak(clean.isEmpty ? _story : clean);
     }
   }
+
+
+
 Widget _buildHighlightedStory() {
-    if (_plainStory.isEmpty) {
-      return Text(_story, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.82));
-    }
-
-    final List<TextSpan> spans = [];
-    int currentPos = 0;
-
-    final words = _plainStory.split(RegExp(r'(\s+)')).where((w) => w.isNotEmpty).toList();
-
-    for (final word in words) {
-      final wordStart = currentPos;
-      final wordEnd   = currentPos + word.length;
-
-      final isHighlighted = (wordStart >= _highlightStart && wordStart < _highlightEnd) ||
-                            (wordEnd   > _highlightStart && wordEnd <= _highlightEnd);
-
-      spans.add(TextSpan(
-        text: word,
-        style: TextStyle(
-          color: Colors.white,
-          backgroundColor: isHighlighted ? Colors.amber.shade700 : Colors.transparent,
-          fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w400,
-          fontSize: 15,
-          height: 1.82,
-        ),
-      ));
-      currentPos += word.length;
-    }
-
-    return RichText(
-      text: TextSpan(children: spans),
+  if (_plainStory.isEmpty) {
+    return Text(
+      _story,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 15,
+        height: 1.9,
+        wordSpacing: 2.5,
+      ),
     );
   }
-  
+
+  final List<TextSpan> spans = [];
+  // Split while keeping spaces and words
+  final RegExp splitPattern = RegExp(r'(\w+\'?\w*|\s+|[^\w\s])');
+  final tokens = _plainStory.split(splitPattern).where((t) => t.isNotEmpty).toList();
+
+  int currentPos = 0;
+  for (final token in tokens) {
+    final tokenStart = currentPos;
+    final tokenEnd = currentPos + token.length;
+
+    final isHighlighted = (tokenStart >= _highlightStart && tokenStart < _highlightEnd) ||
+                          (tokenEnd > _highlightStart && tokenEnd <= _highlightEnd);
+
+    spans.add(TextSpan(
+      text: token,
+      style: TextStyle(
+        color: Colors.white,
+        backgroundColor: isHighlighted ? Colors.amber.shade700 : Colors.transparent,
+        fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w500,
+        fontSize: 15,
+        height: 1.9,
+        wordSpacing: 2.5,
+        // subtle shadow for highlighted words
+        shadows: isHighlighted
+            ? [const Shadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1))]
+            : null,
+      ),
+    ));
+    currentPos += token.length;
+  }
+
+  // Wrap with AnimatedSwitcher to get a fade+scale animation when the highlight changes
+  return AnimatedSwitcher(
+    duration: const Duration(milliseconds: 180),
+    switchInCurve: Curves.easeOutCubic,
+    switchOutCurve: Curves.easeInCubic,
+    transitionBuilder: (child, animation) {
+      return FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation),
+          child: child,
+        ),
+      );
+    },
+    child: RichText(
+      key: ValueKey('$_highlightStart-$_highlightEnd'), // forces rebuild when highlight changes
+      text: TextSpan(children: spans),
+    ),
+  );
+}
+
+
+
   void _newStory() async {
     await widget.tts.stop();
     setState(() => _speaking = false);
