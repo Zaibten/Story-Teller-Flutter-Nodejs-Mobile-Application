@@ -902,18 +902,18 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                   )),
                 Row(mainAxisSize: MainAxisSize.min, children: [
                   if (!isGenerating)
-                    Text(isReady ? '🎬' : '🎞️', style: const TextStyle(fontSize: 30)),
+                    Text(isReady ? '' : '🎞️', style: const TextStyle(fontSize: 30)),
                   if (!isGenerating) const SizedBox(width: 10),
                   if (isGenerating) const SizedBox(width: 48),
                   Column(mainAxisSize: MainAxisSize.min, children: [
                     Text(
-                      isReady ? '▶  WATCH MY VIDEO!'
+                      isReady ? '  WATCH MY Magic Story!'
                           : isGenerating ? 'Creating your video...' : 'MAKE A VIDEO!',
                       style: ts(isGenerating ? 16 : 19, K.white, fw: FontWeight.w900,
                           sh: [const Shadow(color: Colors.black38, offset: Offset(0, 2), blurRadius: 4)]),
                     ),
                     Text(
-                      isReady ? 'Tap to watch your movie! 🍿'
+                      isReady ? 'Tap to watch your Magic Story! 🍿'
                           : isGenerating ? 'Magic Story is animating the story ✨' : 'Create a comic first!',
                       style: tb(11, isReady ? K.white.withOpacity(.88) : Colors.white54),
                     ),
