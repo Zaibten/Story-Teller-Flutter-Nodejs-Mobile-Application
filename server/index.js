@@ -52,13 +52,13 @@ app.use("/assets", express.static("assets"));
 
 
 // // Connections
-// mongoose.connect(DB)
-//   .then(() => {
-//     console.log('MongoDB connection successful');
-//   })
-//   .catch((e) => {
-//     console.log("MongoDB Error:", e);
-//   });
+mongoose.connect(DB)
+  .then(() => {
+    console.log('MongoDB connection successful');
+  })
+  .catch((e) => {
+    console.log("MongoDB Error:", e);
+  });
 
 app.use(cors());
 app.use(bodyParser.json({ limit: "10mb" }));
@@ -73,45 +73,45 @@ cloudinary.config({
 // const storyRouter = require('./routes/story.js');
 // app.use(storyRouter);
 
-// // -------------------- Reset Password --------------------
-// app.post('/reset-password', async (req, res) => {
-//   try {
-//     const { email, newPassword } = req.body;
-//     if (!email || !newPassword) {
-//       return res.status(400).json({ success: false, error: "Email and new password are required" });
-//     }
+// -------------------- Reset Password --------------------
+app.post('/reset-password', async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ success: false, error: "Email and new password are required" });
+    }
 
-//     const user = await User.findOne({ email });
-//     if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
 
-//     const hashedPassword = await bcrypt.hash(newPassword, 10); // hash new password
-//     user.password = hashedPassword;
-//     await user.save();
+    const hashedPassword = await bcrypt.hash(newPassword, 10); // hash new password
+    user.password = hashedPassword;
+    await user.save();
 
-//     res.json({ success: true, message: "Password updated successfully" });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ success: false, error: "Server error" });
-//   }
-// });
+    res.json({ success: true, message: "Password updated successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
 
 
 
-// // -------------------- Profile Route --------------------
-// app.post('/profile', async (req, res) => {
-//   try {
-//     const { email } = req.body;
-//     if (!email) return res.status(400).json({ error: "Email is required" });
+// -------------------- Profile Route --------------------
+app.post('/profile', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
 
-//     const user = await User.findOne({ email }).select('-password'); // exclude password
-//     if (!user) return res.status(404).json({ error: "User not found" });
+    const user = await User.findOne({ email }).select('-password'); // exclude password
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-//     res.json({ success: true, user });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: "Server error" });
-//   }
-// });
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
 
 
 // console.log("API KEY:", process.env.OPENAI_API_KEY);
@@ -813,7 +813,169 @@ app.get('/generate-story-comic-stream', async (req, res) => {
 });
 
 
+// Add this with your other routes (after the OpenAI initialization)
 
+// ============================================
+// NEW: Text-Only Story Generation API
+// ============================================
+app.post('/api/generate-story-text', async (req, res) => {
+  try {
+    const { character, world, mood, customPrompt } = req.body;
+    
+    // Validate input - at least something should be provided
+    if (!character && !world && !mood && !customPrompt) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Please provide at least character, world, mood, or a custom prompt" 
+      });
+    }
+    
+    // Build the story prompt
+    let storyPrompt = "";
+    
+    if (customPrompt) {
+      storyPrompt = customPrompt;
+    } else {
+      storyPrompt = `Write a short, engaging, kid-friendly story (150-200 words) about:
+      - Character: ${character || "a friendly animal"}
+      - Setting: ${world || "a magical place"}
+      - Mood/Tone: ${mood || "adventurous and fun"}
+      
+      Make the story creative, positive, and suitable for children.`;
+    }
+    
+    console.log("📖 Generating text-only story with prompt:", storyPrompt);
+    
+    // Call OpenAI to generate the story
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "You are a professional children's storyteller. Create engaging, imaginative, and age-appropriate stories for kids aged 4-10. Keep the language simple but vivid, include positive messages, and make the stories magical and fun."
+        },
+        {
+          role: "user",
+          content: storyPrompt
+        }
+      ],
+      temperature: 0.8,
+      max_tokens: 400,
+    });
+    
+    const story = completion.choices[0].message.content;
+    
+    // Generate a title for the story
+    const titleCompletion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: `Generate a creative, catchy title for this children's story (max 8 words, no explanation, just the title):\n\n${story}`
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 30,
+    });
+    
+    const title = titleCompletion.choices[0].message.content.trim();
+    
+    // Return the story
+    res.json({
+      success: true,
+      story: story,
+      title: title,
+      metadata: {
+        character: character || null,
+        world: world || null,
+        mood: mood || null,
+        wordCount: story.split(/\s+/).length,
+        generatedAt: new Date().toISOString()
+      }
+    });
+    
+    console.log(`✅ Story generated: "${title}" (${story.split(/\s+/).length} words)`);
+    
+  } catch (error) {
+    console.error("Story generation error:", error);
+    
+    // Handle specific OpenAI errors
+    if (error.code === "insufficient_quota") {
+      return res.status(429).json({ 
+        success: false, 
+        error: "API quota exceeded. Please try again later." 
+      });
+    }
+    
+    if (error.code === "invalid_api_key") {
+      return res.status(500).json({ 
+        success: false, 
+        error: "Server configuration error." 
+      });
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      error: error.message || "Failed to generate story" 
+    });
+  }
+});
+
+// Simple test endpoint for the story API
+app.get('/api/test-story', (req, res) => {
+  res.json({
+    success: true,
+    message: "Story API is working!",
+    usage: "POST to /api/generate-story-text with { character, world, mood, customPrompt }"
+  });
+});
+
+// Additional: Generate multiple story variants
+app.post('/api/generate-story-variants', async (req, res) => {
+  try {
+    const { character, world, mood, count = 3 } = req.body;
+    
+    if (count > 5) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Maximum 5 story variants at a time" 
+      });
+    }
+    
+    const stories = [];
+    
+    for (let i = 0; i < count; i++) {
+      const prompt = `Write a short children's story (100-150 words) about:
+      - Character: ${character || "a cute animal"}
+      - Setting: ${world || "a magical kingdom"}
+      - Mood: ${mood || "happy and adventurous"}
+      
+      Make this version ${i + 1} different and unique.`;
+      
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.9,
+        max_tokens: 350,
+      });
+      
+      stories.push({
+        variant: i + 1,
+        story: completion.choices[0].message.content
+      });
+    }
+    
+    res.json({
+      success: true,
+      count: stories.length,
+      stories: stories
+    });
+    
+  } catch (error) {
+    console.error("Variants generation error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 
 
