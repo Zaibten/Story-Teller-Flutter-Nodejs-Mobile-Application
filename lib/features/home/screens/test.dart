@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../providers/user_provider.dart';
 
@@ -265,10 +267,10 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   final _ctrl = TextEditingController();
   final _tts  = FlutterTts();
   final _rng  = Random();
-  static const _base = 'https://magicstoryserver.vercel.app';
+  static const _base = 'http://192.168.100.177:9000';
 
-
-   late AnimationController _bounceController;
+  // ── existing controllers ──
+  late AnimationController _bounceController;
   late AnimationController _waveController;
   late AnimationController _glowController;
   late AnimationController _floatController;
@@ -278,7 +280,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   late AnimationController _modalController;
   late AnimationController _moodController;
   late AnimationController _moodCardController;
-  
+
   late Animation<double> _glowAnimation;
   late Animation<double> _floatAnimation;
   late Animation<double> _waveAnimation;
@@ -288,9 +290,31 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   late Animation<double> _moodFadeAnimation;
   late Animation<double> _moodCardScaleAnimation;
 
+  // ── video button controllers ──
+  late AnimationController _videoBtnShineCtrl;
+  late AnimationController _videoBtnPulseCtrl;
+  late AnimationController _videoBtnStarCtrl;
+  late AnimationController _videoBtnLoadingCtrl;
+  late AnimationController _videoBtnReadyCtrl;
+  late Animation<double>   _videoBtnShineAnim;
+  late Animation<double>   _videoBtnPulseAnim;
+  late Animation<double>   _videoBtnStarAnim;
+  late Animation<double>   _videoBtnLoadingAnim;
+  late Animation<double>   _videoBtnReadyAnim;
+
+  // ── video player ──
+  VideoPlayerController? _videoController;
+  ChewieController?      _chewieController;
+  bool _videoInitialized = false;
+  bool _videoError       = false;
+
   // app state
   String _story = ''; List _panels = []; double _pct = 0;
   bool _loading = false; String _genTime = ''; bool _showComic = false;
+
+  // video state: 'idle' | 'generating' | 'ready' | 'error'
+  String _videoState = 'idle';
+  String? _videoUrl;
 
   // story word reading
   bool _reading = false, _paused = false; int _cw = -1;
@@ -317,72 +341,56 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
 
   late PageController _pageCtrl;
 
+  bool _showVideoOverlay = false;
+
   @override
   void initState() {
     super.initState();
-    // 🔥 ADD THIS
-_waveController = AnimationController(
-  vsync: this,
-  duration: const Duration(seconds: 4),
-)..repeat();
 
-_waveAnimation = CurvedAnimation(
-  parent: _waveController,
-  curve: Curves.easeInOut,
-);
+    _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _waveAnimation  = CurvedAnimation(parent: _waveController, curve: Curves.easeInOut);
 
-_pulseController = AnimationController(
-  vsync: this,
-  duration: const Duration(seconds: 2),
-)..repeat(reverse: true);
+    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
 
-_floatController = AnimationController(
-  vsync: this,
-  duration: const Duration(seconds: 3),
-)..repeat(reverse: true);
+    _floatController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+    _floatAnimation  = Tween<double>(begin: -3, end: 3).animate(CurvedAnimation(parent: _floatController, curve: Curves.easeInOut));
 
-_floatAnimation = Tween<double>(begin: -3, end: 3).animate(
-  CurvedAnimation(parent: _floatController, curve: Curves.easeInOut),
-);
+    _glowController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _glowAnimation  = Tween<double>(begin: 0.8, end: 1.2).animate(CurvedAnimation(parent: _glowController, curve: Curves.easeInOut));
 
-_glowController = AnimationController(
-  vsync: this,
-  duration: const Duration(seconds: 2),
-)..repeat(reverse: true);
+    _sparkleController1 = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _sparkleController2 = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
 
-_glowAnimation = Tween<double>(begin: 0.8, end: 1.2).animate(
-  CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
-);
+    _modalController    = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _moodController     = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _moodCardController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
+    _bounceController   = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
 
-_sparkleController1 = AnimationController(
-  vsync: this,
-  duration: const Duration(seconds: 2),
-)..repeat(reverse: true);
+    // modal / mood animations (needed for dispose)
+    _modalScaleAnimation = Tween<double>(begin: 0, end: 1).animate(_modalController);
+    _modalFadeAnimation  = Tween<double>(begin: 0, end: 1).animate(_modalController);
+    _moodScaleAnimation  = Tween<double>(begin: 0, end: 1).animate(_moodController);
+    _moodFadeAnimation   = Tween<double>(begin: 0, end: 1).animate(_moodController);
+    _moodCardScaleAnimation = Tween<double>(begin: 0, end: 1).animate(_moodCardController);
 
-_sparkleController2 = AnimationController(
-  vsync: this,
-  duration: const Duration(seconds: 2),
-)..repeat(reverse: true);
+    // video btn animations
+    _videoBtnShineCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _videoBtnShineAnim = CurvedAnimation(parent: _videoBtnShineCtrl, curve: Curves.easeInOut);
 
-// Optional (since you declared them)
-_modalController = AnimationController(
-  vsync: this,
-  duration: const Duration(milliseconds: 400),
-);
+    _videoBtnPulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 850))..repeat(reverse: true);
+    _videoBtnPulseAnim = Tween<double>(begin: 1.0, end: 1.07).animate(CurvedAnimation(parent: _videoBtnPulseCtrl, curve: Curves.easeInOut));
 
-_moodController = AnimationController(
-  vsync: this,
-  duration: const Duration(milliseconds: 400),
-);
+    _videoBtnStarCtrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
+    _videoBtnStarAnim  = Tween<double>(begin: 0.7, end: 1.0).animate(CurvedAnimation(parent: _videoBtnStarCtrl, curve: Curves.easeInOut));
 
-_moodCardController = AnimationController(
-  vsync: this,
-  duration: const Duration(milliseconds: 400),
-);
+    _videoBtnLoadingCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
+    _videoBtnLoadingAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _videoBtnLoadingCtrl, curve: Curves.linear));
+
+    _videoBtnReadyCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _videoBtnReadyAnim = Tween<double>(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: _videoBtnReadyCtrl, curve: Curves.elasticOut));
+
     _setupTts();
     _pageCtrl = PageController();
-
-    
 
     _acBounce = AnimationController(vsync: this, duration: const Duration(milliseconds: 430));
     _aBounce  = Tween(begin: 1.0, end: 1.32).animate(CurvedAnimation(parent: _acBounce, curve: Curves.elasticOut));
@@ -430,23 +438,70 @@ _moodCardController = AnimationController(
     _modalController.dispose();
     _moodController.dispose();
     _moodCardController.dispose();
-
+    _videoBtnShineCtrl.dispose();
+    _videoBtnPulseCtrl.dispose();
+    _videoBtnStarCtrl.dispose();
+    _videoBtnLoadingCtrl.dispose();
+    _videoBtnReadyCtrl.dispose();
+    _disposeVideo();
     _ctrl.dispose(); _pageCtrl.dispose();
     _stopRead(reset: true); _stopComicRead(); _tts.stop();
     for (final c in [_acBounce, _acPulse, _acBg, _acConf, _acReveal, _acTitle, _acLoad, _acWiggle]) c.dispose();
     for (final c in _panelACs) c.dispose();
     super.dispose();
-
-    super.dispose();
   }
 
-  // @override void dispose() {
-  //   _ctrl.dispose(); _pageCtrl.dispose();
-  //   _stopRead(reset: true); _stopComicRead(); _tts.stop();
-  //   for (final c in [_acBounce, _acPulse, _acBg, _acConf, _acReveal, _acTitle, _acLoad, _acWiggle]) c.dispose();
-  //   for (final c in _panelACs) c.dispose();
-  //   super.dispose();
-  // }
+  // ── Video player lifecycle ──────────────────────────────────
+  void _disposeVideo() {
+    _chewieController?.dispose();
+    _videoController?.dispose();
+    _chewieController = null;
+    _videoController  = null;
+    _videoInitialized = false;
+    _videoError       = false;
+  }
+
+  Future<void> _initVideoPlayer(String url) async {
+    try {
+      final ctrl = VideoPlayerController.networkUrl(Uri.parse(url));
+      _videoController = ctrl;
+      await ctrl.initialize();
+
+      // Determine aspect ratio from video; fallback 16:9
+      final double ar = ctrl.value.aspectRatio > 0 ? ctrl.value.aspectRatio : 16 / 9;
+
+      _chewieController = ChewieController(
+        videoPlayerController: ctrl,
+        autoPlay: false,
+        looping: false,
+        allowFullScreen: true,
+        allowMuting: true,
+        showControls: true,
+        aspectRatio: ar,
+        materialProgressColors: ChewieProgressColors(
+          playedColor:     K.yellow,
+          handleColor:     K.orange,
+          backgroundColor: Colors.white24,
+          bufferedColor:   K.white.withOpacity(.35),
+        ),
+        placeholder: Container(
+          color: const Color(0xFF12005E),
+          child: const Center(child: CircularProgressIndicator(color: K.yellow, strokeWidth: 3)),
+        ),
+        errorBuilder: (_, msg) => Center(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.error_outline_rounded, color: K.red, size: 40),
+            const SizedBox(height: 8),
+            Text(msg, style: ts(12, K.red), textAlign: TextAlign.center),
+          ]),
+        ),
+      );
+
+      if (mounted) setState(() { _videoInitialized = true; _videoError = false; });
+    } catch (e) {
+      if (mounted) setState(() { _videoError = true; _videoInitialized = false; });
+    }
+  }
 
   // ── TTS ──
   void _setupTts() async {
@@ -493,7 +548,7 @@ _moodCardController = AnimationController(
     });
   }
 
-  // ── Comic storytelling (panel by panel) ──
+  // ── Comic storytelling ──
   void _startComicRead() async {
     if (_panels.isEmpty) return;
     setState(() { _comicReading = true; _comicPanel = 0; });
@@ -523,7 +578,7 @@ _moodCardController = AnimationController(
     _acConf..reset()..forward();
   }
 
-  // ── Panel entrance animations ──
+  // ── Panel animations ──
   void _setupPanelAnims(int n) {
     for (final c in _panelACs) c.dispose();
     _panelACs = List.generate(n, (_) => AnimationController(vsync: this, duration: const Duration(milliseconds: 620)));
@@ -544,42 +599,70 @@ _moodCardController = AnimationController(
     else { _acReveal.reverse(); _stopComicRead(); }
   }
 
-  // ── Generate ──
+  // ── GENERATE ──
   Future<void> _generate() async {
     final prompt = _ctrl.text.trim();
     if (prompt.isEmpty) { _snack('✏️ Type a story idea first!', K.orange); return; }
     _stopRead(reset: true); _stopComicRead();
-    setState(() { _loading = true; _story = ''; _panels = []; _pct = 0; _genTime = ''; _showComic = false; _seeds = []; });
+    _disposeVideo();
+    setState(() {
+      _loading = true; _story = ''; _panels = []; _pct = 0; _genTime = '';
+      _showComic = false; _seeds = [];
+      _videoState = 'generating';
+      _videoUrl   = null;
+      _showVideoOverlay = false;
+    });
     _acReveal.reset();
+
     try {
-      final req = http.Request('GET', Uri.parse('$_base/generate-story-comic-stream?prompt=$prompt'));
+      final req = http.Request('GET', Uri.parse('$_base/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
       final res = await req.send();
       res.stream.transform(utf8.decoder).listen((chunk) {
         for (final line in chunk.split('\n')) {
           if (!line.startsWith('data:')) continue;
           final js = line.replaceFirst('data:', '').trim();
           if (js.isEmpty) continue;
-          final data = jsonDecode(js);
-          setState(() {
-            _pct = (data['progress'] ?? _pct).toDouble();
-            if (data['story'] != null) { _story = data['story']; _words = []; _starts = []; _cw = -1; }
-            if (data['panels'] != null) {
-              _panels = List.from(data['panels']);
-              _seeds  = List.generate(_panels.length, (i) => i * 137 + 91);
-              _setupPanelAnims(_panels.length);
-            }
-            if (data['panelIndex'] != null && data['image'] != null) {
-              final idx = data['panelIndex'] as int;
-              if (idx < _panels.length) {
-                _panels[idx]['image'] = data['image'];
-                precacheImage(CachedNetworkImageProvider(data['image']), context);
+          try {
+            final data = jsonDecode(js);
+            setState(() {
+              _pct = (data['progress'] ?? _pct).toDouble();
+              if (data['story'] != null) { _story = data['story']; _words = []; _starts = []; _cw = -1; }
+              if (data['panels'] != null) {
+                _panels = List.from(data['panels']);
+                _seeds  = List.generate(_panels.length, (i) => i * 137 + 91);
+                _setupPanelAnims(_panels.length);
               }
-            }
-            if (data['step'] == 'done') { _loading = false; _genTime = data['generationTime'] ?? ''; _burst(); }
-          });
+              if (data['panelIndex'] != null && data['image'] != null) {
+                final idx = data['panelIndex'] as int;
+                if (idx < _panels.length) {
+                  _panels[idx] = Map<String, dynamic>.from(_panels[idx])..['image'] = data['image'];
+                  precacheImage(CachedNetworkImageProvider(data['image'] as String), context);
+                }
+              }
+              if (data['step'] == 'done') {
+                _loading  = false;
+                _genTime  = data['generationTime'] ?? '';
+                final vUrl = data['videoUrl'];
+                if (vUrl != null && (vUrl as String).isNotEmpty) {
+                  _videoUrl   = vUrl;
+                  _videoState = 'ready';
+                  _videoBtnReadyCtrl.forward(from: 0);
+                  _initVideoPlayer(vUrl); // ← real initialisation
+                } else {
+                  _videoState = 'idle';
+                }
+                _burst();
+              }
+            });
+          } catch (_) {}
         }
+      }, onError: (_) {
+        setState(() { _loading = false; _videoState = 'error'; });
       });
-    } catch (_) { setState(() => _loading = false); _snack('❌ Oops! Something went wrong.', K.red); }
+    } catch (_) {
+      setState(() { _loading = false; _videoState = 'idle'; });
+      _snack('❌ Oops! Something went wrong.', K.red);
+    }
   }
 
   void _snack(String msg, Color c) {
@@ -594,356 +677,578 @@ _moodCardController = AnimationController(
   // ════════════════════════════════════════════════════════
   //  BUILD
   // ════════════════════════════════════════════════════════
-@override
-Widget build(BuildContext context) {
-  final user = Provider.of<UserProvider>(context).user;
+  @override
+  Widget build(BuildContext context) {
+    final user         = Provider.of<UserProvider>(context).user;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth  = MediaQuery.of(context).size.width;
 
-  final screenHeight = MediaQuery.of(context).size.height;
-  final screenWidth = MediaQuery.of(context).size.width;
+    return Scaffold(
+      backgroundColor: K.bg,
+      resizeToAvoidBottomInset: false,
+      body: Stack(
+        children: [
+          Positioned.fill(child: CustomPaint(painter: _HalftonePainter(K.ink.withOpacity(.033)))),
+          if (_doodles.isNotEmpty)
+            Positioned.fill(child: CustomPaint(painter: _DoodlePainter(_doodles, _doodleT))),
 
-  return Scaffold(
-    backgroundColor: K.bg,
-    resizeToAvoidBottomInset: false,
-
-    body: Stack(
-      children: [
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _HalftonePainter(K.ink.withOpacity(.033)),
-          ),
-        ),
-
-        if (_doodles.isNotEmpty)
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _DoodlePainter(_doodles, _doodleT),
-            ),
-          ),
-
-        SafeArea(
-          child: Column(
-            children: [
-
-              // ✅ NEW ANIMATED HEADER
-              Stack(
-                children: [
+          SafeArea(
+            child: Column(
+              children: [
+                // ── ANIMATED HEADER ──
+                Stack(children: [
                   AnimatedBuilder(
                     animation: _waveController,
-                    builder: (context, child) {
-                      return Container(
-                        height: screenHeight * 0.19,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color.lerp(const Color(0xFF667EEA), const Color(0xFF764BA2), _waveAnimation.value)!,
-                              Color.lerp(const Color(0xFF764BA2), const Color(0xFFF093FB), _waveAnimation.value)!,
-                            ],
-                          ),
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(35),
-                            bottomRight: Radius.circular(35),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-
-                  Positioned(
-                    top: -20,
-                    right: -20,
-                    child: AnimatedBuilder(
-                      animation: _pulseController,
-                      builder: (context, child) {
-                        return Container(
-                          width: 80 + _pulseController.value * 15,
-                          height: 80 + _pulseController.value * 15,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: Colors.white.withOpacity(0.1),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: screenWidth * 0.04,
-                      vertical: screenHeight * 0.015,
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-
-                            // LEFT SIDE
-                            AnimatedBuilder(
-                              animation: _floatController,
-                              builder: (context, child) {
-                                return Transform.translate(
-                                  offset: Offset(0, _floatAnimation.value),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: AnimatedBuilder(
-  animation: _sparkleController1,
-  builder: (context, child) {
-    return Transform.scale(
-      scale: 0.9 + (_sparkleController1.value * 0.2),
-      child: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.white.withOpacity(0.6),
-              blurRadius: 10,
-              spreadRadius: 1,
-            )
-          ],
-        ),
-        child: Image.asset(
-          "assets/images/logo.png",
-          width: 30,
-          height: 30,
-        ),
-      ),
-    );
-  },
-),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: const [
-                                          Text(
-                                            "MAGIC STORY",
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              letterSpacing: 1.2,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                          Text(
-                                            "Adventure Awaits!",
-                                            style: TextStyle(
-                                              fontSize: 9,
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
-
-                            // RIGHT SIDE USER
-                            AnimatedBuilder(
-                              animation: _glowAnimation,
-                              builder: (context, child) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(3),
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Icon(Icons.person, color: Color(0xFF667EEA), size: 12),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        user.name.split(" ")[0],
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.verified, color: Colors.yellow, size: 10),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
+                    builder: (context, child) => Container(
+                      height: screenHeight * 0.19,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          colors: [
+                            Color.lerp(const Color(0xFF667EEA), const Color(0xFF764BA2), _waveAnimation.value)!,
+                            Color.lerp(const Color(0xFF764BA2), const Color(0xFFF093FB), _waveAnimation.value)!,
                           ],
                         ),
-
-                        const SizedBox(height: 12),
-
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(25),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.auto_awesome, color: Colors.yellow, size: 14),
-                              const SizedBox(width: 8),
-                              
-                              const SizedBox(width: 8),
-                            Expanded(
-                              child: Text("Create Magic Story",
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                textAlign: TextAlign.center,
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(35), bottomRight: Radius.circular(35)),
+                      ),
+                    ),
+                  ),
+                  Positioned(top: -20, right: -20,
+                    child: AnimatedBuilder(animation: _pulseController, builder: (context, child) =>
+                      Container(
+                        width: 80 + _pulseController.value * 15,
+                        height: 80 + _pulseController.value * 15,
+                        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)),
+                      ))),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.015),
+                    child: Column(children: [
+                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                        AnimatedBuilder(animation: _floatController, builder: (context, child) =>
+                          Transform.translate(offset: Offset(0, _floatAnimation.value),
+                            child: Row(children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                                child: AnimatedBuilder(animation: _sparkleController1, builder: (context, child) =>
+                                  Transform.scale(scale: 0.9 + (_sparkleController1.value * 0.2),
+                                    child: Container(
+                                      decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 10, spreadRadius: 1)]),
+                                      child: Image.asset("assets/images/logo.png", width: 30, height: 30),
+                                    ))),
                               ),
-                            ),
-                            ],
-                          ),
-                        ),
+                              const SizedBox(width: 8),
+                              Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+                                Text("MAGIC STORY", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.white)),
+                                Text("Adventure Awaits!", style: TextStyle(fontSize: 9, color: Colors.white70)),
+                              ]),
+                            ]))),
+                        AnimatedBuilder(animation: _glowAnimation, builder: (context, child) =>
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
+                            child: Row(children: [
+                              Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                child: const Icon(Icons.person, color: Color(0xFF667EEA), size: 12)),
+                              const SizedBox(width: 6),
+                              Text(user.name.split(" ")[0], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white)),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.verified, color: Colors.yellow, size: 10),
+                            ]),
+                          )),
+                      ]),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(25)),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          const Icon(Icons.auto_awesome, color: Colors.yellow, size: 14),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text("Create Magic Story",
+                            style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center)),
+                        ]),
+                      ),
+                    ]),
+                  ),
+                ]),
+
+                // ── SCROLLABLE BODY ──
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 14),
+                        _inputCard(),
+                        const SizedBox(height: 14),
+                        _genBtn(),
+                        const SizedBox(height: 14),
+                        _videoBtn(),
+
+                        if (_loading) ...[const SizedBox(height: 14), _progressCard()],
+
+                        if (_videoState == 'ready' && _videoUrl != null) ...[
+                          const SizedBox(height: 18),
+                          _videoCard(),
+                        ],
+
+                        if (_story.isNotEmpty) ...[const SizedBox(height: 18), _storySection()],
+
+                        if (_panels.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          _toggleBtn(),
+                          _comicSection(),
+                        ],
                       ],
                     ),
                   ),
-                ],
-              ),
-
-
-
-
-
-
-
-              // ✅ REST OF YOUR CONTENT (UNCHANGED)
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // const SizedBox(height: 14),
-        Text('__________________________', style: TextStyle(fontWeight: FontWeight.bold,fontSize: 18,),),
-        const SizedBox(height: 14),
-                      _inputCard(),
-                      const SizedBox(height: 14),
-                      _genBtn(),
-
-                      if (_loading) ...[
-                        const SizedBox(height: 14),
-                        _progressCard(),
-                      ],
-
-                      if (_story.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        _storySection(),
-                      ],
-
-                      if (_panels.isNotEmpty) ...[
-                        const SizedBox(height: 18),
-                        _toggleBtn(),
-                        _comicSection(),
-                      ],
-                    ],
-                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
 
-        if (_confOn)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _ConfPainter(_pieces),
-                size: MediaQuery.of(context).size,
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-}
-  
-  
-  // ════════════════════════════════════════════════════════
-  //  APP BAR  –  Logo · Name · User Chip
-  // ════════════════════════════════════════════════════════
-  Widget _appBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: BoxDecoration(
-        color: K.surface,
-        border: Border(bottom: BorderSide(color: K.ink.withOpacity(.08), width: 2)),
-        boxShadow: [BoxShadow(color: K.ink.withOpacity(.07), blurRadius: 14, offset: const Offset(0, 4))],
+          if (_confOn)
+            Positioned.fill(child: IgnorePointer(
+              child: CustomPaint(painter: _ConfPainter(_pieces), size: MediaQuery.of(context).size),
+            )),
+
+          if (_showVideoOverlay && _videoUrl != null)
+            _videoOverlay(),
+        ],
       ),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-        // ── Logo mark ──
-        Container(
-          width: 48, height: 48,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [K.purple, K.pink], begin: Alignment.topLeft, end: Alignment.bottomRight),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: K.ink, width: 2.5),
-            boxShadow: const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
-          ),
-          child: const Center(child: Text('✨', style: TextStyle(fontSize: 24))),
-        ),
-        const SizedBox(width: 10),
-        // ── App name (gently bobbing) ──
-        AnimatedBuilder(
-          animation: _aTitle,
-          builder: (_, child) => Transform.translate(offset: Offset(0, _aTitle.value * .35), child: child),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            ShaderMask(
-              shaderCallback: (b) => const LinearGradient(colors: [K.purple, K.pink, K.orange]).createShader(b),
-              child: Text('Story Magic', style: ts(22, K.white, fw: FontWeight.w900)),
-            ),
-            Text('Comic Maker', style: tb(11, K.purple, fw: FontWeight.w700)),
-          ]),
-        ),
-        const Spacer(),
-        // ── User chip ──
-        _userChip(),
-      ]),
     );
   }
 
-  Widget _userChip() {
-    final initials = widget.userName.trim().split(' ').map((w) => w.isNotEmpty ? w[0].toUpperCase() : '').take(2).join();
-    return GestureDetector(
-      onTap: () => _snack('👋 Hi, ${widget.userName}!', K.purple),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [K.cyan, K.blue]),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: K.ink, width: 2.5),
-          boxShadow: const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Container(
-            width: 30, height: 30,
-            decoration: BoxDecoration(color: K.white, shape: BoxShape.circle, border: Border.all(color: K.ink, width: 2)),
-            child: Center(child: Text(initials, style: ts(11, K.blue, fw: FontWeight.w900))),
+  // ════════════════════════════════════════════════════════
+  //  🎬  VIDEO BUTTON
+  // ════════════════════════════════════════════════════════
+  Widget _videoBtn() {
+    final bool isReady      = _videoState == 'ready';
+    final bool isGenerating = _videoState == 'generating';
+
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        _videoBtnPulseAnim, _videoBtnShineAnim,
+        _videoBtnStarAnim,  _videoBtnLoadingAnim,
+        _videoBtnReadyAnim,
+      ]),
+      builder: (context, child) {
+        double scale = isReady ? _videoBtnPulseAnim.value : 1.0;
+        return Transform.scale(
+          scale: scale,
+          child: GestureDetector(
+            onTap: isReady ? () => setState(() => _showVideoOverlay = true) : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 500),
+              height: 72,
+              decoration: BoxDecoration(
+                gradient: isReady
+                    ? const LinearGradient(
+                        colors: [Color(0xFF6200EA), Color(0xFFAA00FF), Color(0xFFFFD600)],
+                        begin: Alignment.topLeft, end: Alignment.bottomRight)
+                    : isGenerating
+                        ? const LinearGradient(colors: [Color(0xFF2D0060), Color(0xFF4A0080)])
+                        : LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade500]),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: isReady ? K.ink : isGenerating ? const Color(0xFF7B00FF) : Colors.grey.shade400,
+                  width: 3.5,
+                ),
+                boxShadow: isReady
+                    ? const [
+                        BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0),
+                        BoxShadow(color: Color(0x55AA00FF), blurRadius: 22, offset: Offset(0, 8)),
+                      ]
+                    : isGenerating
+                        ? [BoxShadow(color: const Color(0xFF7B00FF).withOpacity(.35), blurRadius: 16)]
+                        : [],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(alignment: Alignment.center, children: [
+                if (isReady)
+                  Positioned.fill(child: Container(
+                    decoration: BoxDecoration(gradient: LinearGradient(
+                      begin: Alignment(_videoBtnShineAnim.value * 2 - 1, -0.5),
+                      end:   Alignment(_videoBtnShineAnim.value * 2,      0.5),
+                      colors: [Colors.transparent, Colors.white.withOpacity(0.18), Colors.transparent],
+                    )),
+                  )),
+                if (isReady)
+                  Positioned(left: 16, child: Transform.scale(
+                    scale: _videoBtnStarAnim.value,
+                    child: const Text('⭐', style: TextStyle(fontSize: 20)),
+                  )),
+                if (isReady)
+                  Positioned(right: 16, child: Transform.scale(
+                    scale: 1.0 - (_videoBtnStarAnim.value - 0.7),
+                    child: const Text('🌟', style: TextStyle(fontSize: 20)),
+                  )),
+                if (isGenerating)
+                  Positioned(left: 16, child: Transform.rotate(
+                    angle: _videoBtnLoadingAnim.value * 2 * pi,
+                    child: const Text('🎬', style: TextStyle(fontSize: 26)),
+                  )),
+                if (isGenerating)
+                  Positioned(right: 14, child: AnimatedBuilder(
+                    animation: _acLoad,
+                    builder: (_, __) {
+                      final dots = '●' * ((_acLoad.value * 3).floor().clamp(1, 3));
+                      return Text(dots, style: ts(14, Colors.white.withOpacity(.6)));
+                    },
+                  )),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (!isGenerating)
+                    Text(isReady ? '🎬' : '🎞️', style: const TextStyle(fontSize: 30)),
+                  if (!isGenerating) const SizedBox(width: 10),
+                  if (isGenerating) const SizedBox(width: 48),
+                  Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(
+                      isReady ? '▶  WATCH MY VIDEO!'
+                          : isGenerating ? 'Creating your video...' : 'MAKE A VIDEO!',
+                      style: ts(isGenerating ? 16 : 19, K.white, fw: FontWeight.w900,
+                          sh: [const Shadow(color: Colors.black38, offset: Offset(0, 2), blurRadius: 4)]),
+                    ),
+                    Text(
+                      isReady ? 'Tap to watch your movie! 🍿'
+                          : isGenerating ? 'Magic Story is animating the story ✨' : 'Create a comic first!',
+                      style: tb(11, isReady ? K.white.withOpacity(.88) : Colors.white54),
+                    ),
+                  ]),
+                ]),
+              ]),
+            ),
           ),
-          const SizedBox(width: 7),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            Text('Hi!', style: ts(9, K.white, fw: FontWeight.w900)),
-            Text(widget.userName.split(' ').first, style: tb(10, K.white, fw: FontWeight.w700)),
+        );
+      },
+    );
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  📺  VIDEO CARD  –  real Chewie player, responsive
+  // ════════════════════════════════════════════════════════
+  Widget _videoCard() {
+    return LayoutBuilder(builder: (context, constraints) {
+      final double videoH = constraints.maxWidth * 9 / 16;
+
+      return AnimatedBuilder(
+        animation: _videoBtnReadyAnim,
+        builder: (_, child) => Transform.scale(scale: _videoBtnReadyAnim.value, child: child),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D003D),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: K.ink, width: 3.5),
+            boxShadow: const [
+              BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0),
+              BoxShadow(color: Color(0x55AA00FF), blurRadius: 24, offset: Offset(0, 10)),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+
+            // ── HEADER ────────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF6200EA), Color(0xFFAA00FF), Color(0xFFFFD600)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight,
+                ),
+              ),
+              child: Row(children: [
+                AnimatedBuilder(
+                  animation: _videoBtnLoadingAnim,
+                  builder: (_, __) => Transform.rotate(
+                    angle: _videoInitialized ? 0 : _videoBtnLoadingAnim.value * 2 * pi,
+                    child: const Text('🎬', style: TextStyle(fontSize: 26)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('YOUR MAGIC VIDEO IS READY!', style: ts(13, K.white, fw: FontWeight.w900)),
+                  Text(
+                    _videoInitialized ? 'Tap play to watch your story! 🍿'
+                        : _videoError ? '⚠️ Could not load video'
+                        : 'Loading video player...',
+                    style: tb(10, K.white.withOpacity(.88)),
+                  ),
+                ])),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: K.white.withOpacity(.2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: K.white, width: 1.5),
+                  ),
+                  child: Text('✨ NEW', style: ts(9, K.yellow)),
+                ),
+              ]),
+            ),
+
+            // ── VIDEO AREA ─────────────────────────────────────
+            SizedBox(
+              height: videoH,
+              child: _videoInitialized && _chewieController != null
+                  // ── REAL VIDEO PLAYER ──
+                  ? Chewie(controller: _chewieController!)
+
+                  // ── LOADING / ERROR PLACEHOLDER ──
+                  : Stack(alignment: Alignment.center, children: [
+                      // cinema bg
+                      Positioned.fill(child: Container(decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF12005E), Color(0xFF4A0080)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                        ),
+                      ))),
+                      // film strips
+                      _FilmStrip(top: 8),
+                      _FilmStrip(bottom: 8),
+
+                      _videoError
+                          ? Column(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.error_outline_rounded, color: K.red, size: 48),
+                              const SizedBox(height: 10),
+                              Text('Could not play video', style: ts(14, K.red)),
+                              const SizedBox(height: 6),
+                              Text('Check your connection', style: tb(11, Colors.white54)),
+                            ])
+                          : Column(mainAxisSize: MainAxisSize.min, children: [
+                              AnimatedBuilder(
+                                animation: _videoBtnLoadingAnim,
+                                builder: (_, __) => Transform.rotate(
+                                  angle: _videoBtnLoadingAnim.value * 2 * pi,
+                                  child: const Text('🎞️', style: TextStyle(fontSize: 60, color: Colors.white24)),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              const SizedBox(
+                                width: 36, height: 36,
+                                child: CircularProgressIndicator(color: K.yellow, strokeWidth: 3),
+                              ),
+                              const SizedBox(height: 12),
+                              Text('Preparing your movie...', style: ts(13, K.yellow)),
+                            ]),
+                    ]),
+            ),
+
+            // ── BOTTOM ACTION ROW ───────────────────────────────
+            Container(
+              color: const Color(0xFF1A0035),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(children: [
+                // Full-screen
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _showVideoOverlay = true),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                            colors: [Color(0xFF6200EA), Color(0xFFAA00FF)]),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: K.yellow, width: 2),
+                        boxShadow: const [
+                          BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0),
+                        ],
+                      ),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        const Icon(Icons.fullscreen_rounded, color: K.yellow, size: 20),
+                        const SizedBox(width: 6),
+                        Text('Full Screen', style: ts(13, K.yellow)),
+                      ]),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Replay
+                GestureDetector(
+                  onTap: _videoInitialized ? () async {
+                    await _videoController?.seekTo(Duration.zero);
+                    _chewieController?.play();
+                  } : null,
+                  child: AnimatedOpacity(
+                    duration: const Duration(milliseconds: 300),
+                    opacity: _videoInitialized ? 1.0 : 0.35,
+                    child: Container(
+                      width: 50, height: 48,
+                      decoration: BoxDecoration(
+                        color: K.yellow,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: K.ink, width: 2.5),
+                        boxShadow: const [
+                          BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0),
+                        ],
+                      ),
+                      child: const Icon(Icons.replay_rounded, color: K.ink, size: 26),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
           ]),
+        ),
+      );
+    });
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  📽️  FULL-SCREEN VIDEO OVERLAY  – responsive, real player
+  // ════════════════════════════════════════════════════════
+  Widget _videoOverlay() {
+    return Material(
+      color: Colors.black.withOpacity(.96),
+      child: SafeArea(
+        child: Column(children: [
+
+          // ── TOP BAR ────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: Row(children: [
+              GestureDetector(
+                onTap: () => setState(() => _showVideoOverlay = false),
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(.1),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24, width: 1.5),
+                  ),
+                  child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text('🎬  Your Magic Video', style: ts(17, K.yellow))),
+              if (_videoInitialized)
+                GestureDetector(
+                  onTap: () async {
+                    await _videoController?.seekTo(Duration.zero);
+                    _chewieController?.play();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(9),
+                    decoration: BoxDecoration(
+                      color: K.yellow.withOpacity(.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: K.yellow, width: 1.5),
+                    ),
+                    child: const Icon(Icons.replay_rounded, color: K.yellow, size: 22),
+                  ),
+                ),
+            ]),
+          ),
+
+          // ── PLAYER AREA – fills remaining space, respects AR ──
+          Expanded(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: LayoutBuilder(builder: (context, constraints) {
+                  final double ar = _videoInitialized && _videoController != null
+                      ? _videoController!.value.aspectRatio
+                      : 16 / 9;
+                  final double maxW = constraints.maxWidth;
+                  final double maxH = constraints.maxHeight;
+                  double w = maxW;
+                  double h = w / ar;
+                  if (h > maxH) { h = maxH; w = h * ar; }
+
+                  return Container(
+                    width: w, height: h,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: K.yellow, width: 3),
+                      boxShadow: [
+                        BoxShadow(color: K.yellow.withOpacity(.3), blurRadius: 28, spreadRadius: 4),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: _videoInitialized && _chewieController != null
+                        // ── REAL PLAYER in overlay too ──
+                        ? Chewie(controller: _chewieController!)
+
+                        : Stack(alignment: Alignment.center, children: [
+                            // cinema bg
+                            Container(decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Color(0xFF0D003D), Color(0xFF3D0080)],
+                                begin: Alignment.topLeft, end: Alignment.bottomRight,
+                              ),
+                            )),
+                            _videoError
+                                ? Column(mainAxisSize: MainAxisSize.min, children: [
+                                    const Icon(Icons.error_outline_rounded, color: K.red, size: 56),
+                                    const SizedBox(height: 14),
+                                    Text('Video failed to load', style: ts(16, K.red)),
+                                    const SizedBox(height: 10),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(.07),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: Colors.white24),
+                                        ),
+                                        child: Text(
+                                          _videoUrl ?? '',
+                                          style: tb(10, Colors.white54),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ),
+                                  ])
+                                : Column(mainAxisSize: MainAxisSize.min, children: [
+                                    AnimatedBuilder(
+                                      animation: _videoBtnLoadingAnim,
+                                      builder: (_, __) => Transform.rotate(
+                                        angle: _videoBtnLoadingAnim.value * 2 * pi,
+                                        child: const Text('🎞️',
+                                            style: TextStyle(fontSize: 80, color: Colors.white24)),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    const SizedBox(
+                                      width: 40, height: 40,
+                                      child: CircularProgressIndicator(color: K.yellow, strokeWidth: 3.5),
+                                    ),
+                                    const SizedBox(height: 14),
+                                    Text('Loading your movie...', style: ts(15, K.yellow)),
+                                  ]),
+                          ]),
+                  );
+                }),
+              ),
+            ),
+          ),
+
+          // ── BOTTOM DISMISS ─────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: GestureDetector(
+              onTap: () => setState(() => _showVideoOverlay = false),
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF6200EA), Color(0xFFAA00FF)]),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: K.yellow, width: 2.5),
+                  boxShadow: const [BoxShadow(color: K.ink, offset: Offset(4, 4), blurRadius: 0)],
+                ),
+                child: Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.check_circle_outline_rounded, color: K.yellow, size: 22),
+                  const SizedBox(width: 8),
+                  Text('Done Watching', style: ts(15, K.white)),
+                ])),
+              ),
+            ),
+          ),
         ]),
       ),
     );
@@ -961,7 +1266,6 @@ Widget build(BuildContext context) {
         boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
       ),
       child: Row(children: [
-
         const Padding(padding: EdgeInsets.only(left: 14), child: Text('🌈', style: TextStyle(fontSize: 26))),
         const SizedBox(width: 8),
         Expanded(child: TextField(
@@ -973,14 +1277,9 @@ Widget build(BuildContext context) {
             contentPadding: const EdgeInsets.symmetric(vertical: 18),
           ),
         )),
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: AnimatedBuilder(
-            animation: _aWiggle,
-            builder: (_, __) => Transform.rotate(angle: _aWiggle.value * .06,
-                child: const Text('🎨', style: TextStyle(fontSize: 22))),
-          ),
-        ),
+        Padding(padding: const EdgeInsets.only(right: 12),
+          child: AnimatedBuilder(animation: _aWiggle, builder: (_, __) =>
+            Transform.rotate(angle: _aWiggle.value * .06, child: const Text('🎨', style: TextStyle(fontSize: 22))))),
       ]),
     );
   }
@@ -1004,7 +1303,8 @@ Widget build(BuildContext context) {
           ),
           child: Center(child: Text(
             _loading ? '🎨  Making Magic...' : '🚀  CREATE MY COMIC!',
-            style: ts(20, K.white, fw: FontWeight.w900, sh: [const Shadow(color: Colors.black26, offset: Offset(1, 2), blurRadius: 4)]),
+            style: ts(20, K.white, fw: FontWeight.w900,
+                sh: [const Shadow(color: Colors.black26, offset: Offset(1, 2), blurRadius: 4)]),
           )),
         ),
       ),
@@ -1024,28 +1324,27 @@ Widget build(BuildContext context) {
         boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
       ),
       child: Column(children: [
-        AnimatedBuilder(
-          animation: _acLoad,
-          builder: (_, __) {
-            final dots = '●' * ((_acLoad.value * 3).floor().clamp(1, 3));
-            return Text('✨  ${_pct.toInt()}%  $dots', style: ts(19, K.cyan, fw: FontWeight.w900));
-          },
-        ),
+        AnimatedBuilder(animation: _acLoad, builder: (_, __) {
+          final dots = '●' * ((_acLoad.value * 3).floor().clamp(1, 3));
+          return Text('✨  ${_pct.toInt()}%  $dots', style: ts(19, K.cyan, fw: FontWeight.w900));
+        }),
         const SizedBox(height: 12),
         _RainbowBar(_pct / 100),
         const SizedBox(height: 10),
-        Text('Brewing your comic adventure...', style: tb(13, K.purple, fw: FontWeight.w600)),
+        Text(
+          _pct > 84 ? '🎬  Creating your video...' : 'Brewing your comic adventure...',
+          style: tb(13, K.purple, fw: FontWeight.w600),
+        ),
       ]),
     );
   }
 
   // ════════════════════════════════════════════════════════
-  //  STORY SECTION  (animated word highlight + TTS)
+  //  STORY SECTION
   // ════════════════════════════════════════════════════════
   Widget _storySection() {
     final words = _story.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     return Column(children: [
-      // Header
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
@@ -1067,7 +1366,6 @@ Widget build(BuildContext context) {
         ]),
       ),
       const SizedBox(height: 12),
-      // Word tokens
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -1089,19 +1387,11 @@ Widget build(BuildContext context) {
                 border: active ? Border.all(color: K.orange, width: 2.5) : null,
                 boxShadow: active ? [BoxShadow(color: K.orange.withOpacity(.45), blurRadius: 12, spreadRadius: 1)] : null,
               ),
-              child: Text(w, style: tb(
-                active ? 22 : 17,
-                active ? const Color(0xFF5E2000) : K.ink,
-                fw: active ? FontWeight.w800 : FontWeight.w600,
-              )),
+              child: Text(w, style: tb(active ? 22 : 17, active ? const Color(0xFF5E2000) : K.ink,
+                  fw: active ? FontWeight.w800 : FontWeight.w600)),
             );
-            if (active) {
-              chip = AnimatedBuilder(
-                animation: _aBounce,
-                builder: (_, child) => Transform.scale(scale: _aBounce.value, child: child),
-                child: chip,
-              );
-            }
+            if (active) chip = AnimatedBuilder(animation: _aBounce,
+              builder: (_, child) => Transform.scale(scale: _aBounce.value, child: child), child: chip);
             return GestureDetector(
               onTap: () { if (_reading || _paused) { setState(() => _cw = i); _stopRead(reset: false); _startRead(); } },
               child: chip,
@@ -1114,10 +1404,8 @@ Widget build(BuildContext context) {
 
   Widget _ttsBtn(IconData icon, Color c, VoidCallback? fn) => GestureDetector(
     onTap: fn,
-    child: AnimatedOpacity(
-      duration: const Duration(milliseconds: 200), opacity: fn == null ? .28 : 1.0,
-      child: Icon(icon, color: c, size: 34),
-    ),
+    child: AnimatedOpacity(duration: const Duration(milliseconds: 200), opacity: fn == null ? .28 : 1.0,
+      child: Icon(icon, color: c, size: 34)),
   );
 
   // ════════════════════════════════════════════════════════
@@ -1136,20 +1424,19 @@ Widget build(BuildContext context) {
           boxShadow: const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
         ),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(
-            _showComic ? '🙈  HIDE COMIC' : '🎉  SHOW MY COMIC!',
-            style: ts(18, K.white, fw: FontWeight.w900, sh: [const Shadow(color: Colors.black26, offset: Offset(1, 2), blurRadius: 4)]),
-          ),
+          Text(_showComic ? '🙈  HIDE COMIC' : '🎉  SHOW MY COMIC!',
+            style: ts(18, K.white, fw: FontWeight.w900,
+                sh: [const Shadow(color: Colors.black26, offset: Offset(1, 2), blurRadius: 4)])),
           const SizedBox(width: 10),
-          AnimatedRotation(turns: _showComic ? .5 : 0, duration: const Duration(milliseconds: 380), curve: Curves.easeInOut,
-            child: const Icon(Icons.expand_more_rounded, color: K.white, size: 30)),
+          AnimatedRotation(turns: _showComic ? .5 : 0, duration: const Duration(milliseconds: 380),
+              curve: Curves.easeInOut, child: const Icon(Icons.expand_more_rounded, color: K.white, size: 30)),
         ]),
       ),
     );
   }
 
   // ════════════════════════════════════════════════════════
-  //  COMIC SECTION  (PageView + storytelling + nav)
+  //  COMIC SECTION
   // ════════════════════════════════════════════════════════
   Widget _comicSection() {
     return SizeTransition(
@@ -1162,14 +1449,16 @@ Widget build(BuildContext context) {
         const SizedBox(height: 14),
         _panelDots(),
         const SizedBox(height: 10),
-        // PageView
         SizedBox(
           height: 500,
           child: PageView.builder(
             controller: _pageCtrl,
             onPageChanged: (idx) => setState(() => _comicPanel = idx),
             itemCount: _panels.length,
-            itemBuilder: (_, idx) => _buildPanel(idx),
+            itemBuilder: (_, idx) {
+              final panel = Map<String, dynamic>.from(_panels[idx]);
+              return _buildPanel(idx, panel);
+            },
           ),
         ),
         const SizedBox(height: 14),
@@ -1211,10 +1500,8 @@ Widget build(BuildContext context) {
         const SizedBox(width: 10),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('COMIC STORY MODE', style: ts(13, K.white, fw: FontWeight.w900)),
-          Text(
-            _comicReading ? 'Reading panel ${_comicPanel + 1} of ${_panels.length}...' : 'Tap ▶ to hear the full story!',
-            style: tb(11, K.white.withOpacity(.88), fw: FontWeight.w600),
-          ),
+          Text(_comicReading ? 'Reading panel ${_comicPanel + 1} of ${_panels.length}...' : 'Tap ▶ to hear the full story!',
+            style: tb(11, K.white.withOpacity(.88), fw: FontWeight.w600)),
         ])),
         const SizedBox(width: 10),
         _ctrlBtn(Icons.play_circle_filled_rounded, K.lime, _comicReading ? null : _startComicRead),
@@ -1224,22 +1511,18 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _ctrlBtn(IconData icon, Color c, VoidCallback? fn) {
-    return GestureDetector(
-      onTap: fn,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 44, height: 44,
-        decoration: BoxDecoration(
-          color: fn == null ? K.white.withOpacity(.2) : K.white,
-          shape: BoxShape.circle,
-          border: Border.all(color: K.ink, width: 2.5),
-          boxShadow: fn == null ? [] : const [BoxShadow(color: K.ink, offset: Offset(2, 2), blurRadius: 0)],
-        ),
-        child: Icon(icon, color: fn == null ? K.white.withOpacity(.4) : c, size: 26),
+  Widget _ctrlBtn(IconData icon, Color c, VoidCallback? fn) => GestureDetector(
+    onTap: fn,
+    child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+      width: 44, height: 44,
+      decoration: BoxDecoration(
+        color: fn == null ? K.white.withOpacity(.2) : K.white,
+        shape: BoxShape.circle,
+        border: Border.all(color: K.ink, width: 2.5),
+        boxShadow: fn == null ? [] : const [BoxShadow(color: K.ink, offset: Offset(2, 2), blurRadius: 0)],
       ),
-    );
-  }
+      child: Icon(icon, color: fn == null ? K.white.withOpacity(.4) : c, size: 26)),
+  );
 
   Widget _panelDots() {
     return Row(mainAxisAlignment: MainAxisAlignment.center,
@@ -1252,30 +1535,24 @@ Widget build(BuildContext context) {
           decoration: BoxDecoration(
             color: active ? K.panelAccent(i) : K.ink.withOpacity(.2),
             borderRadius: BorderRadius.circular(6),
-            border: active ? Border.all(color: K.ink, width: 2) : null,
-          ),
-        );
-      }),
-    );
+            border: active ? Border.all(color: K.ink, width: 2) : null));
+      }));
   }
 
   Widget _panelNav() {
     return Row(children: [
-      _navBtn('◀  PREV', K.blue, _comicPanel > 0 ? () {
-        _pageCtrl.previousPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
-      } : null),
+      _navBtn('◀  PREV', K.blue, _comicPanel > 0 ? () =>
+        _pageCtrl.previousPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic) : null),
       const SizedBox(width: 12),
-      _navBtn('NEXT  ▶', K.red, _comicPanel < _panels.length - 1 ? () {
-        _pageCtrl.nextPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
-      } : null),
+      _navBtn('NEXT  ▶', K.red, _comicPanel < _panels.length - 1 ? () =>
+        _pageCtrl.nextPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic) : null),
     ]);
   }
 
   Widget _navBtn(String label, Color c, VoidCallback? fn) {
     return Expanded(child: GestureDetector(
       onTap: fn,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+      child: AnimatedContainer(duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
           color: fn == null ? Colors.grey.shade300 : c,
@@ -1283,113 +1560,74 @@ Widget build(BuildContext context) {
           border: Border.all(color: K.ink, width: 3),
           boxShadow: fn == null ? [] : const [BoxShadow(color: K.ink, offset: Offset(4, 4), blurRadius: 0)],
         ),
-        child: Center(child: Text(label, style: ts(15, fn == null ? Colors.grey.shade500 : K.white))),
-      ),
-    ));
+        child: Center(child: Text(label, style: ts(15, fn == null ? Colors.grey.shade500 : K.white))))));
   }
 
   // ════════════════════════════════════════════════════════
   //  SINGLE COMIC PANEL
   // ════════════════════════════════════════════════════════
-  Widget _buildPanel(int idx) {
-    final panel   = _panels[idx];
+  Widget _buildPanel(int idx, Map<String, dynamic> panel) {
     final palette = K.panels[idx % K.panels.length];
     final bg      = palette[0] as Color;
     final bc      = palette[1] as Color;
     final seed    = idx < _seeds.length ? _seeds[idx] : idx * 137 + 7;
     final active  = idx == _comicPanel && _comicReading;
+    final imgUrl  = panel['image'] as String? ?? '';
 
     Widget card = Padding(
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Stack(children: [
-        // Hard ink shadow
         Positioned(left: 7, top: 7, right: 0, bottom: 0, child: Container(
-          decoration: BoxDecoration(color: K.ink, borderRadius: BorderRadius.circular(26)),
-        )),
-        // Card body
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 350),
+          decoration: BoxDecoration(color: K.ink, borderRadius: BorderRadius.circular(26)))),
+        AnimatedContainer(duration: const Duration(milliseconds: 350),
           decoration: BoxDecoration(
             color: bg, borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: active ? bc : bg, width: 4),
-          ),
+            border: Border.all(color: active ? bc : bg, width: 4)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Image + overlays
             Stack(children: [
               ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
                 child: Stack(children: [
-                  _panelImg(panel['image'] ?? ''),
+                  _panelImg(imgUrl),
                   Positioned.fill(child: CustomPaint(painter: _HalftonePainter(K.ink.withOpacity(.033)))),
                 ]),
               ),
-              // Panel badge
               Positioned(top: 12, left: 12, child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: bc, borderRadius: BorderRadius.circular(30),
+                decoration: BoxDecoration(color: bc, borderRadius: BorderRadius.circular(30),
                   border: Border.all(color: K.white, width: 2.5),
-                  boxShadow: const [BoxShadow(color: K.ink, offset: Offset(2, 3), blurRadius: 0)],
-                ),
-                child: Text('Panel ${idx + 1}', style: ts(12, K.white)),
-              )),
-              // ZAP sticker
+                  boxShadow: const [BoxShadow(color: K.ink, offset: Offset(2, 3), blurRadius: 0)]),
+                child: Text('Panel ${idx + 1}', style: ts(12, K.white)))),
               Positioned(top: 10, right: 10, child: Transform.rotate(angle: .22,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(
-                    color: K.zapCols[idx % K.zapCols.length],
+                  decoration: BoxDecoration(color: K.zapCols[idx % K.zapCols.length],
                     borderRadius: BorderRadius.circular(11),
                     border: Border.all(color: K.ink, width: 2.5),
-                    boxShadow: const [BoxShadow(color: K.ink, offset: Offset(2, 2), blurRadius: 0)],
-                  ),
-                  child: Text(K.zapLabels[idx % K.zapLabels.length], style: ts(12, K.white)),
-                ),
-              )),
-              // Active-reading glow overlay
+                    boxShadow: const [BoxShadow(color: K.ink, offset: Offset(2, 2), blurRadius: 0)]),
+                  child: Text(K.zapLabels[idx % K.zapLabels.length], style: ts(12, K.white))))),
               if (active) Positioned.fill(child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                child: AnimatedBuilder(
-                  animation: _aPulse,
-                  builder: (_, __) => Container(color: bc.withOpacity(_aPulse.value * .13)),
-                ),
-              )),
+                child: AnimatedBuilder(animation: _aPulse,
+                  builder: (_, __) => Container(color: bc.withOpacity(_aPulse.value * .13))))),
             ]),
-            // Speech bubble title
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 16, 14, 2),
-              child: CustomPaint(
-                painter: _BubblePainter(fill: K.white, stroke: bc),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 13, 16, 30),
-                  child: Text(panel['title'] ?? '', style: ts(15, bc, fw: FontWeight.w900)),
-                ),
-              ),
-            ),
-            // Description
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
-              child: Text(panel['description'] ?? '',
-                  style: tb(13, K.ink.withOpacity(.8), fw: FontWeight.w600)),
-            ),
-          ]),
-        ),
-        // Wobbly ink border
-        Positioned.fill(child: ClipRRect(
-          borderRadius: BorderRadius.circular(26),
-          child: CustomPaint(painter: _WobblePainter(bc, 4.4, seed)),
-        )),
+            Padding(padding: const EdgeInsets.fromLTRB(14, 16, 14, 2),
+              child: CustomPaint(painter: _BubblePainter(fill: K.white, stroke: bc),
+                child: Padding(padding: const EdgeInsets.fromLTRB(16, 13, 16, 30),
+                  child: Text(panel['title'] ?? '', style: ts(15, bc, fw: FontWeight.w900))))),
+            Padding(padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
+              child: Text(panel['description'] ?? '', style: tb(13, K.ink.withOpacity(.8), fw: FontWeight.w600))),
+          ])),
+        Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(26),
+          child: CustomPaint(painter: _WobblePainter(bc, 4.4, seed)))),
       ]),
     );
 
-    // Entrance animation
     if (idx < _panelSc.length) {
       card = AnimatedBuilder(
         animation: Listenable.merge([_panelSc[idx], _panelOp[idx]]),
-        builder: (_, child) => Opacity(
-          opacity: _panelOp[idx].value,
-          child: Transform.scale(scale: _panelSc[idx].value, child: child),
-        ),
+        builder: (_, child) => Opacity(opacity: _panelOp[idx].value,
+          child: Transform.scale(scale: _panelSc[idx].value, child: child)),
         child: card,
       );
     }
@@ -1398,14 +1636,13 @@ Widget build(BuildContext context) {
 
   Widget _panelImg(String url) {
     if (url.isEmpty) return Container(height: 220, color: const Color(0xFFE3EEFF),
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(K.blue))));
+      child: const Center(child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(K.blue))));
     return CachedNetworkImage(imageUrl: url, height: 220, width: double.infinity, fit: BoxFit.cover,
       placeholder: (_, __) => Container(height: 220, color: const Color(0xFFE3EEFF),
-          child: const Center(child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(K.blue)))),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(K.blue)))),
       errorWidget: (_, __, ___) => Container(height: 220, color: Colors.grey.shade200,
-          child: const Center(child: Icon(Icons.broken_image, size: 44, color: Colors.grey))),
-      fadeInDuration: Duration.zero,
-    );
+        child: const Center(child: Icon(Icons.broken_image, size: 44, color: Colors.grey))),
+      fadeInDuration: Duration.zero);
   }
 
   Widget _timeBadge() {
@@ -1421,6 +1658,32 @@ Widget build(BuildContext context) {
         const SizedBox(width: 10),
         Text('Done in $_genTime', style: ts(14, K.mint)),
       ]),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  HELPER WIDGET – reusable film strip rows
+// ══════════════════════════════════════════════════════════════
+class _FilmStrip extends StatelessWidget {
+  final double? top;
+  final double? bottom;
+  const _FilmStrip({this.top, this.bottom});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      top: top, bottom: bottom, left: 0, right: 0,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: List.generate(10, (_) => Container(
+          width: 24, height: 12,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(.15),
+            borderRadius: BorderRadius.circular(3),
+          ),
+        )),
+      ),
     );
   }
 }

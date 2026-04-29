@@ -59,7 +59,7 @@ Future<void> generateStory() async {
   final request = http.Request(
     'GET',
     Uri.parse(
-      "https://magicstoryserver.vercel.app/generate-story-comic-stream?prompt=${textcontroller.text}"
+      "http://192.168.100.177:9000/generate-story-comic-stream?prompt=${textcontroller.text}"
     ),
   );
 
