@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:video_player/video_player.dart';
 import '../../../providers/user_provider.dart';
 import 'dart:math';
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/services.dart';
 
 // ═══════════════════════════════════════════════════════════════════
@@ -176,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // ── API STORY GENERATION ─────────────────────────────────────────
+  // ── API STORY AND VIDEO GENERATION (PARALLEL) ─────────────────────────────────────────
   
   /// Generate story using OpenAI API
   Future<Map<String, dynamic>?> _generateStoryFromAPI() async {
@@ -202,9 +203,91 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       }
       return null;
     } catch (e) {
-      debugPrint('API Error: $e');
+      debugPrint('Story API Error: $e');
       return null;
     }
+  }
+
+  /// Generate video using the stream endpoint with real-time progress
+  Future<String?> _generateVideoWithProgress(StreamController<String> progressController) async {
+    try {
+      final storyText = _currentStory ?? '';
+      final prompt = "A ${_selectedChar?.name ?? 'character'} in ${_selectedWorld?.name ?? 'a magical place'} with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood.";
+      
+      progressController.add('Connecting to AI...');
+      
+      final request = http.Request('GET', Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
+      final streamedResponse = await request.send();
+      
+      if (streamedResponse.statusCode == 200) {
+        final stream = streamedResponse.stream.transform(utf8.decoder);
+        String videoUrl = '';
+        
+        await for (final chunk in stream) {
+          final lines = chunk.split('\n');
+          for (var line in lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                final data = json.decode(line.substring(6));
+                if (data['progress'] != null) {
+                  // Update progress
+                  if (data['progress'] < 30) {
+                    progressController.add('📖 Generating your story...');
+                  } else if (data['progress'] < 60) {
+                    progressController.add('🎨 Creating magical illustrations...');
+                  } else if (data['progress'] < 85) {
+                    progressController.add('🎤 Adding voice narration...');
+                  } else {
+                    progressController.add('🎬 Finalizing your video...');
+                  }
+                }
+                if (data['story'] != null && _currentStory == null) {
+                  // Story is ready
+                  progressController.add('✨ Story created! Now making it magical...');
+                }
+                if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) {
+                  videoUrl = data['videoUrl'];
+                  progressController.add('✅ Video ready!');
+                }
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
+        
+        return videoUrl.isNotEmpty ? videoUrl : null;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Video Generation API Error: $e');
+      return null;
+    }
+  }
+
+  /// Combined generation: Story + Video (PARALLEL)
+  Future<Map<String, dynamic>?> _generateStoryAndVideoParallel() async {
+    final progressStream = StreamController<String>();
+    
+    // Start both operations in parallel
+    final storyFuture = _generateStoryFromAPI();
+    final videoFuture = _generateVideoWithProgress(progressStream);
+    
+    // Wait for both to complete
+    final results = await Future.wait([storyFuture, videoFuture]);
+    
+    await progressStream.close();
+    
+    final storyResult = results[0] as Map<String, dynamic>?;
+    final videoUrl = results[1] as String?;
+    
+    if (storyResult == null) return null;
+    
+    return {
+      'story': storyResult['story'],
+      'title': storyResult['title'],
+      'videoUrl': videoUrl,
+    };
   }
 
   String? _getVideoUrl() {
@@ -256,26 +339,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _showLoaderThenStory() async {
-    // Show loading dialog
+    // Show loading dialog with progress updates
+    final progressController = StreamController<String>();
+    
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
-      builder: (_) => _LoadingDialog(),
+      builder: (_) => _ProgressLoadingDialog(progressStream: progressController.stream),
     );
     
-    // Generate story from API
+    // Generate story AND video in parallel
     setState(() => _isGenerating = true);
-    final result = await _generateStoryFromAPI();
+    final result = await _generateStoryAndVideoParallel();
     setState(() => _isGenerating = false);
     
     if (!mounted) return;
+    await progressController.close();
     Navigator.pop(context); // Close loading dialog
     
     if (result != null) {
       _currentStory = result['story'];
       _currentStoryTitle = result['title'];
-      _currentVideoUrl = _getVideoUrl();
+      _currentVideoUrl = result['videoUrl'] ?? _getVideoUrl();
       
       if (mounted) {
         showDialog(
@@ -932,23 +1018,43 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  LOADING DIALOG
+//  PROGRESS LOADING DIALOG (with real-time updates)
 // ═══════════════════════════════════════════════════════════════════
-class _LoadingDialog extends StatefulWidget {
-  @override State<_LoadingDialog> createState() => _LoadingDialogState();
+class _ProgressLoadingDialog extends StatefulWidget {
+  final Stream<String> progressStream;
+  const _ProgressLoadingDialog({required this.progressStream});
+
+  @override
+  State<_ProgressLoadingDialog> createState() => _ProgressLoadingDialogState();
 }
-class _LoadingDialogState extends State<_LoadingDialog> with SingleTickerProviderStateMixin {
+
+class _ProgressLoadingDialogState extends State<_ProgressLoadingDialog> with SingleTickerProviderStateMixin {
   late AnimationController _c;
   late Animation<double> _rot, _scale;
+  String _currentMessage = "Starting magic...";
 
-  @override void initState() {
+  @override
+  void initState() {
     super.initState();
     _c = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
-    _rot   = Tween<double>(begin: 0, end: 2 * pi).animate(CurvedAnimation(parent: _c, curve: Curves.linear));
+    _rot = Tween<double>(begin: 0, end: 2 * pi).animate(CurvedAnimation(parent: _c, curve: Curves.linear));
     _scale = Tween<double>(begin: 0.8, end: 1.1).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
-  }
-  @override void dispose() { _c.dispose(); super.dispose(); }
 
+    // Listen to progress updates
+    widget.progressStream.listen((message) {
+      if (mounted) {
+        setState(() {
+          _currentMessage = message;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -970,11 +1076,11 @@ class _LoadingDialogState extends State<_LoadingDialog> with SingleTickerProvide
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               AnimatedBuilder(animation: _c, builder: (_, __) =>
                 Transform.scale(scale: _scale.value,
-                  child: Text(_c.value < 0.33 ? '📖' : _c.value < 0.66 ? '✨' : '🌟',
+                  child: Text(_c.value < 0.33 ? '📖' : _c.value < 0.66 ? '✨' : '🎬',
                     style: const TextStyle(fontSize: 64)))),
               const SizedBox(height: 20),
-              const Text('✨ Weaving Your Magic Story...', textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+              Text(_currentMessage, textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
               const SizedBox(height: 22),
               AnimatedBuilder(animation: _rot, builder: (_, __) {
                 return Row(mainAxisAlignment: MainAxisAlignment.center,
@@ -995,7 +1101,7 @@ class _LoadingDialogState extends State<_LoadingDialog> with SingleTickerProvide
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  STORY DIALOG (Updated with API-generated stories)
+//  STORY DIALOG (Updated with video player)
 // ═══════════════════════════════════════════════════════════════════
 class _StoryDialog extends StatefulWidget {
   final String story;
@@ -1020,7 +1126,8 @@ class _StoryDialog extends StatefulWidget {
     required this.onNewStory,
   });
 
-  @override State<_StoryDialog> createState() => _StoryDialogState();
+  @override
+  State<_StoryDialog> createState() => _StoryDialogState();
 }
 
 class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderStateMixin {
@@ -1072,7 +1179,8 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
     });
   }
 
-  @override void dispose() { _textCtrl.dispose(); super.dispose(); }
+  @override
+  void dispose() { _textCtrl.dispose(); super.dispose(); }
 
   Future<void> _toggleTts() async {
     if (_speaking) {
@@ -1112,7 +1220,15 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
 
   void _openVideoModal() {
     if (widget.videoUrl == null) return;
-    showDialog(context: context, builder: (_) => _VideoDialog(url: widget.videoUrl!, char: widget.char, world: widget.world, mood: widget.mood));
+    showDialog(
+      context: context, 
+      builder: (_) => _VideoPlayerDialog(
+        url: widget.videoUrl!, 
+        char: widget.char, 
+        world: widget.world, 
+        mood: widget.mood
+      )
+    );
   }
 
   Color get _moodColor => {
@@ -1354,31 +1470,58 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  VIDEO DIALOG (unchanged)
+//  VIDEO PLAYER DIALOG (using video_player instead of webview)
 // ═══════════════════════════════════════════════════════════════════
-class _VideoDialog extends StatefulWidget {
+class _VideoPlayerDialog extends StatefulWidget {
   final String url;
   final Character char;
   final StoryWorld world;
   final String mood;
-  const _VideoDialog({required this.url, required this.char, required this.world, required this.mood});
-  @override State<_VideoDialog> createState() => _VideoDialogState();
+  const _VideoPlayerDialog({required this.url, required this.char, required this.world, required this.mood});
+
+  @override
+  State<_VideoPlayerDialog> createState() => _VideoPlayerDialogState();
 }
-class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderStateMixin {
+
+class _VideoPlayerDialogState extends State<_VideoPlayerDialog> with SingleTickerProviderStateMixin {
   late AnimationController _c;
-  late WebViewController _webCtrl;
-  bool _loading = true;
+  late VideoPlayerController _videoController;
+  bool _isInitialized = false;
+  bool _isPlaying = false;
 
   @override
   void initState() {
     super.initState();
     _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 500))..forward();
-    _webCtrl = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(onPageFinished: (_) => setState(() => _loading = false)))
-      ..loadRequest(Uri.parse(widget.url));
+    
+    _videoController = VideoPlayerController.networkUrl(Uri.parse(widget.url));
+    _videoController.initialize().then((_) {
+      setState(() {
+        _isInitialized = true;
+      });
+      _videoController.setLooping(true);
+      _videoController.play();
+      _isPlaying = true;
+    });
   }
-  @override void dispose() { _c.dispose(); super.dispose(); }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    _videoController.dispose();
+    super.dispose();
+  }
+
+  void _togglePlayPause() {
+    if (_isPlaying) {
+      _videoController.pause();
+    } else {
+      _videoController.play();
+    }
+    setState(() {
+      _isPlaying = !_isPlaying;
+    });
+  }
 
   String get _moodEmoji => {'Happy':'🌟','Funny':'🎪','Adventure':'⚡','Bedtime':'🌙'}[widget.mood] ?? '✨';
 
@@ -1432,8 +1575,9 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
                 ]),
               ),
 
+              // Video Player
               Container(
-                height: 240,
+                height: 260,
                 margin: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
@@ -1442,17 +1586,49 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
-                  child: Stack(children: [
-                    WebViewWidget(controller: _webCtrl),
-                    if (_loading) Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      const CircularProgressIndicator(color: Colors.white),
-                      const SizedBox(height: 12),
-                      Text('Loading video...', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
-                    ])),
-                  ]),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      if (_isInitialized)
+                        GestureDetector(
+                          onTap: _togglePlayPause,
+                          child: VideoPlayer(_videoController),
+                        )
+                      else
+                        const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(color: Colors.white),
+                              SizedBox(height: 12),
+                              Text('Loading video...', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                            ],
+                          ),
+                        ),
+                      
+                      // Play/Pause overlay button
+                      if (_isInitialized && !_isPlaying)
+                        GestureDetector(
+                          onTap: _togglePlayPause,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(16),
+                            child: const Icon(
+                              Icons.play_arrow_rounded,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
 
+              // Video Controls Info
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
                 child: Row(children: [
@@ -1460,10 +1636,12 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
                     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
                     decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(16)),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      Icon(Icons.info_outline_rounded, color: Colors.white.withOpacity(0.5), size: 14),
+                      Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded, color: Colors.white.withOpacity(0.5), size: 14),
                       const SizedBox(width: 6),
-                      Text('Tap video to play / pause',
-                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontWeight: FontWeight.w600)),
+                      Text(
+                        _isPlaying ? 'Tap video to pause' : 'Tap video to play',
+                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
                     ]),
                   )),
                   const SizedBox(width: 10),
@@ -1489,7 +1667,7 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  HELPER WIDGETS (unchanged)
+//  HELPER WIDGETS
 // ═══════════════════════════════════════════════════════════════════
 class _AvatarRing extends StatelessWidget {
   final String gif, emoji; final Color color; final double size;
@@ -1544,7 +1722,7 @@ class _BottomBtn extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  FLOATING PARTICLE SYSTEM (unchanged)
+//  FLOATING PARTICLE SYSTEM
 // ═══════════════════════════════════════════════════════════════════
 class _Particle {
   final double x, y, size, speed, delay, drift;
@@ -1575,7 +1753,7 @@ class _ParticlePainter extends CustomPainter {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  DATA MODELS (unchanged)
+//  DATA MODELS
 // ═══════════════════════════════════════════════════════════════════
 class Character {
   final String name, gif, sound, emoji;
