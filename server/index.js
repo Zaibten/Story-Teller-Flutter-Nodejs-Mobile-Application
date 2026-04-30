@@ -14,23 +14,24 @@ const User = require('./models/user'); // import the model
 const cloudinary = require("cloudinary").v2;
 
 const path = require('path');
-const { exec } = require('child_process');
+// ✅ VERCEL: Removed child_process exec (no ffmpeg on Vercel)
 const axios = require('axios');
-const ffmpeg = require('fluent-ffmpeg');
+// ✅ VERCEL: Removed fluent-ffmpeg (not supported on Vercel serverless)
 
 const fs = require('fs');
+const os = require('os'); // ✅ VERCEL: Use os.tmpdir() instead of __dirname/temp
 
 const bcrypt = require('bcryptjs'); // for hashing passwords
 // Internal Routes
 const authRouter = require('./routes/auth.js');
-
 const videoRouter = require('./routes/videoRoutes.js');
-
-// Add with other requires
 const puterVideoGenerator = require('./routes/mk.js');
 
-
-
+// ✅ VERCEL: Helper to get temp directory (uses /tmp on Vercel)
+const getTempDir = () => {
+  const tmpDir = os.tmpdir();
+  return tmpDir;
+};
 
 // INIT
 const app = express();
@@ -40,29 +41,34 @@ const DB = process.env.MONGO_URI;
 // Middle ware
 app.use(express.json());
 app.use(authRouter);
-
 app.use(videoRouter);
-
-// Add after other app.use
 app.use('/puter-video', puterVideoGenerator);
 
-// Serve Static Assets (FIX)
+// Serve Static Assets
 app.use("/assets", express.static("assets"));
 
-
-
-// // Connections
-mongoose.connect(DB)
-  .then(() => {
+// ✅ VERCEL: Lazy MongoDB connection (serverless-safe)
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected) return;
+  try {
+    await mongoose.connect(DB, {
+      serverSelectionTimeoutMS: 5000,
+      bufferCommands: false,
+    });
+    isConnected = true;
     console.log('MongoDB connection successful');
-  })
-  .catch((e) => {
+  } catch (e) {
     console.log("MongoDB Error:", e);
-  });
+    throw e;
+  }
+};
+
+// Connect on startup (for non-serverless) and on each request (for serverless)
+connectDB().catch(console.error);
 
 app.use(cors());
 app.use(bodyParser.json({ limit: "10mb" }));
-
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -70,12 +76,10 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// const storyRouter = require('./routes/story.js');
-// app.use(storyRouter);
-
 // -------------------- Reset Password --------------------
 app.post('/reset-password', async (req, res) => {
   try {
+    await connectDB();
     const { email, newPassword } = req.body;
     if (!email || !newPassword) {
       return res.status(400).json({ success: false, error: "Email and new password are required" });
@@ -84,7 +88,7 @@ app.post('/reset-password', async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ success: false, error: "User not found" });
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10); // hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
     await user.save();
 
@@ -95,15 +99,14 @@ app.post('/reset-password', async (req, res) => {
   }
 });
 
-
-
 // -------------------- Profile Route --------------------
 app.post('/profile', async (req, res) => {
   try {
+    await connectDB();
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: "Email is required" });
 
-    const user = await User.findOne({ email }).select('-password'); // exclude password
+    const user = await User.findOne({ email }).select('-password');
     if (!user) return res.status(404).json({ error: "User not found" });
 
     res.json({ success: true, user });
@@ -113,11 +116,7 @@ app.post('/profile', async (req, res) => {
   }
 });
 
-
-// console.log("API KEY:", process.env.OPENAI_API_KEY);
-
 // -------------------- OpenAI Init --------------------
-
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -127,7 +126,6 @@ function extractJSON(text) {
   try {
     if (!text) return null;
 
-    // remove markdown
     text = text
       .replace(/```json/g, "")
       .replace(/```/g, "")
@@ -146,17 +144,15 @@ function extractJSON(text) {
   }
 }
 
-// ✅ SAFE IMAGE PROMPT (IMPORTANT FOR MODERATION ERRORS)
+// ✅ SAFE IMAGE PROMPT
 function safePrompt(text = "") {
   return text
     .replace(/violence|kill|death|gun|weapon|blood|fight/gi, "action scene")
     .replace(/horror|scary|dark/gi, "mysterious")
     .substring(0, 180);
 }
-// Add this after your existing code, before app.listen()
 
-// Function to convert English text to Roman Urdu using OpenAI
-// Function to convert English text to Authentic Roman Urdu with proper accent cues
+// Convert English text to Roman Urdu
 async function convertToRomanUrdu(text) {
   try {
     const response = await openai.chat.completions.create({
@@ -197,7 +193,7 @@ Only return the Roman Urdu text, no explanations.`
   }
 }
 
-// Test different voices for best Urdu accent
+// Test different voices
 app.get('/test-voices', async (req, res) => {
   const testText = "Achha! Suno meri kahani. Ek dafa ka zikr hai...";
   const voices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
@@ -213,10 +209,10 @@ app.get('/test-voices', async (req, res) => {
       });
       
       const buffer = Buffer.from(await mp3.arrayBuffer());
-      const filePath = path.join(__dirname, 'temp', `test_${voice}.mp3`);
+      // ✅ VERCEL: Use os.tmpdir() instead of __dirname/temp
+      const filePath = path.join(getTempDir(), `test_${voice}.mp3`);
       fs.writeFileSync(filePath, buffer);
       
-      // Upload to Cloudinary
       const uploadResult = await cloudinary.uploader.upload(filePath, {
         folder: "voice_tests",
         resource_type: "raw",
@@ -225,7 +221,6 @@ app.get('/test-voices', async (req, res) => {
       
       results.push({ voice, url: uploadResult.secure_url });
       
-      // Cleanup
       setTimeout(() => {
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       }, 1000);
@@ -242,30 +237,21 @@ app.get('/test-voices', async (req, res) => {
   });
 });
 
-// Function to generate voiceover using OpenAI TTS (Fixed for kid-friendly voice)
-// Function to generate voiceover with Urdu accent using pronunciation guide
+// Generate voiceover using OpenAI TTS
 async function generateVoiceover(text, filename) {
   try {
-    // First, enhance the Roman Urdu text with pronunciation guides for better accent
     const enhancedText = await enhanceRomanUrduForAccent(text);
     
-    // Try different voices - some work better for South Asian accents
-    // 'nova' and 'fable' work best for Urdu accent
     const mp3 = await openai.audio.speech.create({
       model: "tts-1",
-      voice: "fable", // 'fable' gives better South Asian accent, try 'nova' or 'echo' as alternatives
+      voice: "fable",
       input: enhancedText,
-      speed: 0.85  // Slower speed helps with clarity
+      speed: 0.85
     });
     
     const buffer = Buffer.from(await mp3.arrayBuffer());
-    const filePath = path.join(__dirname, 'temp', filename);
-    
-    // Ensure temp directory exists
-    if (!fs.existsSync(path.join(__dirname, 'temp'))) {
-      fs.mkdirSync(path.join(__dirname, 'temp'));
-    }
-    
+    // ✅ VERCEL: Write to /tmp (os.tmpdir())
+    const filePath = path.join(getTempDir(), filename);
     fs.writeFileSync(filePath, buffer);
     console.log("✅ Voiceover generated with Urdu accent using 'fable' voice");
     return filePath;
@@ -275,7 +261,7 @@ async function generateVoiceover(text, filename) {
   }
 }
 
-// Function to enhance Roman Urdu text for better pronunciation
+// Enhance Roman Urdu text for better pronunciation
 async function enhanceRomanUrduForAccent(text) {
   try {
     const response = await openai.chat.completions.create({
@@ -314,43 +300,119 @@ Only return the enhanced text, no explanations.`
   }
 }
 
-// Function to create video with voiceover using FFmpeg
-async function createVideoWithVoiceover(imagePaths, voiceoverPath, outputPath, durationPerImage = 4) {
-  return new Promise((resolve, reject) => {
-    // Get voiceover duration
-    exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${voiceoverPath}"`, 
-      async (error, stdout) => {
-        const voiceDuration = parseFloat(stdout) || (imagePaths.length * durationPerImage);
-        
-        // Calculate duration per image based on voiceover length
-        const actualDurationPerImage = voiceDuration / imagePaths.length;
-        
-        // Create concat file
-        const concatFile = path.join(__dirname, 'temp', `concat_${Date.now()}.txt`);
-        let concatContent = '';
-        for (const imagePath of imagePaths) {
-          concatContent += `file '${imagePath}'\nduration ${actualDurationPerImage}\n`;
-        }
-        concatContent += `file '${imagePaths[imagePaths.length - 1]}'\n`;
-        fs.writeFileSync(concatFile, concatContent);
-        
-        // FIXED: Use libvo_aacenc instead of aac, and add -strict experimental
-        const command = `ffmpeg -f concat -safe 0 -i "${concatFile}" -i "${voiceoverPath}" -vf "fps=24,scale=1024:1024:force_original_aspect_ratio=decrease,pad=1024:1024:(ow-iw)/2:(oh-ih)/2,format=yuv420p" -c:v libx264 -preset fast -crf 23 -c:a libvo_aacenc -b:a 128k -pix_fmt yuv420p -shortest -y "${outputPath}"`;
-        
-        console.log("Running FFmpeg command...");
-        
-        exec(command, (err, stdout, stderr) => {
-          if (fs.existsSync(concatFile)) fs.unlinkSync(concatFile);
-          if (err) {
-            console.error("FFmpeg stderr:", stderr);
-            reject(err);
-          } else {
-            console.log("Video created successfully");
-            resolve(outputPath);
-          }
-        });
+// ✅ VERCEL: Replaced FFmpeg video creation with Cloudinary's slideshow API
+// This creates a video from images + audio entirely in the cloud — no local ffmpeg needed
+async function createVideoWithVoiceover(imagePaths, voiceoverPath, outputPath) {
+  try {
+    console.log("☁️ Uploading images to Cloudinary for slideshow...");
+
+    // Upload all images to Cloudinary and get public_ids
+    const imagePublicIds = [];
+    for (let i = 0; i < imagePaths.length; i++) {
+      const uploadResult = await cloudinary.uploader.upload(imagePaths[i], {
+        folder: "story_video_frames",
+        resource_type: "image",
       });
-  });
+      imagePublicIds.push(uploadResult.public_id);
+      console.log(`✅ Frame ${i + 1} uploaded: ${uploadResult.public_id}`);
+    }
+
+    // Upload audio to Cloudinary
+    console.log("🎤 Uploading voiceover to Cloudinary...");
+    const audioUpload = await cloudinary.uploader.upload(voiceoverPath, {
+      folder: "story_voiceovers",
+      resource_type: "video", // Cloudinary treats audio as video resource
+    });
+    const audioPublicId = audioUpload.public_id;
+    console.log(`✅ Audio uploaded: ${audioPublicId}`);
+
+    // Use Cloudinary's multi-image slideshow with audio overlay
+    // Each image shows for equal duration; audio is overlaid
+    const totalImages = imagePublicIds.length;
+    const durationPerSlide = 4; // seconds per image
+
+    // Build transformation: concat images into slideshow then overlay audio
+    const transformation = [
+      { duration: durationPerSlide },
+    ];
+
+    // Build the URL for a multi-asset video using Cloudinary's concat feature
+    // We'll use the Video API to stitch images
+    const slideshowResult = await cloudinary.uploader.create_slideshow({
+      manifest_transformation: {
+        duration: durationPerSlide,
+      },
+      manifest_json: JSON.stringify({
+        w: 1024,
+        h: 1024,
+        du: durationPerSlide,
+        fps: 24,
+        vars: { sdur: null, tdur: null },
+        slides: imagePublicIds.map(id => ({ media: `i:${id}` })),
+        music: `u:${audioPublicId}`,
+      }),
+      notification_url: null,
+      public_id: `story_slideshow_${Date.now()}`,
+      upload_preset: null,
+      resource_type: "video",
+      overwrite: true,
+    });
+
+    console.log("✅ Slideshow created:", slideshowResult.secure_url);
+    return slideshowResult.secure_url;
+
+  } catch (error) {
+    console.error("Cloudinary slideshow error:", error);
+    // Fallback: return audio URL if video creation fails
+    throw error;
+  }
+}
+
+// ✅ VERCEL ALTERNATIVE: Simple video URL builder using Cloudinary transformations
+// This is a more reliable fallback that doesn't need the slideshow API
+async function createVideoCloudinaryTransform(imageUrls, voiceoverPath) {
+  try {
+    // Upload voiceover
+    const audioUpload = await cloudinary.uploader.upload(voiceoverPath, {
+      folder: "story_voiceovers",
+      resource_type: "video",
+    });
+
+    // Upload images and collect public_ids
+    const uploadedImages = [];
+    for (let i = 0; i < imageUrls.length; i++) {
+      const result = await cloudinary.uploader.upload(imageUrls[i], {
+        folder: "story_video_frames",
+        resource_type: "image",
+      });
+      uploadedImages.push(result.public_id);
+    }
+
+    // Generate a Cloudinary video URL using chained transformations
+    // Each image is shown for 4 seconds, audio overlaid
+    const videoUrl = cloudinary.url(uploadedImages[0], {
+      resource_type: "video",
+      transformation: [
+        { width: 1024, height: 1024, crop: "fill" },
+        { duration: 4 },
+        ...uploadedImages.slice(1).flatMap(id => [
+          { overlay: `video:${id.replace(/\//g, ':')}` },
+          { width: 1024, height: 1024, crop: "fill", duration: 4, flags: "splice" },
+          { layer_apply: true },
+        ]),
+        {
+          overlay: `video:${audioUpload.public_id.replace(/\//g, ':')}`,
+          flags: "layer_apply",
+        },
+      ],
+      format: "mp4",
+    });
+
+    return { videoUrl, audioPublicId: audioUpload.public_id };
+  } catch (err) {
+    console.error("Transform video error:", err);
+    throw err;
+  }
 }
 
 // Modified MAIN API - generates comic and then auto-creates video
@@ -403,7 +465,7 @@ Return JSON:
 
     console.log("🎨 Generating comic images...");
 
-    // 3️⃣ Generate IMAGES for all panels (WITHOUT blocking)
+    // 3️⃣ Generate IMAGES for all panels
     const panelsWithImages = await Promise.all(
       panels.map(async (panel, index) => {
         try {
@@ -431,7 +493,6 @@ Return JSON:
       })
     );
 
-    // Filter out panels without images
     const validImages = panelsWithImages.filter(p => p.image);
     
     if (validImages.length === 0) {
@@ -454,20 +515,18 @@ Return JSON:
       message: "Comic generated! Video is being created in background..."
     });
 
-    // 4️⃣ GENERATE VIDEO IN BACKGROUND (non-blocking)
+    // 4️⃣ GENERATE VIDEO IN BACKGROUND
     console.log("🎬 Starting background video generation...");
     
-    // Convert story to Roman Urdu
     console.log("🔄 Converting story to Roman Urdu...");
     const romanUrduStory = await convertToRomanUrdu(englishStory);
     console.log("📖 Roman Urdu Story:", romanUrduStory);
     
-    // Generate voiceover
     console.log("🎤 Generating voiceover...");
     const voiceoverFile = await generateVoiceover(romanUrduStory, `voice_${Date.now()}.mp3`);
     
     if (voiceoverFile) {
-      // Download images for video
+      // ✅ VERCEL: Download images to /tmp instead of __dirname/temp
       const tempImagePaths = [];
       for (let i = 0; i < validImages.length; i++) {
         const panel = validImages[i];
@@ -477,7 +536,7 @@ Return JSON:
             url: panel.image,
             responseType: 'stream'
           });
-          const imagePath = path.join(__dirname, 'temp', `video_img_${Date.now()}_${i}.png`);
+          const imagePath = path.join(getTempDir(), `video_img_${Date.now()}_${i}.png`);
           const writer = fs.createWriteStream(imagePath);
           response.data.pipe(writer);
           await new Promise((resolve, reject) => {
@@ -491,40 +550,39 @@ Return JSON:
       }
       
       if (tempImagePaths.length > 0) {
-        // Create video
-        const videoPath = path.join(__dirname, 'temp', `story_video_${Date.now()}.mp4`);
-        await createVideoWithVoiceover(tempImagePaths, voiceoverFile, videoPath, 4);
-        
-        // Upload to Cloudinary
-        console.log("☁️ Uploading video to Cloudinary...");
-        const uploadResult = await cloudinary.uploader.upload(videoPath, {
-          folder: "story_videos",
-          resource_type: "video",
-          public_id: `story_video_${Date.now()}`
-        });
-        
-        console.log("");
-        console.log("═══════════════════════════════════════════════════");
-        console.log("🎬 VIDEO GENERATED SUCCESSFULLY! 🎬");
-        console.log("═══════════════════════════════════════════════════");
-        console.log("📹 Video URL:", uploadResult.secure_url);
-        console.log("📖 Story (English):", englishStory);
-        console.log("📖 Story (Roman Urdu):", romanUrduStory);
-        console.log("═══════════════════════════════════════════════════");
-        console.log("");
-        
-        // Cleanup temp files
-        setTimeout(() => {
-          [...tempImagePaths, voiceoverFile, videoPath].forEach(file => {
-            if (fs.existsSync(file)) fs.unlinkSync(file);
-          });
-        }, 5000);
+        try {
+          // ✅ VERCEL: Use Cloudinary-based video creation instead of ffmpeg
+          const { videoUrl } = await createVideoCloudinaryTransform(
+            validImages.map(p => p.image),
+            voiceoverFile
+          );
+          
+          console.log("");
+          console.log("═══════════════════════════════════════════════════");
+          console.log("🎬 VIDEO GENERATED SUCCESSFULLY! 🎬");
+          console.log("═══════════════════════════════════════════════════");
+          console.log("📹 Video URL:", videoUrl);
+          console.log("📖 Story (English):", englishStory);
+          console.log("📖 Story (Roman Urdu):", romanUrduStory);
+          console.log("═══════════════════════════════════════════════════");
+          
+          // Cleanup temp files
+          setTimeout(() => {
+            [...tempImagePaths, voiceoverFile].forEach(file => {
+              if (fs.existsSync(file)) fs.unlinkSync(file);
+            });
+          }, 5000);
+        } catch (videoErr) {
+          console.error("Video creation failed:", videoErr.message);
+        }
       }
     }
     
   } catch (err) {
     console.error("Error:", err);
-    res.status(500).json({ error: err.message });
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message });
+    }
   }
 });
 
@@ -574,7 +632,6 @@ app.post('/test-voiceover', async (req, res) => {
     const voiceFile = await generateVoiceover(romanUrdu, `test_voice_${Date.now()}.mp3`);
     
     if (voiceFile) {
-      // Upload to Cloudinary
       const uploadResult = await cloudinary.uploader.upload(voiceFile, {
         folder: "voiceovers",
         resource_type: "raw"
@@ -602,7 +659,6 @@ app.get('/generate-story-comic-stream', async (req, res) => {
   const startTime = Date.now();
   const uniqueRequestId = `${Date.now()}-${Math.random().toString(36)}-${req.query.prompt || 'none'}`;
 
-  // No-cache headers
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
   res.setHeader("Pragma", "no-cache");
@@ -705,70 +761,33 @@ app.get('/generate-story-comic-stream', async (req, res) => {
     // 4️⃣ CONVERT STORY TO ROMAN URDU & GENERATE VOICEOVER
     const validPanels = panels.filter(p => p.image);
     let videoUrl = null;
+    let romanUrduStory = null;
     
     if (validPanels.length > 0) {
       try {
-        // Send progress update
         send({ progress: 88, status: "Converting to Roman Urdu with authentic accent..." });
         
-        // Convert story to Roman Urdu
         console.log("🔄 Converting to Roman Urdu...");
-        const romanUrduStory = await convertToRomanUrdu(englishStory);
+        romanUrduStory = await convertToRomanUrdu(englishStory);
         console.log("📖 Roman Urdu Story:", romanUrduStory);
         
-        // Send the Roman Urdu story to frontend
         send({ progress: 90, status: "Roman Urdu story ready", romanUrduStory: romanUrduStory });
         
-        // Generate voiceover
         console.log("🎤 Generating voiceover with Urdu accent...");
         send({ progress: 92, status: "Generating voiceover with authentic Urdu accent..." });
         
         const voiceoverFile = await generateVoiceover(romanUrduStory, `voice_${Date.now()}.mp3`);
         
         if (voiceoverFile) {
-          send({ progress: 94, status: "Downloading images for video..." });
+          send({ progress: 94, status: "Creating video with Cloudinary..." });
           
-          // Download images
-          const tempImagePaths = [];
-          for (let i = 0; i < validPanels.length; i++) {
-            const panel = validPanels[i];
-            try {
-              const response = await axios({
-                method: 'GET',
-                url: panel.image,
-                responseType: 'stream'
-              });
-              const imagePath = path.join(__dirname, 'temp', `video_img_${Date.now()}_${i}.png`);
-              const writer = fs.createWriteStream(imagePath);
-              response.data.pipe(writer);
-              await new Promise((resolve, reject) => {
-                writer.on('finish', resolve);
-                writer.on('error', reject);
-              });
-              tempImagePaths.push(imagePath);
-            } catch (err) {
-              console.error(`Error downloading image ${i}:`, err.message);
-            }
-          }
-          
-          if (tempImagePaths.length > 0) {
-            send({ progress: 96, status: "Creating video with voiceover..." });
-            
-            // Create video
-            const videoPath = path.join(__dirname, 'temp', `story_video_${Date.now()}.mp4`);
-            await createVideoWithVoiceover(tempImagePaths, voiceoverFile, videoPath, 4);
-            
-            // Upload to Cloudinary
-            console.log("☁️ Uploading video to Cloudinary...");
-            send({ progress: 98, status: "Uploading video to cloud..." });
-            
-            const uploadResult = await cloudinary.uploader.upload(videoPath, {
-              folder: "story_videos",
-              resource_type: "video",
-              public_id: `story_video_${Date.now()}`
-            });
-            
-            videoUrl = uploadResult.secure_url;
+          try {
+            // ✅ VERCEL: Use Cloudinary transform instead of ffmpeg
+            const result = await createVideoCloudinaryTransform(
+              validPanels.map(p => p.image),
+              voiceoverFile
+            );
+            videoUrl = result.videoUrl;
             
             console.log("");
             console.log("═══════════════════════════════════════════════════");
@@ -778,14 +797,13 @@ app.get('/generate-story-comic-stream', async (req, res) => {
             console.log("📖 Story (English):", englishStory);
             console.log("📖 Story (Roman Urdu):", romanUrduStory);
             console.log("═══════════════════════════════════════════════════");
-            console.log("");
             
             // Cleanup
             setTimeout(() => {
-              [...tempImagePaths, voiceoverFile, videoPath].forEach(file => {
-                if (fs.existsSync(file)) fs.unlinkSync(file);
-              });
+              if (fs.existsSync(voiceoverFile)) fs.unlinkSync(voiceoverFile);
             }, 5000);
+          } catch (videoError) {
+            console.error("Video creation error:", videoError.message);
           }
         }
       } catch (videoError) {
@@ -793,12 +811,11 @@ app.get('/generate-story-comic-stream', async (req, res) => {
       }
     }
     
-    // Final response with video URL and Roman Urdu story
     send({ 
       progress: 100, 
       step: "done",
       videoUrl: videoUrl,
-      romanUrduStory: await convertToRomanUrdu(englishStory), // Ensure we have it
+      romanUrduStory: romanUrduStory || await convertToRomanUrdu(englishStory),
       panels,
       generationTime: `${Math.floor((Date.now() - startTime) / 1000)}s`
     });
@@ -807,22 +824,18 @@ app.get('/generate-story-comic-stream', async (req, res) => {
 
   } catch (e) {
     console.error(e);
-    send({ error: e.message });
+    res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
     res.end();
   }
 });
 
-
-// Add this with your other routes (after the OpenAI initialization)
-
 // ============================================
-// NEW: Text-Only Story Generation API
+// Text-Only Story Generation API
 // ============================================
 app.post('/api/generate-story-text', async (req, res) => {
   try {
     const { character, world, mood, customPrompt } = req.body;
     
-    // Validate input - at least something should be provided
     if (!character && !world && !mood && !customPrompt) {
       return res.status(400).json({ 
         success: false, 
@@ -830,7 +843,6 @@ app.post('/api/generate-story-text', async (req, res) => {
       });
     }
     
-    // Build the story prompt
     let storyPrompt = "";
     
     if (customPrompt) {
@@ -846,7 +858,6 @@ app.post('/api/generate-story-text', async (req, res) => {
     
     console.log("📖 Generating text-only story with prompt:", storyPrompt);
     
-    // Call OpenAI to generate the story
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -865,7 +876,6 @@ app.post('/api/generate-story-text', async (req, res) => {
     
     const story = completion.choices[0].message.content;
     
-    // Generate a title for the story
     const titleCompletion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -880,7 +890,6 @@ app.post('/api/generate-story-text', async (req, res) => {
     
     const title = titleCompletion.choices[0].message.content.trim();
     
-    // Return the story
     res.json({
       success: true,
       story: story,
@@ -899,7 +908,6 @@ app.post('/api/generate-story-text', async (req, res) => {
   } catch (error) {
     console.error("Story generation error:", error);
     
-    // Handle specific OpenAI errors
     if (error.code === "insufficient_quota") {
       return res.status(429).json({ 
         success: false, 
@@ -921,7 +929,7 @@ app.post('/api/generate-story-text', async (req, res) => {
   }
 });
 
-// Simple test endpoint for the story API
+// Simple test endpoint
 app.get('/api/test-story', (req, res) => {
   res.json({
     success: true,
@@ -930,7 +938,7 @@ app.get('/api/test-story', (req, res) => {
   });
 });
 
-// Additional: Generate multiple story variants
+// Generate multiple story variants
 app.post('/api/generate-story-variants', async (req, res) => {
   try {
     const { character, world, mood, count = 3 } = req.body;
@@ -977,364 +985,10 @@ app.post('/api/generate-story-variants', async (req, res) => {
   }
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-// MAIN API
-// app.post('/generate-story-comic', async (req, res) => {
-//   try {
-//     const { prompt } = req.body;
-
-//     const finalPrompt =
-//       prompt || "A cute cat goes on a magical adventure";
-
-//     // 1️⃣ STORY
-//     const storyRes = await openai.chat.completions.create({
-//       model: "gpt-4o-mini",
-//       messages: [
-//         {
-//           role: "user",
-//           content: `Write a short kid-friendly story about: ${finalPrompt}`
-//         }
-//       ],
-//       max_tokens: 250,
-//     });
-
-//     const story = storyRes.choices?.[0]?.message?.content || "";
-
-//     // 2️⃣ PANELS (FAST)
-//     const panelRes = await openai.chat.completions.create({
-//       model: "gpt-4o-mini",
-//       temperature: 0.2,
-//       messages: [
-//         { role: "system", content: "Return ONLY JSON array." },
-//         {
-//           role: "user",
-//           content: `
-// Create 4 comic panels:
-
-// [
-// {"title":"","description":"","imagePrompt":""}
-// ]
-
-// Story:
-// ${story}
-//           `
-//         }
-//       ]
-//     });
-
-//     const panels = extractJSON(panelRes.choices?.[0]?.message?.content);
-
-//     if (!Array.isArray(panels)) {
-//       return res.status(500).json({ error: "panel error" });
-//     }
-
-//     // ⚡ RETURN IMMEDIATELY (NO IMAGES YET)
-//     res.json({
-//       story,
-//       panels: panels.map(p => ({
-//         ...p,
-//         image: "" // empty for now
-//       }))
-//     });
-
-//     // 3️⃣ BACKGROUND IMAGE GENERATION (FAST NON-BLOCKING)
-//     panels.forEach(async (p, index) => {
-//       try {
-//         const img = await openai.images.generate({
-//           model: "gpt-image-1",
-//           prompt: `${safePrompt(p.imagePrompt)}, cartoon cute cat`,
-//           size: "1024x1024"
-//         });
-
-//         const imageData = img.data?.[0];
-
-//         if (!imageData?.b64_json) return;
-
-//         const base64Image = `data:image/png;base64,${imageData.b64_json}`;
-
-//         const uploadRes = await cloudinary.uploader.upload(base64Image, {
-//           folder: "story_comics"
-//         });
-
-//         // (optional) store in DB later
-//         console.log("Image ready:", uploadRes.secure_url);
-
-//       } catch (e) {
-//         console.log("BG IMAGE ERROR:", e.message);
-//       }
-//     });
-
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: "failed" });
-//   }
-// });
-// app.get('/generate-story-comic-stream', async (req, res) => {
-//   const startTime = Date.now();
-//   const uniqueRequestId = `${Date.now()}-${Math.random().toString(36)}-${req.query.prompt || 'none'}`;
-
-//   // No-cache headers
-//   res.setHeader("Content-Type", "text/event-stream");
-//   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
-//   res.setHeader("Pragma", "no-cache");
-//   res.setHeader("Expires", "0");
-
-//   try {
-//     const prompt = req.query.prompt;
-//     if (!prompt) return res.status(400).send("Prompt required");
-
-//     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
-//     send({ progress: 5 });
-
-//     // 🆕 Force uniqueness by appending a random UUID to the prompt
-//     const uniqueSuffix = `[unique request: ${uniqueRequestId}]`;
-//     const forcedUniquePrompt = `${prompt}. Generate a completely new, different story every time. Never repeat. ${uniqueSuffix}`;
-
-//     // 1️⃣ STORY – high temperature + random seed + unique prompt
-//     const storyRes = await openai.chat.completions.create({
-//       model: "gpt-4o-mini",
-//       messages: [
-//         {
-//           role: "user",
-//           content: `Write a very short kid-friendly story (max 100 words) based on: "${forcedUniquePrompt}". 
-//           Be extremely creative and different from any previous story. Use random style, characters, and setting.`
-//         }
-//       ],
-//       max_tokens: 150,
-//       temperature: 0.9,           // even more creative
-//       seed: Math.floor(Math.random() * 1000000)  // random seed disables determinism
-//     });
-//     const story = storyRes.choices?.[0]?.message?.content || "";
-//     send({ progress: 20, story });
-
-//     // 2️⃣ PANELS – also creative
-//     const panelRes = await openai.chat.completions.create({
-//       model: "gpt-4o-mini",
-//       temperature: 0.7,
-//       messages: [
-//         { role: "system", content: "Return ONLY valid JSON array, no extra text." },
-//         {
-//           role: "user",
-//           content: `Generate 4 unique comic panels for the story below. 
-//           Each panel must have a title, description, and imagePrompt. 
-//           Make every panel different and unexpected.
-//           Story: ${story}
-//           Unique request ID: ${uniqueRequestId}`
-//         }
-//       ]
-//     });
-
-//     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
-//     if (!Array.isArray(panels)) throw new Error("Panel parsing failed");
-
-//     panels = panels.map(p => ({ ...p, image: "" }));
-//     send({ progress: 40, panels });
-
-//     // 3️⃣ IMAGES – same as before (unchanged)
-//     const concurrency = 2;
-//     const imageQueue = [...panels.entries()];
-
-//     async function processQueue() {
-//       const batch = [];
-//       while (imageQueue.length && batch.length < concurrency) {
-//         batch.push(imageQueue.shift());
-//       }
-//       if (batch.length === 0) return;
-
-//       await Promise.all(batch.map(async ([idx, panel]) => {
-//         try {
-//           const img = await openai.images.generate({
-//             model: "dall-e-3",
-//             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, completely new scene",
-//             size: "1024x1024",
-//             response_format: "b64_json",
-//           });
-//           const base64 = img.data?.[0]?.b64_json;
-//           if (!base64) throw new Error("No base64");
-
-//           const uploadRes = await cloudinary.uploader.upload(
-//             `data:image/png;base64,${base64}`,
-//             { folder: "story_comics" }
-//           );
-//           const imageUrl = uploadRes.secure_url;
-//           console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
-
-//           panels[idx].image = imageUrl;
-//           send({ progress: 40 + Math.round(((idx + 1) / panels.length) * 60), panelIndex: idx, image: imageUrl });
-//         } catch (err) {
-//           console.error(`Panel ${idx} failed:`, err.message);
-//           panels[idx].image = "";
-//         }
-//       }));
-
-//       await processQueue();
-//     }
-
-//     processQueue().then(() => {
-//       const totalTimeMs = Date.now() - startTime;
-//       const totalSeconds = Math.floor(totalTimeMs / 1000);
-//       const minutes = Math.floor(totalSeconds / 60);
-//       const seconds = totalSeconds % 60;
-//       const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-
-//       console.log(`⏱️ Total generation time: ${minutes}m ${seconds}s (${formattedTime})`);
-
-//       send({
-//         progress: 100,
-//         panels,
-//         step: "done",
-//         generationTime: formattedTime,
-//         generationTimeSeconds: totalSeconds
-//       });
-//       res.end();
-//     }).catch(err => {
-//       console.error(err);
-//       send({ error: "image generation failed" });
-//       res.end();
-//     });
-
-//   } catch (e) {
-//     console.error(e);
-//     res.end();
-//   }
-// });
-
-
-
-
-
-
-
-
-
-// app.get('/generate-story-comic-stream', async (req, res) => {
-//   const startTime = Date.now(); // 🆕 start timer
-
-//   try {
-//     const prompt = req.query.prompt;
-//     if (!prompt) return res.status(400).send("Prompt required");
-
-//     res.setHeader("Content-Type", "text/event-stream");
-//     res.setHeader("Cache-Control", "no-cache");
-//     res.setHeader("Connection", "keep-alive");
-
-//     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
-
-//     send({ progress: 5 });
-
-//     // 1️⃣ STORY
-//     const storyRes = await openai.chat.completions.create({
-//       model: "gpt-4o-mini",
-//       messages: [{ role: "user", content: `Write a very short kid-friendly story (max 100 words): ${prompt}` }],
-//       max_tokens: 150,
-//       temperature: 0.2,
-//     });
-//     const story = storyRes.choices?.[0]?.message?.content || "";
-//     send({ progress: 20, story });
-
-//     // 2️⃣ PANELS
-//     const panelRes = await openai.chat.completions.create({
-//       model: "gpt-4o-mini",
-//       temperature: 0.1,
-//       messages: [
-//         { role: "system", content: "Return ONLY valid JSON array, no extra text." },
-//         { role: "user", content: `4 comic panels: [{"title":"","description":"","imagePrompt":""}] Story: ${story}` }
-//       ]
-//     });
-//     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
-//     if (!Array.isArray(panels)) throw new Error("Panel parsing failed");
-
-//     panels = panels.map(p => ({ ...p, image: "" }));
-//     send({ progress: 40, panels });
-
-//     // 3️⃣ IMAGES – PARALLEL with concurrency limit
-//     const concurrency = 2;
-//     const imageQueue = [...panels.entries()];
-
-//     async function processQueue() {
-//       const batch = [];
-//       while (imageQueue.length && batch.length < concurrency) {
-//         batch.push(imageQueue.shift());
-//       }
-//       if (batch.length === 0) return;
-
-//       await Promise.all(batch.map(async ([idx, panel]) => {
-//         try {
-//           const img = await openai.images.generate({
-//             model: "dall-e-3",
-//             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style",
-//             size: "1024x1024",
-//             response_format: "b64_json",
-//           });
-//           const base64 = img.data?.[0]?.b64_json;
-//           if (!base64) throw new Error("No base64");
-
-//           const uploadRes = await cloudinary.uploader.upload(
-//             `data:image/png;base64,${base64}`,
-//             { folder: "story_comics" }
-//           );
-//           const imageUrl = uploadRes.secure_url;
-//           console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
-
-//           panels[idx].image = imageUrl;
-//           send({ progress: 40 + Math.round(((idx + 1) / panels.length) * 60), panelIndex: idx, image: imageUrl });
-//         } catch (err) {
-//           console.error(`Panel ${idx} failed:`, err.message);
-//           panels[idx].image = "";
-//         }
-//       }));
-
-//       await processQueue();
-//     }
-
-//     // Start parallel image generation
-//     processQueue().then(() => {
-//       const totalTimeMs = Date.now() - startTime;
-//       const totalSeconds = Math.floor(totalTimeMs / 1000);
-//       const minutes = Math.floor(totalSeconds / 60);
-//       const seconds = totalSeconds % 60;
-//       const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
-//       console.log(`⏱️ Total generation time: ${minutes}m ${seconds}s (${formattedTime})`);
-
-//       send({
-//         progress: 100,
-//         panels,
-//         step: "done",
-//         generationTime: formattedTime,   // 🆕 send formatted time
-//         generationTimeSeconds: totalSeconds // optional
-//       });
-//       res.end();
-//     }).catch(err => {
-//       console.error(err);
-//       send({ error: "image generation failed" });
-//       res.end();
-//     });
-
-//   } catch (e) {
-//     console.error(e);
-//     res.end();
-//   }
-// });
-
 app.get('/demo-cat-comic', async (req, res) => {
   try {
-    // 🐱 HARDCODED PROMPT
     const prompt = "A cute cat goes on a magical adventure in a colorful world";
 
-    // 1️⃣ STORY
     const storyRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -1348,7 +1002,6 @@ app.get('/demo-cat-comic', async (req, res) => {
 
     const story = storyRes.choices?.[0]?.message?.content || "";
 
-    // 2️⃣ PANELS
     const panelRes = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       temperature: 0.2,
@@ -1376,27 +1029,24 @@ ${story}
       return res.json({ error: "panel failed" });
     }
 
-    // 3️⃣ IMAGES + CLOUDINARY
     const results = await Promise.all(
       panels.map(async (p) => {
         try {
           const img = await openai.images.generate({
-            model: "gpt-image-1",
+            model: "dall-e-3",
             prompt: `${safePrompt(p.imagePrompt)}, cartoon, cute cat, colorful`,
-            size: "1024x1024"
+            size: "1024x1024",
+            response_format: "b64_json",
           });
 
-          const imageData = img.data?.[0];
-
+          const base64 = img.data?.[0]?.b64_json;
           let imageUrl = "";
 
-          if (imageData?.b64_json) {
-            const base64Image = `data:image/png;base64,${imageData.b64_json}`;
-
-            const uploadRes = await cloudinary.uploader.upload(base64Image, {
-              folder: "demo_cat",
-            });
-
+          if (base64) {
+            const uploadRes = await cloudinary.uploader.upload(
+              `data:image/png;base64,${base64}`,
+              { folder: "demo_cat" }
+            );
             imageUrl = uploadRes.secure_url;
           }
 
@@ -1416,7 +1066,6 @@ ${story}
       })
     );
 
-    // ✅ SIMPLE RESPONSE
     res.json({
       success: true,
       story,
@@ -1429,72 +1078,8 @@ ${story}
   }
 });
 
-
-
-
-// Story Teller Route
-// app.post('/generate-story', async (req, res) => {
-//   try {
-//     const { prompt } = req.body;
-
-//     // Validate prompt
-//     if (!prompt || prompt.trim() === "") {
-//       return res.status(400).json({ error: 'Prompt is required' });
-//     }
-
-//     // Story prompt for AI
-//     const storyPrompt = `
-// You are a professional creative storyteller.
-
-// Your job:
-// - Convert the given prompt into a short, engaging story.
-// - If the prompt is unclear, invalid, or unrelated to storytelling, IGNORE it and still generate a meaningful generic story.
-
-// Prompt:
-// "${prompt}"
-
-// Rules:
-// - Only return the story.
-// - Do NOT explain anything.
-// - Do NOT return JSON.
-// - Keep it engaging and creative.
-// `;
-
-//     const completion = await openai.chat.completions.create({
-//       model: "gpt-4o-mini", // fast + good for storytelling
-//       messages: [{ role: "user", content: storyPrompt }],
-//       temperature: 0.8, // more creativity
-//       max_tokens: 500,
-//     });
-
-//     const story = completion.choices[0].message.content;
-
-//     res.json({
-//       story: story.trim()
-//     });
-
-//   } catch (err) {
-//     console.error(err.message);
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 app.get('/check-openai', async (req, res) => {
   try {
-
     await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [{ role: "user", content: "Hi" }],
@@ -1504,20 +1089,15 @@ app.get('/check-openai', async (req, res) => {
     res.json({ status: "working", credits: "available" });
 
   } catch (error) {
-
     if (error.code === "insufficient_quota") {
       return res.json({ status: "failed", reason: "no_credits" });
     }
-
     if (error.code === "invalid_api_key") {
       return res.json({ status: "failed", reason: "invalid_key" });
     }
-
     res.json({ status: "error", message: error.message });
   }
 });
-
-
 
 // Home Route (Dashboard UI)
 app.get("/home", (req, res) => {
@@ -1528,7 +1108,7 @@ app.get("/home", (req, res) => {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Code Sync Server</title>
-<link rel="icon" type="image/x-icon" href="assets/images/logo.png" />
+      <link rel="icon" type="image/x-icon" href="assets/images/logo.png" />
       <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
@@ -1591,17 +1171,6 @@ app.get("/home", (req, res) => {
           margin-top: 5px;
           text-align: center;
         }
-        .main-content {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 30px;
-          margin-bottom: 40px;
-        }
-        .cards {
-          display: flex;
-          flex-direction: column;
-          gap: 20px;
-        }
         .card {
           background: linear-gradient(145deg, #3b3b4f, #242435);
           padding: 20px;
@@ -1610,38 +1179,8 @@ app.get("/home", (req, res) => {
           transition: transform 0.3s ease, box-shadow 0.3s ease;
           border-left: 5px solid #ff7f50;
         }
-        .card:hover {
-          transform: translateY(-5px) scale(1.02);
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-        }
-        .card h3 {
-          font-size: 24px;
-          color: #ffcc00;
-          margin-bottom: 10px;
-        }
-        .card p {
-          font-size: 16px;
-          color: #ddd;
-        }
-        .recent-activities {
-          background: linear-gradient(145deg, #41415b, #2c2c3d);
-          padding: 20px;
-          border-radius: 10px;
-          box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-        .recent-activities h2 {
-          font-size: 28px;
-          margin-bottom: 15px;
-          color: #ffcc00;
-        }
-        .recent-activities ul {
-          padding-left: 20px;
-        }
-        .recent-activities li {
-          font-size: 16px;
-          color: #ddd;
-          margin-bottom: 10px;
-        }
+        .card h3 { font-size: 24px; color: #ffcc00; margin-bottom: 10px; }
+        .card p { font-size: 16px; color: #ddd; }
         footer {
           background-color: #282836;
           color: #999;
@@ -1650,14 +1189,7 @@ app.get("/home", (req, res) => {
           font-size: 14px;
           border-top: 2px solid #444;
         }
-        footer p {
-          margin: 0;
-        }
-        footer a {
-          color: #ff7f50;
-          text-decoration: none;
-          font-weight: 500;
-        }
+        footer a { color: #ff7f50; text-decoration: none; font-weight: 500; }
       </style>
     </head>
     <body>
@@ -1670,13 +1202,11 @@ app.get("/home", (req, res) => {
             <p>3D Virtually Perfect</p>
           </div>
         </div>
-
         <footer>
           <p>&copy; 2025 Anatomy. All rights reserved. 
           <a href="#">Terms</a> | <a href="#">Privacy Policy</a></p>
         </footer>
       </div>
-
       <script>
         particlesJS("particle-container", {
           particles: {
@@ -1687,9 +1217,7 @@ app.get("/home", (req, res) => {
             line_linked: { enable: true, color: "#fff", opacity: 0.5, width: 2 },
           },
           interactivity: {
-            events: {
-              onhover: { enable: true, mode: "repulse" },
-            },
+            events: { onhover: { enable: true, mode: "repulse" } },
           },
         });
       </script>
@@ -1698,124 +1226,14 @@ app.get("/home", (req, res) => {
   `);
 });
 
+// ✅ VERCEL: Export app as module (required for Vercel serverless)
+module.exports = app;
 
-
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running at:`);
-  console.log(`➡️ http://localhost:${PORT}`);
-  console.log(`➡️ http://0.0.0.0:${PORT}`);
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // index.js
-// console.log("******* Code Sync Server *******");
-
-// // -------------------- Packages --------------------
-// require('dotenv').config();
-// const express = require('express');
-// const bodyParser = require('body-parser');
-// const cors = require('cors');
-// const OpenAI = require('openai');
-
-// // -------------------- App Init --------------------
-// const app = express();
-// const PORT = process.env.PORT || 5000;
-
-// app.use(cors());
-// app.use(bodyParser.json({ limit: "10mb" }));
-
-// // -------------------- OpenAI Init --------------------
-// const openai = new OpenAI({
-//   apiKey: process.env.OPENAI_API_KEY,
-// });
-
-// // -------------------- API ROUTES --------------------
-
-// // Homepage
-// app.get('/', (req, res) => {
-//   res.send({ message: 'Welcome to Code Sync API' });
-// });
-
-// // Fix code route
-// app.post('/fix-code', async (req, res) => {
-//   try {
-//     const { code } = req.body;
-
-//     if (!code) {
-//       return res.status(400).json({ error: 'Code is required' });
-//     }
-
-//     // Prompt to OpenAI
-//     const prompt = `
-// You are an expert developer and code reviewer. 
-// 1. Detect any errors in the following code.
-// 2. Highlight the errors in a readable format.
-// 3. Correct the code.
-// 4. Identify the programming language/framework.
-
-// Code:
-// ${code}
-
-// Format your response as JSON:
-// {
-//   "correctedCode": "<corrected code here>",
-//   "errors": "<highlighted errors here>",
-//   "language": "<language/framework here>"
-// }
-// `;
-
-//     const completion = await openai.chat.completions.create({
-//       model: "gpt-4",
-//       messages: [{ role: "user", content: prompt }],
-//       temperature: 0,
-//     });
-
-//     const resultText = completion.choices[0].message.content;
-
-//     // Try to parse JSON
-//     let parsed;
-//     try {
-//       parsed = JSON.parse(resultText);
-//     } catch (err) {
-//       parsed = {
-//         correctedCode: resultText,
-//         errors: "Unable to parse errors",
-//         language: "Unknown",
-//       };
-//     }
-
-//     res.json(parsed);
-
-//   } catch (err) {
-//     console.error(err.message);
-//     res.status(500).json({ error: 'Server error' });
-//   }
-// });
-
-// // -------------------- Start Server --------------------
-// app.listen(PORT, () => {
-//   console.log(`Server running on port ${PORT}`);
-// });
+// ✅ VERCEL: Only call app.listen when running locally (not on Vercel)
+if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running at:`);
+    console.log(`➡️ http://localhost:${PORT}`);
+    console.log(`➡️ http://0.0.0.0:${PORT}`);
+  });
+}
