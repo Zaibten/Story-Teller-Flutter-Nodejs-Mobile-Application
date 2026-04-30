@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:video_player/video_player.dart';
 
 import '../../../providers/user_provider.dart';
@@ -269,6 +270,11 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   final _rng  = Random();
   static const _base = 'http://192.168.100.177:9000';
 
+  // ── Speech-to-text ──
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
+  bool _isListening     = false;
+
   // ── existing controllers ──
   late AnimationController _bounceController;
   late AnimationController _waveController;
@@ -319,6 +325,9 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   // story word reading
   bool _reading = false, _paused = false; int _cw = -1;
   List<String> _words = []; List<int> _starts = [];
+
+  // ── Urdu TTS state ──
+  bool _urduReading = false;
 
   // comic panel storytelling
   bool _comicReading = false; int _comicPanel = 0;
@@ -390,6 +399,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
     _videoBtnReadyAnim = Tween<double>(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: _videoBtnReadyCtrl, curve: Curves.elasticOut));
 
     _setupTts();
+    _initSpeech();
     _pageCtrl = PageController();
 
     _acBounce = AnimationController(vsync: this, duration: const Duration(milliseconds: 430));
@@ -451,6 +461,88 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // ── Speech-to-text init ────────────────────────────────────
+  Future<void> _initSpeech() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onStatus: (status) {
+          // 'done', 'notListening', 'listening'
+          if (mounted) {
+            setState(() {
+              _isListening = (status == 'listening');
+            });
+          }
+        },
+        onError: (error) {
+          if (mounted) {
+            setState(() => _isListening = false);
+            // Only show snack for real errors, not 'error_speech_timeout'
+            if (error.errorMsg != 'error_speech_timeout') {
+              _snack('🎙️ ${error.errorMsg}', K.orange);
+            }
+          }
+        },
+        debugLogging: false,
+      );
+    } catch (e) {
+      _speechAvailable = false;
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _toggleListening() async {
+    // If currently listening → stop
+    if (_isListening) {
+      await _speech.stop();
+      if (mounted) setState(() => _isListening = false);
+      return;
+    }
+
+    // Try to (re-)initialize if not yet available
+    if (!_speechAvailable) {
+      _speechAvailable = await _speech.initialize(
+        onStatus: (status) {
+          if (mounted) setState(() => _isListening = (status == 'listening'));
+        },
+        onError: (error) {
+          if (mounted) setState(() => _isListening = false);
+        },
+      );
+    }
+
+    if (!_speechAvailable) {
+      _snack(
+        '🎙️ Microphone permission denied.\nGo to App Settings → Permissions → Microphone → Allow.',
+        K.red,
+      );
+      return;
+    }
+
+    // Start listening
+    setState(() => _isListening = true);
+    final bool started = await _speech.listen(
+      onResult: (result) {
+        if (mounted) {
+          setState(() {
+            _ctrl.text = result.recognizedWords;
+            _ctrl.selection = TextSelection.fromPosition(
+              TextPosition(offset: _ctrl.text.length),
+            );
+          });
+        }
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 5),
+      partialResults: true,
+      cancelOnError: false,
+    );
+
+    if (!started && mounted) {
+      setState(() => _isListening = false);
+      _snack('🎙️ Could not start listening. Try again.', K.orange);
+    }
+  }
+
   // ── Video player lifecycle ──────────────────────────────────
   void _disposeVideo() {
     _chewieController?.dispose();
@@ -467,7 +559,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
       _videoController = ctrl;
       await ctrl.initialize();
 
-      // Determine aspect ratio from video; fallback 16:9
       final double ar = ctrl.value.aspectRatio > 0 ? ctrl.value.aspectRatio : 16 / 9;
 
       _chewieController = ChewieController(
@@ -522,7 +613,8 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
     if (_words.isEmpty) _prepWords();
     if (_cw < 0 || !_paused) _cw = 0;
     if (_cw >= _words.length) _cw = 0;
-    setState(() { _reading = true; _paused = false; });
+    setState(() { _reading = true; _paused = false; _urduReading = false; });
+    await _tts.setLanguage('en-US');
     _tts.setProgressHandler((_, start, __, ___) {
       if (!_reading || _paused) return;
       final idx = _wordAt(start);
@@ -530,6 +622,64 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
     });
     _tts.setCompletionHandler(() { if (!_paused) _stopRead(reset: true); });
     await _tts.speak(_story.substring(_starts[_cw]));
+  }
+
+  // ── Urdu TTS ──
+  Future<void> _startUrduRead() async {
+    if (_story.isEmpty) return;
+
+    // ── Toggle off if already reading ──
+    if (_urduReading) {
+      await _tts.stop();
+      if (mounted) setState(() => _urduReading = false);
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(.42);
+      await _tts.setPitch(1.25);
+      return;
+    }
+
+    // ── Stop any ongoing English reading first ──
+    await _tts.stop();
+    await Future.delayed(const Duration(milliseconds: 150));
+    _stopRead(reset: true);
+
+    // ── Check if Urdu TTS is available on this device ──
+    final dynamic langs = await _tts.getLanguages;
+    final List<String> available = (langs as List).map((e) => e.toString().toLowerCase()).toList();
+    final bool urduOk = available.any((l) => l.contains('ur'));
+
+    if (!urduOk) {
+      _snack(
+        '🇵🇰 Urdu TTS not found.\nGo to: Settings → Accessibility → TTS Output → Install Urdu',
+        K.orange,
+      );
+      return;
+    }
+
+    // ── Apply Urdu settings with a delay so Android TTS engine registers new locale ──
+    await _tts.setLanguage('ur-PK');
+    await _tts.setSpeechRate(.36);
+    await _tts.setPitch(1.05);
+    await Future.delayed(const Duration(milliseconds: 250));
+
+    if (mounted) setState(() => _urduReading = true);
+
+    _tts.setCompletionHandler(() async {
+      if (mounted) setState(() => _urduReading = false);
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(.42);
+      await _tts.setPitch(1.25);
+    });
+
+    _tts.setErrorHandler((msg) async {
+      if (mounted) setState(() => _urduReading = false);
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(.42);
+      await _tts.setPitch(1.25);
+      _snack('🎙️ TTS error: $msg', K.red);
+    });
+
+    await _tts.speak(_story);
   }
 
   int _wordAt(int pos) {
@@ -543,7 +693,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   void _pauseRead() { if (!_reading || _paused) return; _tts.stop(); setState(() { _paused = true; _reading = false; }); }
   void _stopRead({bool reset = false}) {
     _tts.stop(); setState(() {
-      _reading = false; _paused = false;
+      _reading = false; _paused = false; _urduReading = false;
       if (reset) { _cw = -1; _words = []; _starts = []; }
     });
   }
@@ -647,7 +797,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                   _videoUrl   = vUrl;
                   _videoState = 'ready';
                   _videoBtnReadyCtrl.forward(from: 0);
-                  _initVideoPlayer(vUrl); // ← real initialisation
+                  _initVideoPlayer(vUrl);
                 } else {
                   _videoState = 'idle';
                 }
@@ -928,7 +1078,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   }
 
   // ════════════════════════════════════════════════════════
-  //  📺  VIDEO CARD  –  real Chewie player, responsive
+  //  📺  VIDEO CARD
   // ════════════════════════════════════════════════════════
   Widget _videoCard() {
     return LayoutBuilder(builder: (context, constraints) {
@@ -950,7 +1100,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
           clipBehavior: Clip.antiAlias,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-            // ── HEADER ────────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
@@ -989,23 +1138,17 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
               ]),
             ),
 
-            // ── VIDEO AREA ─────────────────────────────────────
             SizedBox(
               height: videoH,
               child: _videoInitialized && _chewieController != null
-                  // ── REAL VIDEO PLAYER ──
                   ? Chewie(controller: _chewieController!)
-
-                  // ── LOADING / ERROR PLACEHOLDER ──
                   : Stack(alignment: Alignment.center, children: [
-                      // cinema bg
                       Positioned.fill(child: Container(decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           colors: [Color(0xFF12005E), Color(0xFF4A0080)],
                           begin: Alignment.topLeft, end: Alignment.bottomRight,
                         ),
                       ))),
-                      // film strips
                       _FilmStrip(top: 8),
                       _FilmStrip(bottom: 8),
 
@@ -1036,12 +1179,10 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                     ]),
             ),
 
-            // ── BOTTOM ACTION ROW ───────────────────────────────
             Container(
               color: const Color(0xFF1A0035),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(children: [
-                // Full-screen
                 Expanded(
                   child: GestureDetector(
                     onTap: () => setState(() => _showVideoOverlay = true),
@@ -1065,7 +1206,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Replay
                 GestureDetector(
                   onTap: _videoInitialized ? () async {
                     await _videoController?.seekTo(Duration.zero);
@@ -1097,7 +1237,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   }
 
   // ════════════════════════════════════════════════════════
-  //  📽️  FULL-SCREEN VIDEO OVERLAY  – responsive, real player
+  //  📽️  FULL-SCREEN VIDEO OVERLAY
   // ════════════════════════════════════════════════════════
   Widget _videoOverlay() {
     return Material(
@@ -1105,7 +1245,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
       child: SafeArea(
         child: Column(children: [
 
-          // ── TOP BAR ────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
             child: Row(children: [
@@ -1142,7 +1281,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
             ]),
           ),
 
-          // ── PLAYER AREA – fills remaining space, respects AR ──
           Expanded(
             child: Center(
               child: Padding(
@@ -1168,11 +1306,8 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: _videoInitialized && _chewieController != null
-                        // ── REAL PLAYER in overlay too ──
                         ? Chewie(controller: _chewieController!)
-
                         : Stack(alignment: Alignment.center, children: [
-                            // cinema bg
                             Container(decoration: const BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [Color(0xFF0D003D), Color(0xFF3D0080)],
@@ -1228,7 +1363,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
             ),
           ),
 
-          // ── BOTTOM DISMISS ─────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
             child: GestureDetector(
@@ -1255,28 +1389,68 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   }
 
   // ════════════════════════════════════════════════════════
-  //  INPUT CARD
+  //  INPUT CARD  –  with voice microphone button
   // ════════════════════════════════════════════════════════
   Widget _inputCard() {
     return Container(
       decoration: BoxDecoration(
         color: K.surface,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: K.ink, width: 3.5),
-        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
+        border: Border.all(
+          color: _isListening ? K.red : K.ink,
+          width: _isListening ? 4.0 : 3.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _isListening ? K.red.withOpacity(.35) : K.ink,
+            offset: _isListening ? Offset.zero : const Offset(5, 5),
+            blurRadius: _isListening ? 18 : 0,
+            spreadRadius: _isListening ? 2 : 0,
+          ),
+        ],
       ),
       child: Row(children: [
+        // Rainbow emoji
         const Padding(padding: EdgeInsets.only(left: 14), child: Text('🌈', style: TextStyle(fontSize: 26))),
         const SizedBox(width: 8),
+        // Text field
         Expanded(child: TextField(
           controller: _ctrl, style: tb(16, K.ink, fw: FontWeight.w600),
           decoration: InputDecoration(
-            hintText: "What's your story about?",
-            hintStyle: tb(15, Colors.grey.shade400),
+            hintText: _isListening ? '🎙️ Listening...' : "What's your story about?",
+            hintStyle: tb(15, _isListening ? K.red : Colors.grey.shade400),
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 18),
           ),
         )),
+        // Mic button
+        Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: GestureDetector(
+            onTap: _toggleListening,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: 42, height: 42,
+              decoration: BoxDecoration(
+                color: _isListening ? K.red : K.purple.withOpacity(.12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _isListening ? K.red : K.purple,
+                  width: 2.5,
+                ),
+                boxShadow: _isListening
+                    ? [BoxShadow(color: K.red.withOpacity(.5), blurRadius: 12, spreadRadius: 2)]
+                    : [],
+              ),
+              child: Icon(
+                _isListening ? Icons.mic : Icons.mic_none_rounded,
+                color: _isListening ? K.white : K.purple,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+        // Wiggle emoji
         Padding(padding: const EdgeInsets.only(right: 12),
           child: AnimatedBuilder(animation: _aWiggle, builder: (_, __) =>
             Transform.rotate(angle: _aWiggle.value * .06, child: const Text('🎨', style: TextStyle(fontSize: 22))))),
@@ -1340,11 +1514,12 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   }
 
   // ════════════════════════════════════════════════════════
-  //  STORY SECTION
+  //  STORY SECTION  –  with Urdu button
   // ════════════════════════════════════════════════════════
   Widget _storySection() {
     final words = _story.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     return Column(children: [
+      // ── Header row ──────────────────────────────────────
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
@@ -1353,19 +1528,63 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
           border: Border.all(color: K.ink, width: 3.5),
           boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
         ),
-        child: Row(children: [
-          const Text('📖', style: TextStyle(fontSize: 26)),
-          const SizedBox(width: 10),
-          Text('STORY TIME!', style: ts(18, K.ink, fw: FontWeight.w900)),
-          const Spacer(),
-          _ttsBtn(Icons.play_circle_filled, K.ink, (_reading && !_paused) ? null : _startRead),
-          const SizedBox(width: 4),
-          _ttsBtn(Icons.pause_circle_filled, K.orange, (_reading && !_paused) ? _pauseRead : null),
-          const SizedBox(width: 4),
-          _ttsBtn(Icons.stop_circle, K.red, () => _stopRead(reset: true)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Text('📖', style: TextStyle(fontSize: 26)),
+            const SizedBox(width: 10),
+            Text('STORY TIME!', style: ts(18, K.ink, fw: FontWeight.w900)),
+            const Spacer(),
+            _ttsBtn(Icons.play_circle_filled, K.ink, (_reading && !_paused) ? null : _startRead),
+            const SizedBox(width: 4),
+            _ttsBtn(Icons.pause_circle_filled, K.orange, (_reading && !_paused) ? _pauseRead : null),
+            const SizedBox(width: 4),
+            _ttsBtn(Icons.stop_circle, K.red, () => _stopRead(reset: true)),
+          ]),
+          const SizedBox(height: 10),
+          // ── Urdu button ──────────────────────────────────
+          GestureDetector(
+            onTap: _startUrduRead,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: _urduReading ? K.purple : K.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _urduReading ? K.purple : K.ink, width: 2.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: _urduReading ? K.purple.withOpacity(.4) : K.ink,
+                    offset: _urduReading ? Offset.zero : const Offset(3, 3),
+                    blurRadius: _urduReading ? 12 : 0,
+                  ),
+                ],
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(
+                  _urduReading ? '🔊' : '🇵🇰',
+                  style: const TextStyle(fontSize: 18),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _urduReading ? 'اردو میں پڑھ رہا ہے...' : 'اردو میں سنیں',
+                  style: ts(13, _urduReading ? K.white : K.ink, fw: FontWeight.w800),
+                ),
+                if (_urduReading) ...[
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: 14, height: 14,
+                    child: CircularProgressIndicator(
+                      color: K.yellow, strokeWidth: 2,
+                    ),
+                  ),
+                ],
+              ]),
+            ),
+          ),
         ]),
       ),
       const SizedBox(height: 12),
+      // ── Word-highlight area ──────────────────────────────
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

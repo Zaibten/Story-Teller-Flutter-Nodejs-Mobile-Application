@@ -58,11 +58,11 @@ class _MyAppState extends State<MyApp> {
         useMaterial3: true,
       ),
       onGenerateRoute: (settings) => generateRoute(settings),
-      home: HomeScreen()
-    //  home: Provider.of<UserProvider>(context).user.token.isNotEmpty &&
-    //           Provider.of<UserProvider>(context).user.type == 'user'
-    //       ? const BottomBar()
-    //       : const SplashScreen(),
+      // home: const NewPage()
+     home: Provider.of<UserProvider>(context).user.token.isNotEmpty &&
+              Provider.of<UserProvider>(context).user.type == 'user'
+          ? const BottomBar()
+          : const SplashScreen(),
 
       // Provider.of<UserProvider>(context).user.token.isNotEmpty &&
       //         Provider.of<UserProvider>(context).user.type == 'user'

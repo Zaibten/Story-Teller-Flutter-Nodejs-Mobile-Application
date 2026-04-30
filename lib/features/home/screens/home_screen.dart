@@ -68,8 +68,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final AudioPlayer _audio = AudioPlayer();
   final List<_Particle> _particles = [];
 
-  // API Base URL - Update this with your server URL
-  final String _baseUrl = 'http://192.168.100.177:9000'; // Change to your actual server URL
+  final String _baseUrl = 'http://192.168.100.177:9000';
 
   // ── CHARACTER / WORLD / MOOD DATA ─────────────────────────────────
   final List<Character> characters = [
@@ -108,9 +107,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadLinksAsset() async {
     try {
       final lRaw = await rootBundle.loadString('assets/data/links.json');
-      setState(() {
-        linkData = json.decode(lRaw);
-      });
+      setState(() { linkData = json.decode(lRaw); });
     } catch (e) { debugPrint('Links load error: $e'); }
   }
 
@@ -176,9 +173,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  // ── API STORY AND VIDEO GENERATION ─────────────────────────────────────────
-  
-  /// Generate story using OpenAI API
+  // ── API ─────────────────────────────────────────────────────────
   Future<Map<String, dynamic>?> _generateStoryFromAPI() async {
     try {
       final response = await http.post(
@@ -190,70 +185,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           'mood': _selectedMood,
         }),
       );
-      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['success'] == true) {
-          return {
-            'story': data['story'],
-            'title': data['title'],
-          };
+          return {'story': data['story'], 'title': data['title']};
         }
       }
       return null;
-    } catch (e) {
-      debugPrint('Story API Error: $e');
-      return null;
-    }
+    } catch (e) { debugPrint('Story API Error: $e'); return null; }
   }
 
-  /// Generate video using the stream endpoint (comic + voiceover + video)
   Future<String?> _generateVideoWithComic(String storyText) async {
     try {
       final prompt = "A ${_selectedChar?.name ?? 'character'} in ${_selectedWorld?.name ?? 'a magical place'} with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. Story: ${storyText.substring(0, storyText.length > 100 ? 100 : storyText.length)}";
-      
-      final response = await http.get(
-        Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'),
-      );
-      
+      final response = await http.get(Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
       if (response.statusCode == 200) {
-        // Parse the SSE response
         final lines = response.body.split('\n');
         for (var line in lines) {
           if (line.startsWith('data: ')) {
             final data = json.decode(line.substring(6));
-            if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) {
-              return data['videoUrl'];
-            }
+            if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) return data['videoUrl'];
           }
         }
       }
       return null;
-    } catch (e) {
-      debugPrint('Video Generation API Error: $e');
-      return null;
-    }
+    } catch (e) { debugPrint('Video Generation API Error: $e'); return null; }
   }
 
-  /// Combined generation: Story + Video
   Future<Map<String, dynamic>?> _generateStoryAndVideo() async {
     try {
-      // First generate the story
       final storyResult = await _generateStoryFromAPI();
       if (storyResult == null) return null;
-      
-      // Then generate video based on the story
       final videoUrl = await _generateVideoWithComic(storyResult['story']);
-      
-      return {
-        'story': storyResult['story'],
-        'title': storyResult['title'],
-        'videoUrl': videoUrl,
-      };
-    } catch (e) {
-      debugPrint('Combined Generation Error: $e');
-      return null;
-    }
+      return {'story': storyResult['story'], 'title': storyResult['title'], 'videoUrl': videoUrl};
+    } catch (e) { debugPrint('Combined Generation Error: $e'); return null; }
   }
 
   String? _getVideoUrl() {
@@ -305,27 +270,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _showLoaderThenStory() async {
-    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
       builder: (_) => _LoadingDialog(),
     );
-    
-    // Generate story AND video from API
+
     setState(() => _isGenerating = true);
     final result = await _generateStoryAndVideo();
     setState(() => _isGenerating = false);
-    
+
     if (!mounted) return;
-    Navigator.pop(context); // Close loading dialog
-    
+    Navigator.pop(context);
+
     if (result != null) {
       _currentStory = result['story'];
       _currentStoryTitle = result['title'];
       _currentVideoUrl = result['videoUrl'] ?? _getVideoUrl();
-      
+
       if (mounted) {
         showDialog(
           context: context,
@@ -340,12 +303,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             tts: _tts,
             onClose: () async { await _tts.stop(); if (mounted) setState(() => _isSpeaking = false); },
             onNewStory: () async {
-              // Generate a new story when requested
               final newResult = await _generateStoryFromAPI();
               if (newResult != null && mounted) {
                 _currentStory = newResult['story'];
                 _currentStoryTitle = newResult['title'];
-                // Also try to generate a new video for the new story
                 final newVideoUrl = await _generateVideoWithComic(newResult['story']);
                 _currentVideoUrl = newVideoUrl ?? _getVideoUrl();
                 return _currentStory!;
@@ -356,19 +317,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         );
       }
     } else {
-      // Show error if story generation failed
       if (mounted) {
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
             title: const Text('Oops!'),
             content: const Text('Failed to generate story. Please check your internet connection and try again.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('OK'),
-              ),
-            ],
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
           ),
         );
       }
@@ -388,8 +343,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: const Color(0xFFEEF1FF),
       body: Stack(children: [
-
-        // ── ANIMATED PARTICLE BACKGROUND ──────────────────────────
         AnimatedBuilder(
           animation: _particleCtrl,
           builder: (_, __) => RepaintBoundary(child: CustomPaint(
@@ -397,8 +350,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             size: Size(sw, sh),
           )),
         ),
-
-        // ── BACKGROUND GRADIENT BLOBS ─────────────────────────────
         AnimatedBuilder(
           animation: _waveCtrl,
           builder: (_, __) {
@@ -406,34 +357,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             return Stack(children: [
               Positioned(top: -60, left: -40,
                 child: Container(width: 220, height: 220,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
                     gradient: RadialGradient(colors: [
                       Color.lerp(const Color(0xFF7C3AED), const Color(0xFF2563EB), t)!.withOpacity(0.18),
                       Colors.transparent,
-                    ]),
-                  ))),
+                    ])))),
               Positioned(bottom: 100, right: -50,
                 child: Container(width: 260, height: 260,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
                     gradient: RadialGradient(colors: [
                       Color.lerp(const Color(0xFFEC4899), const Color(0xFFF97316), t)!.withOpacity(0.14),
                       Colors.transparent,
-                    ]),
-                  ))),
+                    ])))),
             ]);
           },
         ),
-
         SafeArea(child: Column(children: [
-
-          // ── HEADER ───────────────────────────────────────────────
           _buildHeader(user, sw, sh),
-
           const SizedBox(height: 10),
-
-          // ── SECTION LABEL ─────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 18),
             child: Row(children: [
@@ -457,19 +398,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.6),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.3)),
-                    ),
+                      border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.3))),
                     child: Text('${characters.length} heroes',
                       style: const TextStyle(fontSize: 11, color: Color(0xFF6C63FF), fontWeight: FontWeight.w800)),
                   ),
-                ),
-              ),
+                )),
             ]),
           ),
-
           const SizedBox(height: 8),
-
-          // ── CHARACTER GRID ────────────────────────────────────────
           Expanded(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: sw * 0.028),
@@ -486,20 +422,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
-
           const SizedBox(height: 8),
-
-          // ── GENERATE BUTTON ───────────────────────────────────────
           _buildGenerateBtn(sw),
         ])),
       ]),
     );
   }
 
-  // ── HEADER ──────────────────────────────────────────────────────
   Widget _buildHeader(dynamic user, double sw, double sh) {
     return Stack(children: [
-      // Gradient bg
       AnimatedBuilder(animation: _waveCtrl, builder: (_, __) => Container(
         height: sh * 0.195,
         width: double.infinity,
@@ -515,8 +446,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           boxShadow: [BoxShadow(color: const Color(0xFF667EEA).withOpacity(0.45), blurRadius: 22, offset: const Offset(0, 10))],
         ),
       )),
-
-      // Decorative circles
       Positioned(top: -22, right: -22,
         child: AnimatedBuilder(animation: _pulseCtrl, builder: (_, __) => Container(
           width: 88 + _pulseCtrl.value * 18, height: 88 + _pulseCtrl.value * 18,
@@ -529,13 +458,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           opacity: 0.3 + _sparkCtrl2.value * 0.4,
           child: Container(width: 20, height: 20,
             decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white))))),
-
       Padding(
         padding: EdgeInsets.symmetric(horizontal: sw * 0.042, vertical: sh * 0.016),
         child: Column(children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-
-            // Logo + title
             AnimatedBuilder(animation: _floatCtrl, builder: (_, __) =>
               Transform.translate(offset: Offset(0, _floatAnim.value * 0.7),
                 child: Row(children: [
@@ -544,8 +470,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.22),
                       borderRadius: BorderRadius.circular(14),
-                      boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.2), blurRadius: 12)],
-                    ),
+                      boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.2), blurRadius: 12)]),
                     child: AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
                       Transform.scale(scale: 0.88 + _sparkCtrl1.value * 0.22,
                         child: Image.asset("assets/images/logo.png", width: 30, height: 30))),
@@ -553,22 +478,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   const SizedBox(width: 9),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('MAGIC STORY',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900,
-                        letterSpacing: 1.4, color: Colors.white)),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.4, color: Colors.white)),
                     Text('Adventure Awaits! ✨',
                       style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.85))),
                   ]),
                 ]))),
-
-            // User badge
             AnimatedBuilder(animation: _glowCtrl, builder: (_, __) =>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: Colors.white.withOpacity(0.3 + _glowAnim.value * 0.2)),
-                ),
+                  border: Border.all(color: Colors.white.withOpacity(0.3 + _glowAnim.value * 0.2))),
                 child: Row(children: [
                   Container(padding: const EdgeInsets.all(3),
                     decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
@@ -583,18 +504,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 ]),
               )),
           ]),
-
           const SizedBox(height: 11),
-
-          // Status strip
           AnimatedBuilder(animation: _shimmerCtrl, builder: (_, __) =>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.18),
                 borderRadius: BorderRadius.circular(26),
-                border: Border.all(color: Colors.white.withOpacity(0.25)),
-              ),
+                border: Border.all(color: Colors.white.withOpacity(0.25))),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
                   Transform.rotate(angle: _sparkCtrl1.value * pi * 2,
@@ -614,7 +531,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     ]);
   }
 
-  // ── CHARACTER CARD ──────────────────────────────────────────────
   Widget _charCard(int index) {
     final ch  = characters[index];
     final sel = _selectedCharIdx == index;
@@ -653,8 +569,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   )],
                 ),
                 child: Stack(children: [
-
-                  // Shimmer overlay when selected
                   if (sel) Positioned.fill(child: AnimatedBuilder(
                     animation: _shimmerCtrl,
                     builder: (_, __) => ClipRRect(borderRadius: BorderRadius.circular(24),
@@ -667,18 +581,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         child: Container(color: Colors.white),
                       )),
                   )),
-
                   Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-
-                    // Character image
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 260),
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: sel ? Border.all(color: Colors.white, width: 3) : null,
-                        boxShadow: sel ? [BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 14)] : null,
-                      ),
+                        boxShadow: sel ? [BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 14)] : null),
                       child: ClipRRect(borderRadius: BorderRadius.circular(50),
                         child: Image.asset(ch.gif, height: 78, width: 78, fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) => Container(
@@ -686,26 +596,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             decoration: BoxDecoration(color: ch.light, shape: BoxShape.circle),
                             child: Center(child: Text(ch.emoji, style: const TextStyle(fontSize: 38)))))),
                     ),
-
                     const SizedBox(height: 8),
-
-                    // Name badge
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 260),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
                       decoration: BoxDecoration(
                         color: sel ? Colors.white : ch.color,
                         borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: (sel ? Colors.white : ch.color).withOpacity(0.35), blurRadius: 8)],
-                      ),
+                        boxShadow: [BoxShadow(color: (sel ? Colors.white : ch.color).withOpacity(0.35), blurRadius: 8)]),
                       child: Text(ch.name, style: TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w800,
                         color: sel ? ch.color : Colors.white)),
                     ),
-
                     const SizedBox(height: 5),
-
-                    // State indicator
                     if (sel)
                       Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
                         Icon(Icons.star_rounded, color: Colors.yellow, size: 13),
@@ -725,7 +628,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ── GENERATE BUTTON ─────────────────────────────────────────────
   Widget _buildGenerateBtn(double sw) {
     final enabled = _selectedCharIdx != null;
     final ch = enabled ? characters[_selectedCharIdx!] : null;
@@ -736,8 +638,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: const BorderRadius.only(topLeft: Radius.circular(26), topRight: Radius.circular(26)),
-        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 12, offset: const Offset(0, -4))],
-      ),
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 12, offset: const Offset(0, -4))]),
       child: AnimatedBuilder(animation: _pulseCtrl, builder: (_, __) =>
         Transform.scale(scale: enabled ? (1.0 + _pulseCtrl.value * 0.012) : 1.0,
           child: GestureDetector(
@@ -751,8 +652,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         begin: Alignment.centerLeft, end: Alignment.centerRight)
                     : const LinearGradient(colors: [Color(0xFFD0D0D0), Color(0xFFBDBDBD)]),
                 borderRadius: BorderRadius.circular(28),
-                boxShadow: enabled ? [BoxShadow(color: ch!.color.withOpacity(0.52), blurRadius: 18, offset: const Offset(0, 8))] : [],
-              ),
+                boxShadow: enabled ? [BoxShadow(color: ch!.color.withOpacity(0.52), blurRadius: 18, offset: const Offset(0, 8))] : []),
               child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
                   Transform.rotate(angle: enabled ? _sparkCtrl1.value * pi * 2 : 0,
@@ -777,11 +677,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFF4776E6), Color(0xFF8E54E9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(38),
-        boxShadow: [BoxShadow(color: const Color(0xFF8E54E9).withOpacity(0.45), blurRadius: 32, spreadRadius: 4)],
-      ),
+        boxShadow: [BoxShadow(color: const Color(0xFF8E54E9).withOpacity(0.45), blurRadius: 32, spreadRadius: 4)]),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-
-        // Header
         Container(
           padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
           decoration: const BoxDecoration(color: Colors.white,
@@ -814,8 +711,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ],
           ]),
         ),
-
-        // World grid
         Padding(padding: const EdgeInsets.all(14),
           child: GridView.count(
             shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
@@ -835,8 +730,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         : const LinearGradient(colors: [Colors.white, Color(0xFFF4F6FF)]),
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(color: sel ? Colors.white.withOpacity(0.5) : Colors.grey.shade200, width: 2),
-                    boxShadow: [BoxShadow(color: sel ? w.color.withOpacity(0.45) : Colors.grey.withOpacity(0.12), blurRadius: 14, offset: const Offset(0, 5))],
-                  ),
+                    boxShadow: [BoxShadow(color: sel ? w.color.withOpacity(0.45) : Colors.grey.withOpacity(0.12), blurRadius: 14, offset: const Offset(0, 5))]),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Container(
                       padding: const EdgeInsets.all(10),
@@ -854,7 +748,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               );
             }).toList(),
           )),
-
         Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
           child: _modalBtn('✕  Close', () => Navigator.pop(context))),
       ]),
@@ -870,11 +763,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         gradient: const LinearGradient(colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(38),
-        boxShadow: [BoxShadow(color: const Color(0xFFFF416C).withOpacity(0.45), blurRadius: 32, spreadRadius: 4)],
-      ),
+        boxShadow: [BoxShadow(color: const Color(0xFFFF416C).withOpacity(0.45), blurRadius: 32, spreadRadius: 4)]),
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-
-        // Header
         Container(
           padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
           decoration: const BoxDecoration(color: Colors.white,
@@ -904,8 +794,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ],
           ]),
         ),
-
-        // Mood grid
         Padding(padding: const EdgeInsets.all(14),
           child: GridView.count(
             shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
@@ -923,11 +811,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         setState(() => _selectedMood = m.name);
                         _moodCardCtrl.forward(from: 0);
                         await Future.delayed(const Duration(milliseconds: 210));
-                        if (mounted) {
-                          _moodCtrl.reset(); 
-                          Navigator.pop(context); 
-                          _showLoaderThenStory();
-                        }
+                        if (mounted) { _moodCtrl.reset(); Navigator.pop(context); _showLoaderThenStory(); }
                       },
                       child: AnimatedBuilder(animation: _moodCardCtrl, builder: (_, __) =>
                         Transform.scale(scale: sel ? _moodCardScale.value : 1.0,
@@ -939,8 +823,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   : const LinearGradient(colors: [Colors.white, Color(0xFFFFF5F0)]),
                               borderRadius: BorderRadius.circular(26),
                               border: Border.all(color: sel ? Colors.white.withOpacity(0.5) : Colors.grey.shade200, width: 2.5),
-                              boxShadow: [BoxShadow(color: sel ? m.color.withOpacity(0.45) : Colors.grey.withOpacity(0.1), blurRadius: 14, offset: const Offset(0, 5))],
-                            ),
+                              boxShadow: [BoxShadow(color: sel ? m.color.withOpacity(0.45) : Colors.grey.withOpacity(0.1), blurRadius: 14, offset: const Offset(0, 5))]),
                             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                               AnimatedBuilder(animation: _pulseCtrl, builder: (_, __) =>
                                 Transform.scale(scale: sel ? 1.0 + _pulseCtrl.value * 0.09 : 1.0,
@@ -960,7 +843,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               );
             }).toList(),
           )),
-
         Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
           child: _modalBtn('← Back to Worlds', () {
             _moodCtrl.reset(); Navigator.pop(context); _openWorldModal();
@@ -1001,7 +883,6 @@ class _LoadingDialogState extends State<_LoadingDialog> with SingleTickerProvide
   }
   @override void dispose() { _c.dispose(); super.dispose(); }
 
-
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -1017,8 +898,7 @@ class _LoadingDialogState extends State<_LoadingDialog> with SingleTickerProvide
               gradient: const LinearGradient(colors: [Color(0xFF1A0533), Color(0xFF0D1B4B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
               borderRadius: BorderRadius.circular(36),
               border: Border.all(color: Colors.white.withOpacity(0.12)),
-              boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withOpacity(0.4), blurRadius: 36)],
-            ),
+              boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withOpacity(0.4), blurRadius: 36)]),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               AnimatedBuilder(animation: _c, builder: (_, __) =>
                 Transform.scale(scale: _scale.value,
@@ -1047,7 +927,7 @@ class _LoadingDialogState extends State<_LoadingDialog> with SingleTickerProvide
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  STORY DIALOG (Updated with API-generated stories)
+//  STORY DIALOG  –  with Urdu TTS button
 // ═══════════════════════════════════════════════════════════════════
 class _StoryDialog extends StatefulWidget {
   final String story;
@@ -1061,14 +941,14 @@ class _StoryDialog extends StatefulWidget {
   final Future<String> Function() onNewStory;
 
   const _StoryDialog({
-    required this.story, 
+    required this.story,
     this.storyTitle,
-    required this.videoUrl, 
-    required this.char, 
+    required this.videoUrl,
+    required this.char,
     required this.world,
-    required this.mood, 
-    required this.tts, 
-    required this.onClose, 
+    required this.mood,
+    required this.tts,
+    required this.onClose,
     required this.onNewStory,
   });
 
@@ -1078,20 +958,25 @@ class _StoryDialog extends StatefulWidget {
 class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderStateMixin {
   late String _story;
   String? _storyTitle;
+
+  // ── English TTS state ──
   bool _speaking = false;
+
+  // ── Urdu TTS state ──
+  bool _urduReading = false;
+
   bool _isLoadingNew = false;
   late AnimationController _textCtrl;
   late Animation<double> _textFade, _textSlide;
   int _highlightStart = 0;
   int _highlightEnd   = 0;
-  String _plainStory   = '';
+  String _plainStory  = '';
 
   @override
   void initState() {
     super.initState();
-    _story = widget.story;
+    _story      = widget.story;
     _storyTitle = widget.storyTitle;
-
     _plainStory = _story.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim();
 
     _textCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
@@ -1101,61 +986,120 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
 
     widget.tts.setCompletionHandler(() {
       if (mounted) setState(() {
-        _speaking = false;
+        _speaking      = false;
+        _urduReading   = false;
         _highlightStart = 0;
         _highlightEnd   = 0;
       });
+      // Always restore English after any completion
+      widget.tts.setLanguage('en-US');
+      widget.tts.setSpeechRate(0.44);
+      widget.tts.setPitch(1.1);
     });
+
     widget.tts.setErrorHandler((_) {
       if (mounted) setState(() {
-        _speaking = false;
+        _speaking      = false;
+        _urduReading   = false;
         _highlightStart = 0;
         _highlightEnd   = 0;
       });
+      widget.tts.setLanguage('en-US');
+      widget.tts.setSpeechRate(0.44);
+      widget.tts.setPitch(1.1);
     });
 
     widget.tts.setProgressHandler((String text, int start, int end, String word) {
-      if (mounted) {
-        setState(() {
-          _highlightStart = start;
-          _highlightEnd   = end;
-        });
+      if (mounted && _speaking) {
+        setState(() { _highlightStart = start; _highlightEnd = end; });
       }
     });
   }
 
   @override void dispose() { _textCtrl.dispose(); super.dispose(); }
 
+  // ── English read aloud ──────────────────────────────────────────
   Future<void> _toggleTts() async {
     if (_speaking) {
       await widget.tts.stop();
-      setState(() => _speaking = false);
-    } else {
-      setState(() => _speaking = true);
-      final clean = _story.replaceAll(RegExp(r'[^\x00-\x7F]+'), '').trim();
-      await widget.tts.speak(clean.isEmpty ? _story : clean);
+      setState(() { _speaking = false; _highlightStart = 0; _highlightEnd = 0; });
+      return;
     }
+    // Stop Urdu if running
+    if (_urduReading) {
+      await widget.tts.stop();
+      await Future.delayed(const Duration(milliseconds: 150));
+      setState(() => _urduReading = false);
+    }
+    await widget.tts.setLanguage('en-US');
+    await widget.tts.setSpeechRate(0.44);
+    await widget.tts.setPitch(1.1);
+    setState(() => _speaking = true);
+    final clean = _story.replaceAll(RegExp(r'[^\x00-\x7F]+'), '').trim();
+    await widget.tts.speak(clean.isEmpty ? _story : clean);
+  }
+
+  // ── Urdu read aloud ─────────────────────────────────────────────
+  Future<void> _startUrduRead() async {
+    // Toggle off if already reading Urdu
+    if (_urduReading) {
+      await widget.tts.stop();
+      if (mounted) setState(() => _urduReading = false);
+      await widget.tts.setLanguage('en-US');
+      await widget.tts.setSpeechRate(0.44);
+      await widget.tts.setPitch(1.1);
+      return;
+    }
+
+    // Stop English TTS if running
+    await widget.tts.stop();
+    await Future.delayed(const Duration(milliseconds: 150));
+    setState(() { _speaking = false; _highlightStart = 0; _highlightEnd = 0; });
+
+    // Check if Urdu is available on the device
+    final dynamic langs = await widget.tts.getLanguages;
+    final List<String> available = (langs as List).map((e) => e.toString().toLowerCase()).toList();
+    final bool urduOk = available.any((l) => l.contains('ur'));
+
+    if (!urduOk) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text(
+            '🇵🇰 Urdu TTS not installed.\nSettings → Accessibility → TTS Output → Install Urdu',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.deepPurple,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 4),
+        ));
+      }
+      return;
+    }
+
+    // Apply Urdu settings with a delay so Android TTS engine registers new locale
+    await widget.tts.setLanguage('ur-PK');
+    await widget.tts.setSpeechRate(0.36);
+    await widget.tts.setPitch(1.05);
+    await Future.delayed(const Duration(milliseconds: 250));
+
+    if (mounted) setState(() => _urduReading = true);
+
+    await widget.tts.speak(_story);
   }
 
   Future<void> _newStory() async {
     if (_isLoadingNew) return;
-    
-    setState(() {
-      _isLoadingNew = true;
-    });
-    
+    setState(() => _isLoadingNew = true);
     await widget.tts.stop();
-    
+    setState(() { _speaking = false; _urduReading = false; _highlightStart = 0; _highlightEnd = 0; });
     final newStory = await widget.onNewStory();
-    
     if (mounted) {
       setState(() {
-        _story = newStory;
+        _story      = newStory;
         _plainStory = newStory.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim();
-        _speaking = false;
         _isLoadingNew = false;
-        _highlightStart = 0;
-        _highlightEnd = 0;
       });
       _textCtrl.reset();
       _textCtrl.forward();
@@ -1176,97 +1120,55 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
 
   Widget _buildHighlightedStory() {
     if (_plainStory.isEmpty) {
-      return Text(
-        _story,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 15,
-          height: 1.9,
-          wordSpacing: 2.5,
-        ),
-      );
+      return Text(_story, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.9, wordSpacing: 2.5));
     }
-
     final List<String> tokens = [];
     final List<int> tokenStarts = [];
-
     int i = 0;
     final int len = _plainStory.length;
-
     while (i < len) {
       final char = _plainStory[i];
       final bool isWordChar = _isWordCharacter(char);
       final bool isSpace = char == ' ';
-
-      if (isSpace) {
-        tokens.add(' ');
-        tokenStarts.add(i);
-        i++;
-      } else if (isWordChar) {
+      if (isSpace) { tokens.add(' '); tokenStarts.add(i); i++; }
+      else if (isWordChar) {
         final start = i;
-        while (i < len && _isWordCharacter(_plainStory[i])) {
-          i++;
-        }
-        tokens.add(_plainStory.substring(start, i));
-        tokenStarts.add(start);
-      } else {
-        tokens.add(char);
-        tokenStarts.add(i);
-        i++;
-      }
+        while (i < len && _isWordCharacter(_plainStory[i])) i++;
+        tokens.add(_plainStory.substring(start, i)); tokenStarts.add(start);
+      } else { tokens.add(char); tokenStarts.add(i); i++; }
     }
-
     final List<TextSpan> spans = [];
     for (int idx = 0; idx < tokens.length; idx++) {
       final token = tokens[idx];
       final tokenStart = tokenStarts[idx];
       final tokenEnd = tokenStart + token.length;
-
       final bool isHighlighted = (tokenStart >= _highlightStart && tokenStart < _highlightEnd) ||
                                  (tokenEnd > _highlightStart && tokenEnd <= _highlightEnd);
-
       spans.add(TextSpan(
         text: token,
         style: TextStyle(
           color: Colors.white,
           backgroundColor: isHighlighted ? Colors.amber.shade700 : Colors.transparent,
           fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w500,
-          fontSize: 15,
-          height: 1.9,
-          wordSpacing: 2.5,
-          shadows: isHighlighted
-              ? const [Shadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1))]
-              : null,
+          fontSize: 15, height: 1.9, wordSpacing: 2.5,
+          shadows: isHighlighted ? const [Shadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1))] : null,
         ),
       ));
     }
-
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        return FadeTransition(
-          opacity: animation,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation),
-            child: child,
-          ),
-        );
-      },
-      child: RichText(
-        key: ValueKey('$_highlightStart-$_highlightEnd'),
-        text: TextSpan(children: spans),
-      ),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation), child: child)),
+      child: RichText(key: ValueKey('$_highlightStart-$_highlightEnd'), text: TextSpan(children: spans)),
     );
   }
 
   bool _isWordCharacter(String c) {
     final code = c.codeUnitAt(0);
-    return (code >= 65 && code <= 90) ||
-           (code >= 97 && code <= 122) ||
-           code == 39 ||
-           (code >= 48 && code <= 57);
+    return (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || code == 39 || (code >= 48 && code <= 57);
   }
 
   @override
@@ -1294,6 +1196,7 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
               borderRadius: BorderRadius.circular(38),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
 
+                // ── Header ──────────────────────────────────────────
                 Container(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
                   decoration: BoxDecoration(
@@ -1319,8 +1222,9 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
 
                 Container(height: 1, margin: const EdgeInsets.symmetric(horizontal: 18), color: Colors.white.withOpacity(0.1)),
 
+                // ── Story text ───────────────────────────────────────
                 ConstrainedBox(
-                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.38),
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.35),
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
@@ -1347,10 +1251,12 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
                   ),
                 ),
 
+                // ── Action buttons ───────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
                   child: Column(children: [
 
+                    // English read aloud button
                     GestureDetector(
                       onTap: _toggleTts,
                       child: AnimatedContainer(
@@ -1384,16 +1290,69 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
 
                     const SizedBox(height: 10),
 
+                    // ── Urdu button ──────────────────────────────────
+                    GestureDetector(
+                      onTap: _startUrduRead,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 280),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        decoration: BoxDecoration(
+                          gradient: _urduReading
+                              ? const LinearGradient(colors: [Color(0xFF6A0DAD), Color(0xFF4A0080)])
+                              : const LinearGradient(colors: [Color(0xFF1C1C3A), Color(0xFF2A2A50)]),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: _urduReading ? const Color(0xFFAA00FF) : Colors.white.withOpacity(0.18),
+                            width: _urduReading ? 2.0 : 1.5),
+                          boxShadow: _urduReading
+                              ? [BoxShadow(color: const Color(0xFF6A0DAD).withOpacity(0.5), blurRadius: 16, offset: const Offset(0, 6))]
+                              : [],
+                        ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Text(_urduReading ? '🔊' : '🇵🇰', style: const TextStyle(fontSize: 20)),
+                          const SizedBox(width: 10),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 240),
+                            child: Text(
+                              _urduReading ? 'اردو میں پڑھ رہا ہے...' : 'اردو میں سنیں',
+                              key: ValueKey(_urduReading),
+                              style: TextStyle(
+                                color: _urduReading ? Colors.white : Colors.white70,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (_urduReading) ...[
+                            const SizedBox(width: 10),
+                            const SizedBox(
+                              width: 14, height: 14,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            ),
+                          ],
+                        ]),
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ── Bottom row buttons ───────────────────────────
                     Row(children: [
                       Expanded(child: _BottomBtn(
-                        label: _isLoadingNew ? '🎲 Generating...' : '🎲 New Story',    
-                        onTap: _isLoadingNew ? null : _newStory, 
-                        highlight: true, 
+                        label: _isLoadingNew ? '🎲 Generating...' : '🎲 New Story',
+                        onTap: _isLoadingNew ? null : _newStory,
+                        highlight: true,
                         color: _moodColor)),
                       const SizedBox(width: 8),
-                      Expanded(child: _BottomBtn(label: '🎬 Watch Video',  onTap: widget.videoUrl != null ? _openVideoModal : null, highlight: true, color: const Color(0xFFFF6D00))),
+                      Expanded(child: _BottomBtn(
+                        label: '🎬 Watch Video',
+                        onTap: widget.videoUrl != null ? _openVideoModal : null,
+                        highlight: true,
+                        color: const Color(0xFFFF6D00))),
                       const SizedBox(width: 8),
-                      Expanded(child: _BottomBtn(label: '✕  Close',        onTap: () { widget.onClose(); Navigator.pop(context); })),
+                      Expanded(child: _BottomBtn(
+                        label: '✕  Close',
+                        onTap: () { widget.onClose(); Navigator.pop(context); })),
                     ]),
                   ]),
                 ),
@@ -1406,7 +1365,7 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  VIDEO DIALOG (unchanged)
+//  VIDEO DIALOG
 // ═══════════════════════════════════════════════════════════════════
 class _VideoDialog extends StatefulWidget {
   final String url;
@@ -1433,7 +1392,6 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
   @override void dispose() { _c.dispose(); super.dispose(); }
 
   String get _moodEmoji => {'Happy':'🌟','Funny':'🎪','Adventure':'⚡','Bedtime':'🌙'}[widget.mood] ?? '✨';
-
   Color get _moodColor => {
     'Happy': const Color(0xFFFFCC00), 'Funny': const Color(0xFFFF5500),
     'Adventure': const Color(0xFFCC0000), 'Bedtime': const Color(0xFF4C5FC4),
@@ -1453,10 +1411,8 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
               gradient: const LinearGradient(colors: [Color(0xFF0D0020), Color(0xFF0A1840)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
               borderRadius: BorderRadius.circular(36),
               border: Border.all(color: Colors.white.withOpacity(0.14)),
-              boxShadow: [BoxShadow(color: _moodColor.withOpacity(0.3), blurRadius: 40, spreadRadius: 4)],
-            ),
+              boxShadow: [BoxShadow(color: _moodColor.withOpacity(0.3), blurRadius: 40, spreadRadius: 4)]),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-
               Container(
                 padding: const EdgeInsets.fromLTRB(18, 16, 14, 14),
                 decoration: BoxDecoration(
@@ -1483,15 +1439,13 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
                       child: const Icon(Icons.close_rounded, color: Colors.white, size: 18))),
                 ]),
               ),
-
               Container(
                 height: 240,
                 margin: const EdgeInsets.symmetric(horizontal: 14),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: Colors.white.withOpacity(0.12)),
-                  color: Colors.black,
-                ),
+                  color: Colors.black),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Stack(children: [
@@ -1504,7 +1458,6 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
                   ]),
                 ),
               ),
-
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
                 child: Row(children: [
@@ -1526,8 +1479,7 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [_moodColor, _moodColor.withOpacity(0.75)]),
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: [BoxShadow(color: _moodColor.withOpacity(0.4), blurRadius: 12)],
-                      ),
+                        boxShadow: [BoxShadow(color: _moodColor.withOpacity(0.4), blurRadius: 12)]),
                       child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13))),
                   ),
                 ]),
@@ -1541,7 +1493,7 @@ class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderSta
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  HELPER WIDGETS (unchanged)
+//  HELPER WIDGETS
 // ═══════════════════════════════════════════════════════════════════
 class _AvatarRing extends StatelessWidget {
   final String gif, emoji; final Color color; final double size;
@@ -1586,8 +1538,7 @@ class _BottomBtn extends StatelessWidget {
         color: highlight && color != null && onTap != null ? null : Colors.white.withOpacity(onTap != null ? 0.11 : 0.05),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(onTap != null ? 0.18 : 0.07)),
-        boxShadow: highlight && onTap != null ? [BoxShadow(color: color!.withOpacity(0.35), blurRadius: 10)] : [],
-      ),
+        boxShadow: highlight && onTap != null ? [BoxShadow(color: color!.withOpacity(0.35), blurRadius: 10)] : []),
       child: Text(label, textAlign: TextAlign.center,
         style: TextStyle(color: onTap != null ? Colors.white : Colors.white38,
           fontSize: 12, fontWeight: FontWeight.w700)),
@@ -1596,7 +1547,7 @@ class _BottomBtn extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  FLOATING PARTICLE SYSTEM (unchanged)
+//  FLOATING PARTICLE SYSTEM
 // ═══════════════════════════════════════════════════════════════════
 class _Particle {
   final double x, y, size, speed, delay, drift;
@@ -1627,7 +1578,7 @@ class _ParticlePainter extends CustomPainter {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-//  DATA MODELS (unchanged)
+//  DATA MODELS
 // ═══════════════════════════════════════════════════════════════════
 class Character {
   final String name, gif, sound, emoji;
