@@ -195,23 +195,56 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } catch (e) { debugPrint('Story API Error: $e'); return null; }
   }
 
-  Future<String?> _generateVideoWithComic(String storyText) async {
-    try {
-      final prompt = "A ${_selectedChar?.name ?? 'character'} in ${_selectedWorld?.name ?? 'a magical place'} with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. Story: ${storyText.substring(0, storyText.length > 100 ? 100 : storyText.length)}";
-      final response = await http.get(Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
-      if (response.statusCode == 200) {
-        final lines = response.body.split('\n');
-        for (var line in lines) {
-          if (line.startsWith('data: ')) {
-            final data = json.decode(line.substring(6));
-            if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) return data['videoUrl'];
+  // Future<String?> _generateVideoWithComic(String storyText) async {
+  //   try {
+  //     final prompt = "A ${_selectedChar?.name ?? 'character'} in ${_selectedWorld?.name ?? 'a magical place'} with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. Story: ${storyText.substring(0, storyText.length > 100 ? 100 : storyText.length)}";
+  //     final response = await http.get(Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
+  //     if (response.statusCode == 200) {
+  //       final lines = response.body.split('\n');
+  //       for (var line in lines) {
+  //         if (line.startsWith('data: ')) {
+  //           final data = json.decode(line.substring(6));
+  //           if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) return data['videoUrl'];
+  //         }
+  //       }
+  //     }
+  //     return null;
+  //   } catch (e) { debugPrint('Video Generation API Error: $e'); return null; }
+  // }
+
+
+Future<String?> _generateVideoWithComic(String storyText) async {
+  try {
+    // ✅ Explicitly English-only prompt
+    final prompt =
+        "In English only: A ${_selectedChar?.name ?? 'character'} "
+        "in ${_selectedWorld?.name ?? 'a magical place'} "
+        "with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. "
+        "Story (English only): ${storyText.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim().substring(
+          0,
+          storyText.length > 100 ? 100 : storyText.length,
+        )}";
+
+    final response = await http.get(
+      Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'),
+    );
+    if (response.statusCode == 200) {
+      final lines = response.body.split('\n');
+      for (var line in lines) {
+        if (line.startsWith('data: ')) {
+          final data = json.decode(line.substring(6));
+          if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) {
+            return data['videoUrl'];
           }
         }
       }
-      return null;
-    } catch (e) { debugPrint('Video Generation API Error: $e'); return null; }
+    }
+    return null;
+  } catch (e) {
+    debugPrint('Video Generation API Error: $e');
+    return null;
   }
-
+}
   Future<Map<String, dynamic>?> _generateStoryAndVideo() async {
     try {
       final storyResult = await _generateStoryFromAPI();

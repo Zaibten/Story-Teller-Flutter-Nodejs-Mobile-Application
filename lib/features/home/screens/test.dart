@@ -270,6 +270,9 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   final _rng  = Random();
   static const _base = 'http://192.168.100.177:9000';
 
+  // ── Language toggle: 'english' | 'urdu' ──
+  String _selectedLanguage = 'english';
+
   // ── Speech-to-text ──
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechAvailable = false;
@@ -375,14 +378,12 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
     _moodCardController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
     _bounceController   = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
 
-    // modal / mood animations (needed for dispose)
     _modalScaleAnimation = Tween<double>(begin: 0, end: 1).animate(_modalController);
     _modalFadeAnimation  = Tween<double>(begin: 0, end: 1).animate(_modalController);
     _moodScaleAnimation  = Tween<double>(begin: 0, end: 1).animate(_moodController);
     _moodFadeAnimation   = Tween<double>(begin: 0, end: 1).animate(_moodController);
     _moodCardScaleAnimation = Tween<double>(begin: 0, end: 1).animate(_moodCardController);
 
-    // video btn animations
     _videoBtnShineCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
     _videoBtnShineAnim = CurvedAnimation(parent: _videoBtnShineCtrl, curve: Curves.easeInOut);
 
@@ -466,17 +467,11 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
     try {
       _speechAvailable = await _speech.initialize(
         onStatus: (status) {
-          // 'done', 'notListening', 'listening'
-          if (mounted) {
-            setState(() {
-              _isListening = (status == 'listening');
-            });
-          }
+          if (mounted) setState(() { _isListening = (status == 'listening'); });
         },
         onError: (error) {
           if (mounted) {
             setState(() => _isListening = false);
-            // Only show snack for real errors, not 'error_speech_timeout'
             if (error.errorMsg != 'error_speech_timeout') {
               _snack('🎙️ ${error.errorMsg}', K.orange);
             }
@@ -484,59 +479,39 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
         },
         debugLogging: false,
       );
-    } catch (e) {
-      _speechAvailable = false;
-    }
+    } catch (e) { _speechAvailable = false; }
     if (mounted) setState(() {});
   }
 
   Future<void> _toggleListening() async {
-    // If currently listening → stop
     if (_isListening) {
       await _speech.stop();
       if (mounted) setState(() => _isListening = false);
       return;
     }
-
-    // Try to (re-)initialize if not yet available
     if (!_speechAvailable) {
       _speechAvailable = await _speech.initialize(
-        onStatus: (status) {
-          if (mounted) setState(() => _isListening = (status == 'listening'));
-        },
-        onError: (error) {
-          if (mounted) setState(() => _isListening = false);
-        },
+        onStatus: (status) { if (mounted) setState(() => _isListening = (status == 'listening')); },
+        onError: (error) { if (mounted) setState(() => _isListening = false); },
       );
     }
-
     if (!_speechAvailable) {
-      _snack(
-        '🎙️ Microphone permission denied.\nGo to App Settings → Permissions → Microphone → Allow.',
-        K.red,
-      );
+      _snack('🎙️ Microphone permission denied.\nGo to App Settings → Permissions → Microphone → Allow.', K.red);
       return;
     }
-
-    // Start listening
     setState(() => _isListening = true);
     final bool started = await _speech.listen(
       onResult: (result) {
-        if (mounted) {
-          setState(() {
-            _ctrl.text = result.recognizedWords;
-            _ctrl.selection = TextSelection.fromPosition(
-              TextPosition(offset: _ctrl.text.length),
-            );
-          });
-        }
+        if (mounted) setState(() {
+          _ctrl.text = result.recognizedWords;
+          _ctrl.selection = TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
+        });
       },
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 5),
       partialResults: true,
       cancelOnError: false,
     );
-
     if (!started && mounted) {
       setState(() => _isListening = false);
       _snack('🎙️ Could not start listening. Try again.', K.orange);
@@ -558,9 +533,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
       final ctrl = VideoPlayerController.networkUrl(Uri.parse(url));
       _videoController = ctrl;
       await ctrl.initialize();
-
       final double ar = ctrl.value.aspectRatio > 0 ? ctrl.value.aspectRatio : 16 / 9;
-
       _chewieController = ChewieController(
         videoPlayerController: ctrl,
         autoPlay: false,
@@ -579,15 +552,12 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
           color: const Color(0xFF12005E),
           child: const Center(child: CircularProgressIndicator(color: K.yellow, strokeWidth: 3)),
         ),
-        errorBuilder: (_, msg) => Center(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.error_outline_rounded, color: K.red, size: 40),
-            const SizedBox(height: 8),
-            Text(msg, style: ts(12, K.red), textAlign: TextAlign.center),
-          ]),
-        ),
+        errorBuilder: (_, msg) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.error_outline_rounded, color: K.red, size: 40),
+          const SizedBox(height: 8),
+          Text(msg, style: ts(12, K.red), textAlign: TextAlign.center),
+        ])),
       );
-
       if (mounted) setState(() { _videoInitialized = true; _videoError = false; });
     } catch (e) {
       if (mounted) setState(() { _videoError = true; _videoInitialized = false; });
@@ -627,8 +597,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   // ── Urdu TTS ──
   Future<void> _startUrduRead() async {
     if (_story.isEmpty) return;
-
-    // ── Toggle off if already reading ──
     if (_urduReading) {
       await _tts.stop();
       if (mounted) setState(() => _urduReading = false);
@@ -637,40 +605,27 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
       await _tts.setPitch(1.25);
       return;
     }
-
-    // ── Stop any ongoing English reading first ──
     await _tts.stop();
     await Future.delayed(const Duration(milliseconds: 150));
     _stopRead(reset: true);
-
-    // ── Check if Urdu TTS is available on this device ──
     final dynamic langs = await _tts.getLanguages;
     final List<String> available = (langs as List).map((e) => e.toString().toLowerCase()).toList();
     final bool urduOk = available.any((l) => l.contains('ur'));
-
     if (!urduOk) {
-      _snack(
-        '🇵🇰 Urdu TTS not found.\nGo to: Settings → Accessibility → TTS Output → Install Urdu',
-        K.orange,
-      );
+      _snack('🇵🇰 Urdu TTS not found.\nGo to: Settings → Accessibility → TTS Output → Install Urdu', K.orange);
       return;
     }
-
-    // ── Apply Urdu settings with a delay so Android TTS engine registers new locale ──
     await _tts.setLanguage('ur-PK');
     await _tts.setSpeechRate(.36);
     await _tts.setPitch(1.05);
     await Future.delayed(const Duration(milliseconds: 250));
-
     if (mounted) setState(() => _urduReading = true);
-
     _tts.setCompletionHandler(() async {
       if (mounted) setState(() => _urduReading = false);
       await _tts.setLanguage('en-US');
       await _tts.setSpeechRate(.42);
       await _tts.setPitch(1.25);
     });
-
     _tts.setErrorHandler((msg) async {
       if (mounted) setState(() => _urduReading = false);
       await _tts.setLanguage('en-US');
@@ -678,7 +633,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
       await _tts.setPitch(1.25);
       _snack('🎙️ TTS error: $msg', K.red);
     });
-
     await _tts.speak(_story);
   }
 
@@ -765,7 +719,12 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
     _acReveal.reset();
 
     try {
-      final req = http.Request('GET', Uri.parse('$_base/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
+      // ── Pass language param to the server ──
+      final url = '$_base/generate-story-comic-stream'
+          '?prompt=${Uri.encodeComponent(prompt)}'
+          '&language=$_selectedLanguage';
+
+      final req = http.Request('GET', Uri.parse(url));
       final res = await req.send();
       res.stream.transform(utf8.decoder).listen((chunk) {
         for (final line in chunk.split('\n')) {
@@ -935,6 +894,9 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                         const SizedBox(height: 14),
                         _inputCard(),
                         const SizedBox(height: 14),
+                        // ── LANGUAGE TOGGLE ──
+                        _languageToggle(),
+                        const SizedBox(height: 14),
                         _genBtn(),
                         const SizedBox(height: 14),
                         _videoBtn(),
@@ -974,11 +936,116 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   }
 
   // ════════════════════════════════════════════════════════
+  //  🌐  LANGUAGE TOGGLE BUTTON
+  // ════════════════════════════════════════════════════════
+  Widget _languageToggle() {
+    final bool isEnglish = _selectedLanguage == 'english';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: K.surface,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: K.ink, width: 3.5),
+        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
+      ),
+      padding: const EdgeInsets.all(5),
+      child: Row(children: [
+        // ── English Option ──
+        Expanded(
+          child: GestureDetector(
+            onTap: _loading ? null : () => setState(() => _selectedLanguage = 'english'),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOut,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              decoration: BoxDecoration(
+                color: isEnglish ? K.blue : Colors.transparent,
+                borderRadius: BorderRadius.circular(17),
+                border: isEnglish ? Border.all(color: K.ink, width: 2.5) : null,
+                boxShadow: isEnglish
+                    ? const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)]
+                    : null,
+              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text('🇺🇸', style: TextStyle(fontSize: isEnglish ? 22 : 18)),
+                const SizedBox(width: 8),
+                Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('English',
+                    style: ts(14, isEnglish ? K.white : K.ink.withOpacity(.55),
+                      fw: isEnglish ? FontWeight.w900 : FontWeight.w600)),
+                  Text('Video in English',
+                    style: tb(9, isEnglish ? K.white.withOpacity(.8) : K.ink.withOpacity(.35),
+                      fw: FontWeight.w500)),
+                ]),
+                if (isEnglish) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: K.white.withOpacity(.22),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('ON', style: ts(9, K.yellow)),
+                  ),
+                ],
+              ]),
+            ),
+          ),
+        ),
+        const SizedBox(width: 5),
+        // ── Urdu Option ──
+        Expanded(
+          child: GestureDetector(
+            onTap: _loading ? null : () => setState(() => _selectedLanguage = 'urdu'),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 280),
+              curve: Curves.easeInOut,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              decoration: BoxDecoration(
+                color: !isEnglish ? K.purple : Colors.transparent,
+                borderRadius: BorderRadius.circular(17),
+                border: !isEnglish ? Border.all(color: K.ink, width: 2.5) : null,
+                boxShadow: !isEnglish
+                    ? const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)]
+                    : null,
+              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Text('🇵🇰', style: TextStyle(fontSize: !isEnglish ? 22 : 18)),
+                const SizedBox(width: 8),
+                Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('اردو',
+                    style: ts(14, !isEnglish ? K.white : K.ink.withOpacity(.55),
+                      fw: !isEnglish ? FontWeight.w900 : FontWeight.w600)),
+                  Text('Roman Urdu voice',
+                    style: tb(9, !isEnglish ? K.white.withOpacity(.8) : K.ink.withOpacity(.35),
+                      fw: FontWeight.w500)),
+                ]),
+                if (!isEnglish) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: K.white.withOpacity(.22),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('ON', style: ts(9, K.yellow)),
+                  ),
+                ],
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  // ════════════════════════════════════════════════════════
   //  🎬  VIDEO BUTTON
   // ════════════════════════════════════════════════════════
   Widget _videoBtn() {
     final bool isReady      = _videoState == 'ready';
     final bool isGenerating = _videoState == 'generating';
+    final bool isUrdu       = _selectedLanguage == 'urdu';
 
     return AnimatedBuilder(
       animation: Listenable.merge([
@@ -1058,13 +1125,18 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                   Column(mainAxisSize: MainAxisSize.min, children: [
                     Text(
                       isReady ? '  WATCH MY Magic Story!'
-                          : isGenerating ? 'Creating your video...' : 'MAKE A VIDEO!',
+                          : isGenerating
+                              ? (isUrdu ? 'Creating Urdu video...' : 'Creating English video...')
+                              : 'MAKE A VIDEO!',
                       style: ts(isGenerating ? 16 : 19, K.white, fw: FontWeight.w900,
                           sh: [const Shadow(color: Colors.black38, offset: Offset(0, 2), blurRadius: 4)]),
                     ),
                     Text(
-                      isReady ? 'Tap to watch your Magic Story! 🍿'
-                          : isGenerating ? 'Magic Story is animating the story ✨' : 'Create a comic first!',
+                      isReady
+                          ? 'Tap to watch your Magic Story! 🍿'
+                          : isGenerating
+                              ? (isUrdu ? '🇵🇰 Roman Urdu voiceover magic ✨' : '🇺🇸 English voiceover magic ✨')
+                              : 'Create a comic first!',
                       style: tb(11, isReady ? K.white.withOpacity(.88) : Colors.white54),
                     ),
                   ]),
@@ -1099,7 +1171,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
@@ -1120,7 +1191,10 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('YOUR MAGIC VIDEO IS READY!', style: ts(13, K.white, fw: FontWeight.w900)),
                   Text(
-                    _videoInitialized ? 'Tap play to watch your story! 🍿'
+                    _videoInitialized
+                        ? (_selectedLanguage == 'urdu'
+                            ? '🇵🇰 Roman Urdu voiceover • Tap play! 🍿'
+                            : '🇺🇸 English voiceover • Tap play! 🍿')
                         : _videoError ? '⚠️ Could not load video'
                         : 'Loading video player...',
                     style: tb(10, K.white.withOpacity(.88)),
@@ -1137,7 +1211,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                 ),
               ]),
             ),
-
             SizedBox(
               height: videoH,
               child: _videoInitialized && _chewieController != null
@@ -1151,7 +1224,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                       ))),
                       _FilmStrip(top: 8),
                       _FilmStrip(bottom: 8),
-
                       _videoError
                           ? Column(mainAxisSize: MainAxisSize.min, children: [
                               const Icon(Icons.error_outline_rounded, color: K.red, size: 48),
@@ -1178,7 +1250,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                             ]),
                     ]),
             ),
-
             Container(
               color: const Color(0xFF1A0035),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1189,13 +1260,10 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                            colors: [Color(0xFF6200EA), Color(0xFFAA00FF)]),
+                        gradient: const LinearGradient(colors: [Color(0xFF6200EA), Color(0xFFAA00FF)]),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: K.yellow, width: 2),
-                        boxShadow: const [
-                          BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0),
-                        ],
+                        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
                       ),
                       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                         const Icon(Icons.fullscreen_rounded, color: K.yellow, size: 20),
@@ -1220,9 +1288,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                         color: K.yellow,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: K.ink, width: 2.5),
-                        boxShadow: const [
-                          BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0),
-                        ],
+                        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
                       ),
                       child: const Icon(Icons.replay_rounded, color: K.ink, size: 26),
                     ),
@@ -1244,7 +1310,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
       color: Colors.black.withOpacity(.96),
       child: SafeArea(
         child: Column(children: [
-
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
             child: Row(children: [
@@ -1262,7 +1327,24 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
               ),
               const SizedBox(width: 12),
               Expanded(child: Text('🎬  Your Magic Video', style: ts(17, K.yellow))),
-              if (_videoInitialized)
+              // Language badge in overlay
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _selectedLanguage == 'urdu' ? K.purple.withOpacity(.3) : K.blue.withOpacity(.3),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _selectedLanguage == 'urdu' ? K.purple : K.blue,
+                    width: 1.5,
+                  ),
+                ),
+                child: Text(
+                  _selectedLanguage == 'urdu' ? '🇵🇰 Roman Urdu' : '🇺🇸 English',
+                  style: ts(10, K.white),
+                ),
+              ),
+              if (_videoInitialized) ...[
+                const SizedBox(width: 8),
                 GestureDetector(
                   onTap: () async {
                     await _videoController?.seekTo(Duration.zero);
@@ -1278,9 +1360,9 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                     child: const Icon(Icons.replay_rounded, color: K.yellow, size: 22),
                   ),
                 ),
+              ],
             ]),
           ),
-
           Expanded(
             child: Center(
               child: Padding(
@@ -1294,15 +1376,12 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                   double w = maxW;
                   double h = w / ar;
                   if (h > maxH) { h = maxH; w = h * ar; }
-
                   return Container(
                     width: w, height: h,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(color: K.yellow, width: 3),
-                      boxShadow: [
-                        BoxShadow(color: K.yellow.withOpacity(.3), blurRadius: 28, spreadRadius: 4),
-                      ],
+                      boxShadow: [BoxShadow(color: K.yellow.withOpacity(.3), blurRadius: 28, spreadRadius: 4)],
                     ),
                     clipBehavior: Clip.antiAlias,
                     child: _videoInitialized && _chewieController != null
@@ -1329,13 +1408,8 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                                           borderRadius: BorderRadius.circular(12),
                                           border: Border.all(color: Colors.white24),
                                         ),
-                                        child: Text(
-                                          _videoUrl ?? '',
-                                          style: tb(10, Colors.white54),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          textAlign: TextAlign.center,
-                                        ),
+                                        child: Text(_videoUrl ?? '', style: tb(10, Colors.white54),
+                                          maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
                                       ),
                                     ),
                                   ])
@@ -1362,7 +1436,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
               ),
             ),
           ),
-
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
             child: GestureDetector(
@@ -1389,7 +1462,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   }
 
   // ════════════════════════════════════════════════════════
-  //  INPUT CARD  –  with voice microphone button
+  //  INPUT CARD
   // ════════════════════════════════════════════════════════
   Widget _inputCard() {
     return Container(
@@ -1410,10 +1483,8 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
         ],
       ),
       child: Row(children: [
-        // Rainbow emoji
         const Padding(padding: EdgeInsets.only(left: 14), child: Text('🌈', style: TextStyle(fontSize: 26))),
         const SizedBox(width: 8),
-        // Text field
         Expanded(child: TextField(
           controller: _ctrl, style: tb(16, K.ink, fw: FontWeight.w600),
           decoration: InputDecoration(
@@ -1423,7 +1494,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
             contentPadding: const EdgeInsets.symmetric(vertical: 18),
           ),
         )),
-        // Mic button
         Padding(
           padding: const EdgeInsets.only(right: 6),
           child: GestureDetector(
@@ -1434,10 +1504,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: _isListening ? K.red : K.purple.withOpacity(.12),
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: _isListening ? K.red : K.purple,
-                  width: 2.5,
-                ),
+                border: Border.all(color: _isListening ? K.red : K.purple, width: 2.5),
                 boxShadow: _isListening
                     ? [BoxShadow(color: K.red.withOpacity(.5), blurRadius: 12, spreadRadius: 2)]
                     : [],
@@ -1450,7 +1517,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
             ),
           ),
         ),
-        // Wiggle emoji
         Padding(padding: const EdgeInsets.only(right: 12),
           child: AnimatedBuilder(animation: _aWiggle, builder: (_, __) =>
             Transform.rotate(angle: _aWiggle.value * .06, child: const Text('🎨', style: TextStyle(fontSize: 22))))),
@@ -1489,6 +1555,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   //  PROGRESS CARD
   // ════════════════════════════════════════════════════════
   Widget _progressCard() {
+    final bool isUrdu = _selectedLanguage == 'urdu';
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -1506,7 +1573,9 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
         _RainbowBar(_pct / 100),
         const SizedBox(height: 10),
         Text(
-          _pct > 84 ? '🎬  Creating your video...' : 'Brewing your comic adventure...',
+          _pct > 84
+              ? (isUrdu ? '🇵🇰 Creating Roman Urdu video...' : '🇺🇸 Creating English video...')
+              : 'Brewing your comic adventure...',
           style: tb(13, K.purple, fw: FontWeight.w600),
         ),
       ]),
@@ -1514,12 +1583,11 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   }
 
   // ════════════════════════════════════════════════════════
-  //  STORY SECTION  –  with Urdu button
+  //  STORY SECTION
   // ════════════════════════════════════════════════════════
   Widget _storySection() {
     final words = _story.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
     return Column(children: [
-      // ── Header row ──────────────────────────────────────
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
@@ -1541,7 +1609,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
             _ttsBtn(Icons.stop_circle, K.red, () => _stopRead(reset: true)),
           ]),
           const SizedBox(height: 10),
-          // ── Urdu button ──────────────────────────────────
           GestureDetector(
             onTap: _startUrduRead,
             child: AnimatedContainer(
@@ -1560,10 +1627,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                 ],
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(
-                  _urduReading ? '🔊' : '🇵🇰',
-                  style: const TextStyle(fontSize: 18),
-                ),
+                Text(_urduReading ? '🔊' : '🇵🇰', style: const TextStyle(fontSize: 18)),
                 const SizedBox(width: 8),
                 Text(
                   _urduReading ? 'اردو میں پڑھ رہا ہے...' : 'اردو میں سنیں',
@@ -1571,12 +1635,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                 ),
                 if (_urduReading) ...[
                   const SizedBox(width: 8),
-                  SizedBox(
-                    width: 14, height: 14,
-                    child: CircularProgressIndicator(
-                      color: K.yellow, strokeWidth: 2,
-                    ),
-                  ),
+                  SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: K.yellow, strokeWidth: 2)),
                 ],
               ]),
             ),
@@ -1584,7 +1643,6 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
         ]),
       ),
       const SizedBox(height: 12),
-      // ── Word-highlight area ──────────────────────────────
       Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -1876,6 +1934,11 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
         const Text('⚡', style: TextStyle(fontSize: 22)),
         const SizedBox(width: 10),
         Text('Done in $_genTime', style: ts(14, K.mint)),
+        const SizedBox(width: 10),
+        Text(
+          _selectedLanguage == 'urdu' ? '🇵🇰 Roman Urdu' : '🇺🇸 English',
+          style: ts(12, K.purple),
+        ),
       ]),
     );
   }
