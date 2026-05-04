@@ -33,6 +33,8 @@ dependencies:
   url_launcher:
   chewie:
   speech_to_text:
+  lottie:
+  confetti:
 
 dev_dependencies:
   flutter_test:

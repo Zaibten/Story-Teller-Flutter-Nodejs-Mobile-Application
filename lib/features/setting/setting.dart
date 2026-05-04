@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../constants/global_variables.dart';
 import '../../../providers/user_provider.dart';
+import '../../common/widgets/header.dart';
 import '../auth/screens/auth_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -957,7 +958,22 @@ class _SettingsScreenState extends State<SettingsScreen>
           _background(),
           Column(
             children: [
-              header(user),
+              MagicHeader(
+      height: 170,
+
+      // pass animations so it looks SAME as homepage
+      floatAnimation: _floatAnimation,
+      waveAnimation: _waveAnimation,
+      pulseAnimation: _pulseAnimation,
+      sparkleAnimation1: _sparkleAnimation,
+      sparkleAnimation2: _sparkleAnimation,
+      shimmerAnimation: _waveAnimation,
+      glowAnimation: _pulseAnimation,
+
+      // optional (you can keep false if not used)
+      hasSelectedCharacter: false,
+      selectedCharacterName: null,
+    ),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(18),

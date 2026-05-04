@@ -1,461 +1,1635 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'dart:io';
-import 'dart:convert';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
-
-import '../../../constants/global_variables.dart';
 import '../../../providers/user_provider.dart';
+import 'dart:math';
+import 'dart:convert';
+import 'package:flutter/services.dart';
 
+// ═══════════════════════════════════════════════════════════════════
+//  HOME SCREEN
+// ═══════════════════════════════════════════════════════════════════
 class HomeScreen extends StatefulWidget {
-  static const String routeName = '/home';
-  const HomeScreen({Key? key}) : super(key: key);
-  
-
+  static const String routeName = '/home_screen';
+  const HomeScreen({super.key});
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  var textcontroller = TextEditingController();
-  bool isLoaded = false;
-  List comicPanels = [];
-  
-  final ScrollController _scrollController = ScrollController();
-double comicProgress = 0.0;
-bool isGeneratingComic = false;
-  // Reused variable (no structure change)
-  String generatedCode = "Story will appear here...";
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
-  Future<void> saveStoryToFile() async {
+  // ── DATA ────────────────────────────────────────────────────────
+  Map<String, dynamic> linkData  = {};
+  String? _currentStory;
+  String? _currentStoryTitle;
+  String? _currentVideoUrl;
+  final Random _random = Random();
+  bool _isSpeaking = false;
+  bool _isGenerating = false;
+  final FlutterTts _tts = FlutterTts();
+
+  // ── SELECTIONS ──────────────────────────────────────────────────
+  int?       _selectedCharIdx;
+  String?    _selectedWorldName;
+  String?    _selectedMood;
+  Character? _selectedChar;
+  StoryWorld? _selectedWorld;
+
+  // ── ANIMATION CONTROLLERS ────────────────────────────────────────
+  late AnimationController _waveCtrl;
+  late AnimationController _floatCtrl;
+  late AnimationController _pulseCtrl;
+  late AnimationController _sparkCtrl1;
+  late AnimationController _sparkCtrl2;
+  late AnimationController _glowCtrl;
+  late AnimationController _bounceCtrl;
+  late AnimationController _modalCtrl;
+  late AnimationController _moodCtrl;
+  late AnimationController _moodCardCtrl;
+  late AnimationController _particleCtrl;
+  late AnimationController _shimmerCtrl;
+  late AnimationController _cardFloatCtrl;
+
+  late Animation<double> _waveAnim;
+  late Animation<double> _floatAnim;
+  late Animation<double> _pulseAnim;
+  late Animation<double> _glowAnim;
+  late Animation<double> _modalScale;
+  late Animation<double> _modalFade;
+  late Animation<double> _moodScale;
+  late Animation<double> _moodFade;
+  late Animation<double> _moodCardScale;
+  late Animation<double> _shimmerAnim;
+  late Animation<double> _cardFloatAnim;
+
+  final AudioPlayer _audio = AudioPlayer();
+  final List<_Particle> _particles = [];
+
+  final String _baseUrl = 'http://192.168.100.177:9000';
+
+  // ── CHARACTER / WORLD / MOOD DATA ─────────────────────────────────
+  final List<Character> characters = [
+    Character(name: "Cat",       gif: "assets/images/cat.gif",       sound: "sounds/cat.mp3",       emoji: "🐱", color: const Color(0xFFFF4D8D), light: const Color(0xFFFFECF5)),
+    Character(name: "Lion",      gif: "assets/images/lion.gif",      sound: "sounds/lion.mp3",      emoji: "🦁", color: const Color(0xFFFF9500), light: const Color(0xFFFFF5E0)),
+    Character(name: "Elephant",  gif: "assets/images/elephant.gif",  sound: "sounds/elephant.mp3",  emoji: "🐘", color: const Color(0xFF8B5CF6), light: const Color(0xFFF3EEFF)),
+    Character(name: "Mouse",     gif: "assets/images/mouse.gif",     sound: "sounds/mouse.mp3",     emoji: "🐭", color: const Color(0xFF00BFA5), light: const Color(0xFFDFFFF9)),
+    Character(name: "Monkey",    gif: "assets/images/monkey.gif",    sound: "sounds/monkey.mp3",    emoji: "🐒", color: const Color(0xFFFF5722), light: const Color(0xFFFFF0EC)),
+    Character(name: "Crocodile", gif: "assets/images/crocodile.gif", sound: "sounds/crocodile.mp3", emoji: "🐊", color: const Color(0xFF2E7D32), light: const Color(0xFFE8F5E9)),
+  ];
+
+  final List<StoryWorld> storyWorlds = [
+    StoryWorld(name: "Forest", gif: "assets/images/forest.gif", emoji: "🌳", color: const Color(0xFF1B8C3E), light: const Color(0xFFE8F5E9), desc: "Magical forest", bg: const Color(0xFF0A5C25)),
+    StoryWorld(name: "Space",  gif: "assets/images/space.gif",  emoji: "🚀", color: const Color(0xFF6C3FC0), light: const Color(0xFFF0E8FF), desc: "Outer space",   bg: const Color(0xFF3A1080)),
+    StoryWorld(name: "Castle", gif: "assets/images/castle.gif", emoji: "🏰", color: const Color(0xFFB71C1C), light: const Color(0xFFFFEBEE), desc: "Magic castle",  bg: const Color(0xFF7A0000)),
+    StoryWorld(name: "City",   gif: "assets/images/city.gif",   emoji: "🌆", color: const Color(0xFF1565C0), light: const Color(0xFFE3F2FD), desc: "City life",     bg: const Color(0xFF003580)),
+  ];
+
+  final List<Mood> moods = [
+    Mood(name: "Happy",     emoji: "🌟", color: const Color(0xFFFFD000), bg: const Color(0xFFE65100)),
+    Mood(name: "Funny",     emoji: "🎪", color: const Color(0xFFFF5500), bg: const Color(0xFFBF360C)),
+    Mood(name: "Adventure", emoji: "⚡", color: const Color(0xFFCC0000), bg: const Color(0xFF7F0000)),
+    Mood(name: "Bedtime",   emoji: "🌙", color: const Color(0xFF5360C4), bg: const Color(0xFF1A237E)),
+  ];
+
+  // ── INIT ────────────────────────────────────────────────────────
+  @override
+  void initState() {
+    super.initState();
+    _loadLinksAsset();
+    _spawnParticles();
+    _setupTts();
+    _setupAnimations();
+  }
+
+  Future<void> _loadLinksAsset() async {
     try {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File("${dir.path}/generated_story.txt");
-      await file.writeAsString(generatedCode);
+      final lRaw = await rootBundle.loadString('assets/data/links.json');
+      setState(() { linkData = json.decode(lRaw); });
+    } catch (e) { debugPrint('Links load error: $e'); }
+  }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Story saved to: ${file.path}")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error saving file")),
-      );
+  void _spawnParticles() {
+    final emojis = ['⭐','✨','💫','🌟','⚡','🎈','🎀','🌈','🦋','🌸','🎆','💥'];
+    for (int i = 0; i < 22; i++) {
+      _particles.add(_Particle(
+        x:     _random.nextDouble(),
+        y:     _random.nextDouble(),
+        size:  5 + _random.nextDouble() * 12,
+        speed: 0.25 + _random.nextDouble() * 0.55,
+        emoji: emojis[_random.nextInt(emojis.length)],
+        delay: _random.nextDouble(),
+        drift: (_random.nextDouble() - 0.5) * 0.04,
+      ));
     }
   }
 
-Future<void> generateStory() async {
-  if (textcontroller.text.isEmpty) return;
+  void _setupTts() async {
+    await _tts.setLanguage("en-US");
+    await _tts.setSpeechRate(0.44);
+    await _tts.setVolume(1.0);
+    await _tts.setPitch(1.1);
+    _tts.setCompletionHandler(() { if (mounted) setState(() => _isSpeaking = false); });
+    _tts.setErrorHandler((_)    { if (mounted) setState(() => _isSpeaking = false); });
+  }
 
-  setState(() {
-    isLoaded = true;
-    isGeneratingComic = true;
-    comicProgress = 0;
-    generatedCode = "Generating...";
-    comicPanels = [];
-  });
+  void _setupAnimations() {
+    _waveCtrl     = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+    _floatCtrl    = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
+    _pulseCtrl    = AnimationController(vsync: this, duration: const Duration(milliseconds: 900))..repeat(reverse: true);
+    _sparkCtrl1   = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _sparkCtrl2   = AnimationController(vsync: this, duration: const Duration(milliseconds: 1700))..repeat(reverse: true);
+    _glowCtrl     = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _bounceCtrl   = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+    _modalCtrl    = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
+    _moodCtrl     = AnimationController(vsync: this, duration: const Duration(milliseconds: 480));
+    _moodCardCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+    _particleCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 7))..repeat();
+    _shimmerCtrl  = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _cardFloatCtrl= AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
 
-  final request = http.Request(
-    'GET',
-    Uri.parse(
-      "http://192.168.100.177:9000/generate-story-comic-stream?prompt=${textcontroller.text}"
-    ),
-  );
+    _waveAnim       = Tween<double>(begin: 0, end: 1).animate(_waveCtrl);
+    _floatAnim      = Tween<double>(begin: -7, end: 7).animate(CurvedAnimation(parent: _floatCtrl, curve: Curves.easeInOut));
+    _pulseAnim      = Tween<double>(begin: 0.97, end: 1.03).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+    _glowAnim       = Tween<double>(begin: 0.5, end: 1.0).animate(_glowCtrl);
+    _modalScale     = Tween<double>(begin: 0.78, end: 1.0).animate(CurvedAnimation(parent: _modalCtrl, curve: Curves.easeOutBack));
+    _modalFade      = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _modalCtrl, curve: Curves.easeIn));
+    _moodScale      = Tween<double>(begin: 0.78, end: 1.0).animate(CurvedAnimation(parent: _moodCtrl, curve: Curves.easeOutBack));
+    _moodFade       = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _moodCtrl, curve: Curves.easeIn));
+    _moodCardScale  = Tween<double>(begin: 0.88, end: 1.06).animate(CurvedAnimation(parent: _moodCardCtrl, curve: Curves.easeOutBack));
+    _shimmerAnim    = Tween<double>(begin: -1.0, end: 2.0).animate(CurvedAnimation(parent: _shimmerCtrl, curve: Curves.easeInOut));
+    _cardFloatAnim  = Tween<double>(begin: -4, end: 4).animate(CurvedAnimation(parent: _cardFloatCtrl, curve: Curves.easeInOut));
+  }
 
-  final response = await request.send();
+  @override
+  void dispose() {
+    for (final c in [_waveCtrl,_floatCtrl,_pulseCtrl,_sparkCtrl1,_sparkCtrl2,
+                     _glowCtrl,_bounceCtrl,_modalCtrl,_moodCtrl,_moodCardCtrl,
+                     _particleCtrl,_shimmerCtrl,_cardFloatCtrl]) { c.dispose(); }
+    _audio.dispose();
+    _tts.stop();
+    super.dispose();
+  }
 
-  response.stream
-      .transform(utf8.decoder)
-      .listen((event) {
-    for (var line in event.split("\n")) {
-      if (line.startsWith("data:")) {
-        final jsonStr = line.replaceFirst("data:", "").trim();
+  // ── API ─────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>?> _generateStoryFromAPI() async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/generate-story-text'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'character': _selectedChar?.name,
+          'world': _selectedWorld?.name,
+          'mood': _selectedMood,
+        }),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return {'story': data['story'], 'title': data['title']};
+        }
+      }
+      return null;
+    } catch (e) { debugPrint('Story API Error: $e'); return null; }
+  }
 
-        try {
-          final data = jsonDecode(jsonStr);
+  // Future<String?> _generateVideoWithComic(String storyText) async {
+  //   try {
+  //     final prompt = "A ${_selectedChar?.name ?? 'character'} in ${_selectedWorld?.name ?? 'a magical place'} with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. Story: ${storyText.substring(0, storyText.length > 100 ? 100 : storyText.length)}";
+  //     final response = await http.get(Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
+  //     if (response.statusCode == 200) {
+  //       final lines = response.body.split('\n');
+  //       for (var line in lines) {
+  //         if (line.startsWith('data: ')) {
+  //           final data = json.decode(line.substring(6));
+  //           if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) return data['videoUrl'];
+  //         }
+  //       }
+  //     }
+  //     return null;
+  //   } catch (e) { debugPrint('Video Generation API Error: $e'); return null; }
+  // }
 
-          setState(() {
-            comicProgress = (data["progress"] ?? 0).toDouble() / 100;
 
-            if (data["story"] != null) {
-              generatedCode = data["story"];
-            }
+Future<String?> _generateVideoWithComic(String storyText) async {
+  try {
+    // ✅ Explicitly English-only prompt
+    final prompt =
+        "In English only: A ${_selectedChar?.name ?? 'character'} "
+        "in ${_selectedWorld?.name ?? 'a magical place'} "
+        "with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. "
+        "Story (English only): ${storyText.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim().substring(
+          0,
+          storyText.length > 100 ? 100 : storyText.length,
+        )}";
 
-            if (data["panels"] != null && data["panels"] is List) {
-  comicPanels = List.from(data["panels"]);
-}
-          });
-
-        } catch (e) {}
+    final response = await http.get(
+      Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'),
+    );
+    if (response.statusCode == 200) {
+      final lines = response.body.split('\n');
+      for (var line in lines) {
+        if (line.startsWith('data: ')) {
+          final data = json.decode(line.substring(6));
+          if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) {
+            return data['videoUrl'];
+          }
+        }
       }
     }
-  });
+    return null;
+  } catch (e) {
+    debugPrint('Video Generation API Error: $e');
+    return null;
+  }
 }
-void generateComic() {
-  if (comicPanels.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Comic not ready")),
-    );
-    return;
+  Future<Map<String, dynamic>?> _generateStoryAndVideo() async {
+    try {
+      final storyResult = await _generateStoryFromAPI();
+      if (storyResult == null) return null;
+      final videoUrl = await _generateVideoWithComic(storyResult['story']);
+      return {'story': storyResult['story'], 'title': storyResult['title'], 'videoUrl': videoUrl};
+    } catch (e) { debugPrint('Combined Generation Error: $e'); return null; }
   }
 
-  showComicModal(comicPanels);
-}
+  String? _getVideoUrl() {
+    if (_selectedChar == null || _selectedWorld == null || _selectedMood == null || linkData.isEmpty) return null;
+    try { return linkData[_selectedChar!.name]?[_selectedWorld!.name]?[_selectedMood!] as String?; }
+    catch (_) { return null; }
+  }
 
-void showComicModal(List panels) {
-  int currentIndex = 0;
+  Future<void> _playSound(String path) async {
+    try { await _audio.stop(); await _audio.play(AssetSource(path)); } catch (_) {}
+  }
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setModalState) {
-          final panel = panels[currentIndex];
+  // ── FLOW ────────────────────────────────────────────────────────
+  void _openWorldModal() {
+    if (_selectedCharIdx != null) _selectedChar = characters[_selectedCharIdx!];
+    _modalCtrl.forward(from: 0);
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "",
+      transitionDuration: const Duration(milliseconds: 480),
+      pageBuilder: (_, __, ___) => AnimatedBuilder(
+        animation: _modalCtrl,
+        builder: (_, __) => FadeTransition(
+          opacity: _modalFade,
+          child: ScaleTransition(scale: _modalScale,
+            child: Center(child: SingleChildScrollView(child: _worldModalContent()))),
+        ),
+      ),
+    ).then((_) => setState(() => _selectedWorldName = null));
+  }
 
-       return Dialog(
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(20),
-  ),
-  child: Container(
-    padding: const EdgeInsets.all(16),
-    height: 500,
-    child: Column(
-      children: [
-        Text(
-          panel['title'],
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+  void _openMoodModal() {
+    _moodCtrl.forward(from: 0);
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "",
+      transitionDuration: const Duration(milliseconds: 480),
+      pageBuilder: (_, __, ___) => AnimatedBuilder(
+        animation: _moodCtrl,
+        builder: (_, __) => FadeTransition(
+          opacity: _moodFade,
+          child: ScaleTransition(scale: _moodScale,
+            child: Center(child: SingleChildScrollView(child: _moodModalContent()))),
+        ),
+      ),
+    );
+  }
+
+  void _showLoaderThenStory() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      builder: (_) => _LoadingDialog(),
+    );
+
+    setState(() => _isGenerating = true);
+    final result = await _generateStoryAndVideo();
+    setState(() => _isGenerating = false);
+
+    if (!mounted) return;
+    Navigator.pop(context);
+
+    if (result != null) {
+      _currentStory = result['story'];
+      _currentStoryTitle = result['title'];
+      _currentVideoUrl = result['videoUrl'] ?? _getVideoUrl();
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierColor: Colors.black.withOpacity(0.82),
+          builder: (_) => _StoryDialog(
+            story: _currentStory!,
+            storyTitle: _currentStoryTitle,
+            videoUrl: _currentVideoUrl,
+            char: _selectedChar!,
+            world: _selectedWorld!,
+            mood: _selectedMood!,
+            tts: _tts,
+            onClose: () async { await _tts.stop(); if (mounted) setState(() => _isSpeaking = false); },
+            onNewStory: () async {
+              final newResult = await _generateStoryFromAPI();
+              if (newResult != null && mounted) {
+                _currentStory = newResult['story'];
+                _currentStoryTitle = newResult['title'];
+                final newVideoUrl = await _generateVideoWithComic(newResult['story']);
+                _currentVideoUrl = newVideoUrl ?? _getVideoUrl();
+                return _currentStory!;
+              }
+              return _currentStory ?? 'Could not generate a new story. Please try again.';
+            },
           ),
-        ),
-        const SizedBox(height: 10),
-
-        // ✅ IMAGE
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            panel['image'],
-            height: 220,
-            width: double.infinity,
-            fit: BoxFit.cover,
+        );
+      }
+    } else {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Oops!'),
+            content: const Text('Failed to generate story. Please check your internet connection and try again.'),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
           ),
-        ),
+        );
+      }
+    }
+  }
 
-        const SizedBox(height: 10),
-
-        Text(
-          panel['description'],
-          style: const TextStyle(fontSize: 15),
-          textAlign: TextAlign.center,
-        ),
-
-        const Spacer(),
-
-        // 🔥 NAVIGATION
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            ElevatedButton(
-              onPressed: currentIndex > 0
-                  ? () => setModalState(() => currentIndex--)
-                  : null,
-              child: const Text("⬅ Prev"),
-            ),
-            Text("${currentIndex + 1}/${panels.length}"),
-            ElevatedButton(
-              onPressed: currentIndex < panels.length - 1
-                  ? () => setModalState(() => currentIndex++)
-                  : null,
-              child: const Text("Next ➡"),
-            ),
-          ],
-        )
-      ],
-    ),
-  ),
-);},
-      );
-    },
-  );
-}
-
-void generateVideo() {
-  showDialog(
-    context: context,
-    builder: (context) {
-      return Dialog(
-        child: Container(
-          height: 300,
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: const [
-              Text(
-                "🎬 Story Video",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 20),
-              Icon(Icons.play_circle_fill, size: 80),
-              SizedBox(height: 10),
-              Text("Video generation coming soon..."),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
+  // ══════════════════════════════════════════════════════════════════
+  //  BUILD
+  // ══════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     final user = Provider.of<UserProvider>(context).user;
+    final sw   = MediaQuery.of(context).size.width;
+    final sh   = MediaQuery.of(context).size.height;
+    final cols = sw > 600 ? 3 : 2;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
-        child: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          flexibleSpace: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF151F2B), Color(0xFF223447)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      backgroundColor: const Color(0xFFEEF1FF),
+      body: Stack(children: [
+        AnimatedBuilder(
+          animation: _particleCtrl,
+          builder: (_, __) => RepaintBoundary(child: CustomPaint(
+            painter: _ParticlePainter(_particles, _particleCtrl.value),
+            size: Size(sw, sh),
+          )),
+        ),
+        AnimatedBuilder(
+          animation: _waveCtrl,
+          builder: (_, __) {
+            final t = _waveAnim.value;
+            return Stack(children: [
+              Positioned(top: -60, left: -40,
+                child: Container(width: 220, height: 220,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
+                    gradient: RadialGradient(colors: [
+                      Color.lerp(const Color(0xFF7C3AED), const Color(0xFF2563EB), t)!.withOpacity(0.18),
+                      Colors.transparent,
+                    ])))),
+              Positioned(bottom: 100, right: -50,
+                child: Container(width: 260, height: 260,
+                  decoration: BoxDecoration(shape: BoxShape.circle,
+                    gradient: RadialGradient(colors: [
+                      Color.lerp(const Color(0xFFEC4899), const Color(0xFFF97316), t)!.withOpacity(0.14),
+                      Colors.transparent,
+                    ])))),
+            ]);
+          },
+        ),
+        SafeArea(child: Column(children: [
+          _buildHeader(user, sw, sh),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            child: Row(children: [
+              AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
+                Transform.scale(scale: 0.9 + _sparkCtrl1.value * 0.2,
+                  child: const Text('🎭', style: TextStyle(fontSize: 20)))),
+              const SizedBox(width: 8),
+              const Text('Choose Your Hero!',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900,
+                  color: Color(0xFF3B1FA8), letterSpacing: 0.2)),
+              const Spacer(),
+              AnimatedBuilder(animation: _shimmerCtrl, builder: (_, __) =>
+                ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    begin: Alignment.centerLeft, end: Alignment.centerRight,
+                    colors: const [Color(0xFF6C63FF), Color(0xFFFF6B9D), Color(0xFF6C63FF)],
+                    stops: [(_shimmerAnim.value - 1).clamp(0, 1), _shimmerAnim.value.clamp(0, 1), (_shimmerAnim.value + 1).clamp(0, 1)],
+                  ).createShader(bounds),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.3))),
+                    child: Text('${characters.length} heroes',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF6C63FF), fontWeight: FontWeight.w800)),
+                  ),
+                )),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: sw * 0.028),
+              child: GridView.builder(
+                physics: const BouncingScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: cols,
+                  crossAxisSpacing: sw * 0.025,
+                  mainAxisSpacing: sw * 0.025,
+                  childAspectRatio: 0.85,
+                ),
+                itemCount: characters.length,
+                itemBuilder: (_, i) => _charCard(i),
               ),
             ),
           ),
-          centerTitle: true,
-          title: Column(
-            children: [
-              const Text(
-                "AI Story Teller",
-                style: TextStyle(
-                  fontFamily: 'Poppins-Bold',
-                  letterSpacing: 1.0,
-                  fontSize: 20,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                "${user.name} • ${user.email}",
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white.withOpacity(0.7),
-                ),
-              ),
+          const SizedBox(height: 8),
+          _buildGenerateBtn(sw),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _buildHeader(dynamic user, double sw, double sh) {
+    return Stack(children: [
+      AnimatedBuilder(animation: _waveCtrl, builder: (_, __) => Container(
+        height: sh * 0.195,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft, end: Alignment.bottomRight,
+            colors: [
+              Color.lerp(const Color(0xFF667EEA), const Color(0xFF764BA2), _waveAnim.value)!,
+              Color.lerp(const Color(0xFF764BA2), const Color(0xFFF093FB), _waveAnim.value)!,
             ],
           ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12.0),
-              child: CircleAvatar(
-                backgroundColor: Colors.white24,
-                child: IconButton(
-                  icon: const Icon(Icons.refresh, color: Colors.white),
-                  onPressed: () {
-                    setState(() => isLoaded = false);
-                    textcontroller.clear();
-                    generatedCode = "Story will appear here...";
-                  },
-                ),
-              ),
-            ),
-          ],
+          borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(36), bottomRight: Radius.circular(36)),
+          boxShadow: [BoxShadow(color: const Color(0xFF667EEA).withOpacity(0.45), blurRadius: 22, offset: const Offset(0, 10))],
         ),
-      ),
-
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // 🔹 INPUT BOX
+      )),
+      Positioned(top: -22, right: -22,
+        child: AnimatedBuilder(animation: _pulseCtrl, builder: (_, __) => Container(
+          width: 88 + _pulseCtrl.value * 18, height: 88 + _pulseCtrl.value * 18,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.08))))),
+      Positioned(bottom: 5, left: -15,
+        child: Container(width: 55, height: 55,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.06)))),
+      Positioned(top: 30, right: 80,
+        child: AnimatedBuilder(animation: _sparkCtrl2, builder: (_, __) => Opacity(
+          opacity: 0.3 + _sparkCtrl2.value * 0.4,
+          child: Container(width: 20, height: 20,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white))))),
+      Padding(
+        padding: EdgeInsets.symmetric(horizontal: sw * 0.042, vertical: sh * 0.016),
+        child: Column(children: [
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            AnimatedBuilder(animation: _floatCtrl, builder: (_, __) =>
+              Transform.translate(offset: Offset(0, _floatAnim.value * 0.7),
+                child: Row(children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.22),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.2), blurRadius: 12)]),
+                    child: AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
+                      Transform.scale(scale: 0.88 + _sparkCtrl1.value * 0.22,
+                        child: Image.asset("assets/images/logo.png", width: 30, height: 30))),
+                  ),
+                  const SizedBox(width: 9),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('MAGIC STORY',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.4, color: Colors.white)),
+                    Text('Adventure Awaits! ✨',
+                      style: TextStyle(fontSize: 9, color: Colors.white.withOpacity(0.85))),
+                  ]),
+                ]))),
+            AnimatedBuilder(animation: _glowCtrl, builder: (_, __) =>
               Container(
-                height: 350,
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Scrollbar(
-  controller: _scrollController,
-  thumbVisibility: true,
-  radius: const Radius.circular(8),
-  child: SingleChildScrollView(
-    controller: _scrollController,
-    child: TextFormField(
-      controller: textcontroller,
-      maxLines: null,
-      keyboardType: TextInputType.multiline,
-      decoration: const InputDecoration(
-        hintText: 'Write your story prompt here...',
-        border: InputBorder.none,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: Colors.white.withOpacity(0.3 + _glowAnim.value * 0.2))),
+                child: Row(children: [
+                  Container(padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: const Icon(Icons.person_rounded, color: Color(0xFF667EEA), size: 12)),
+                  const SizedBox(width: 6),
+                  Text(user.name.split(" ")[0],
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                  const SizedBox(width: 4),
+                  AnimatedBuilder(animation: _sparkCtrl2, builder: (_, __) =>
+                    Transform.scale(scale: 0.8 + _sparkCtrl2.value * 0.4,
+                      child: const Icon(Icons.auto_awesome_rounded, color: Colors.yellow, size: 11))),
+                ]),
+              )),
+          ]),
+          const SizedBox(height: 11),
+          AnimatedBuilder(animation: _shimmerCtrl, builder: (_, __) =>
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(color: Colors.white.withOpacity(0.25))),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
+                  Transform.rotate(angle: _sparkCtrl1.value * pi * 2,
+                    child: const Icon(Icons.auto_awesome_rounded, color: Colors.yellow, size: 15))),
+                const SizedBox(width: 9),
+                Expanded(child: Text(
+                  _selectedCharIdx != null
+                      ? '✨ ${characters[_selectedCharIdx!].name} is ready! Choose a world next!'
+                      : '🌸 Tap a character to start your magical story!',
+                  style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                )),
+              ]),
+            )),
+        ]),
       ),
+    ]);
+  }
+
+  Widget _charCard(int index) {
+    final ch  = characters[index];
+    final sel = _selectedCharIdx == index;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() => _selectedCharIdx = index);
+        _bounceCtrl.forward(from: 0);
+        _playSound(ch.sound);
+      },
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_pulseCtrl, _cardFloatCtrl]),
+        builder: (_, __) {
+          final floatY = sel ? _cardFloatAnim.value : 0.0;
+          final scale  = sel ? _pulseAnim.value : 1.0;
+          return Transform.translate(
+            offset: Offset(0, floatY),
+            child: Transform.scale(scale: scale,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 260),
+                decoration: BoxDecoration(
+                  gradient: sel
+                      ? LinearGradient(colors: [ch.color, ch.color.withOpacity(0.72), ch.color.withOpacity(0.5)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight)
+                      : const LinearGradient(colors: [Colors.white, Color(0xFFF4F6FF)],
+                          begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: sel ? Colors.white.withOpacity(0.6) : Colors.white,
+                    width: sel ? 2.5 : 1.5),
+                  boxShadow: [BoxShadow(
+                    color: sel ? ch.color.withOpacity(0.5) : Colors.grey.withOpacity(0.15),
+                    blurRadius: sel ? 20 : 6,
+                    spreadRadius: sel ? 2 : 0,
+                    offset: Offset(0, sel ? 8 : 3),
+                  )],
+                ),
+                child: Stack(children: [
+                  if (sel) Positioned.fill(child: AnimatedBuilder(
+                    animation: _shimmerCtrl,
+                    builder: (_, __) => ClipRRect(borderRadius: BorderRadius.circular(24),
+                      child: ShaderMask(
+                        shaderCallback: (bounds) => LinearGradient(
+                          begin: Alignment.topLeft, end: Alignment.bottomRight,
+                          colors: [Colors.transparent, Colors.white.withOpacity(0.08), Colors.transparent],
+                          stops: [(_shimmerAnim.value - 0.5).clamp(0,1), _shimmerAnim.value.clamp(0,1), (_shimmerAnim.value + 0.5).clamp(0,1)],
+                        ).createShader(bounds),
+                        child: Container(color: Colors.white),
+                      )),
+                  )),
+                  Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 260),
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: sel ? Border.all(color: Colors.white, width: 3) : null,
+                        boxShadow: sel ? [BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 14)] : null),
+                      child: ClipRRect(borderRadius: BorderRadius.circular(50),
+                        child: Image.asset(ch.gif, height: 78, width: 78, fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Container(
+                            height: 78, width: 78,
+                            decoration: BoxDecoration(color: ch.light, shape: BoxShape.circle),
+                            child: Center(child: Text(ch.emoji, style: const TextStyle(fontSize: 38)))))),
+                    ),
+                    const SizedBox(height: 8),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 260),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: sel ? Colors.white : ch.color,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [BoxShadow(color: (sel ? Colors.white : ch.color).withOpacity(0.35), blurRadius: 8)]),
+                      child: Text(ch.name, style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w800,
+                        color: sel ? ch.color : Colors.white)),
+                    ),
+                    const SizedBox(height: 5),
+                    if (sel)
+                      Row(mainAxisAlignment: MainAxisAlignment.center, children: const [
+                        Icon(Icons.star_rounded, color: Colors.yellow, size: 13),
+                        SizedBox(width: 2),
+                        Text('Selected!', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700)),
+                        SizedBox(width: 2),
+                        Icon(Icons.star_rounded, color: Colors.yellow, size: 13),
+                      ])
+                    else
+                      Text(ch.emoji, style: const TextStyle(fontSize: 22)),
+                  ]),
+                ]),
+              )),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildGenerateBtn(double sw) {
+    final enabled = _selectedCharIdx != null;
+    final ch = enabled ? characters[_selectedCharIdx!] : null;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(sw * 0.04, 12, sw * 0.04, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(26), topRight: Radius.circular(26)),
+        boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 12, offset: const Offset(0, -4))]),
+      child: AnimatedBuilder(animation: _pulseCtrl, builder: (_, __) =>
+        Transform.scale(scale: enabled ? (1.0 + _pulseCtrl.value * 0.012) : 1.0,
+          child: GestureDetector(
+            onTap: enabled ? _openWorldModal : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                gradient: enabled
+                    ? LinearGradient(colors: [ch!.color, ch.color.withOpacity(0.75), const Color(0xFF6C63FF).withOpacity(0.8)],
+                        begin: Alignment.centerLeft, end: Alignment.centerRight)
+                    : const LinearGradient(colors: [Color(0xFFD0D0D0), Color(0xFFBDBDBD)]),
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: enabled ? [BoxShadow(color: ch!.color.withOpacity(0.52), blurRadius: 18, offset: const Offset(0, 8))] : []),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
+                  Transform.rotate(angle: enabled ? _sparkCtrl1.value * pi * 2 : 0,
+                    child: const Icon(Icons.auto_stories_rounded, color: Colors.white, size: 22))),
+                const SizedBox(width: 10),
+                Text(
+                  enabled ? '✨ Create ${ch!.name}\'s Story!' : 'Pick a Character First 👆',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.3)),
+              ]),
+            ),
+          )),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  WORLD MODAL
+  // ══════════════════════════════════════════════════════════════════
+  Widget _worldModalContent() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 36),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF4776E6), Color(0xFF8E54E9)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(38),
+        boxShadow: [BoxShadow(color: const Color(0xFF8E54E9).withOpacity(0.45), blurRadius: 32, spreadRadius: 4)]),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+          decoration: const BoxDecoration(color: Colors.white,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(38), topRight: Radius.circular(38))),
+          child: Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
+                Transform.rotate(angle: _sparkCtrl1.value * pi,
+                  child: const Text('🌍', style: TextStyle(fontSize: 32)))),
+              const SizedBox(width: 10),
+              const Text('Choose Your World!',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF4776E6))),
+              const SizedBox(width: 10),
+              AnimatedBuilder(animation: _sparkCtrl2, builder: (_, __) =>
+                Transform.rotate(angle: -_sparkCtrl2.value * pi,
+                  child: const Text('🗺️', style: TextStyle(fontSize: 32)))),
+            ]),
+            if (_selectedChar != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(color: _selectedChar!.color.withOpacity(0.12), borderRadius: BorderRadius.circular(30)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_selectedChar!.emoji, style: const TextStyle(fontSize: 18)),
+                  const SizedBox(width: 6),
+                  Text('Adventure with ${_selectedChar!.name}',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _selectedChar!.color)),
+                ]),
+              ),
+            ],
+          ]),
+        ),
+        Padding(padding: const EdgeInsets.all(14),
+          child: GridView.count(
+            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.88,
+            children: storyWorlds.map((w) {
+              final sel = _selectedWorldName == w.name;
+              return GestureDetector(
+                onTap: () {
+                  setState(() { _selectedWorldName = w.name; _selectedWorld = w; });
+                  _modalCtrl.reset(); Navigator.pop(context); _openMoodModal();
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  decoration: BoxDecoration(
+                    gradient: sel
+                        ? LinearGradient(colors: [w.color, w.color.withOpacity(0.72)])
+                        : const LinearGradient(colors: [Colors.white, Color(0xFFF4F6FF)]),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: sel ? Colors.white.withOpacity(0.5) : Colors.grey.shade200, width: 2),
+                    boxShadow: [BoxShadow(color: sel ? w.color.withOpacity(0.45) : Colors.grey.withOpacity(0.12), blurRadius: 14, offset: const Offset(0, 5))]),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: sel ? Colors.white.withOpacity(0.28) : w.light, shape: BoxShape.circle),
+                      child: ClipRRect(borderRadius: BorderRadius.circular(50),
+                        child: Image.asset(w.gif, height: 70, width: 70, fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => Text(w.emoji, style: const TextStyle(fontSize: 42)))),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(w.name, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: sel ? Colors.white : w.color)),
+                    Text(w.desc, style: TextStyle(fontSize: 10, color: sel ? Colors.white70 : Colors.grey.shade500)),
+                    if (sel) ...[const SizedBox(height: 4), const Icon(Icons.check_circle_rounded, color: Colors.white, size: 16)],
+                  ]),
+                ),
+              );
+            }).toList(),
+          )),
+        Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          child: _modalBtn('✕  Close', () => Navigator.pop(context))),
+      ]),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  //  MOOD MODAL
+  // ══════════════════════════════════════════════════════════════════
+  Widget _moodModalContent() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 36),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFFFF416C), Color(0xFFFF4B2B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(38),
+        boxShadow: [BoxShadow(color: const Color(0xFFFF416C).withOpacity(0.45), blurRadius: 32, spreadRadius: 4)]),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+          decoration: const BoxDecoration(color: Colors.white,
+            borderRadius: BorderRadius.only(topLeft: Radius.circular(38), topRight: Radius.circular(38))),
+          child: Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              AnimatedBuilder(animation: _sparkCtrl2, builder: (_, __) =>
+                Transform.rotate(angle: _sparkCtrl2.value * pi,
+                  child: const Text('🎭', style: TextStyle(fontSize: 32)))),
+              const SizedBox(width: 10),
+              const Text('Pick the Mood!',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFFFF416C))),
+              const SizedBox(width: 10),
+              AnimatedBuilder(animation: _sparkCtrl1, builder: (_, __) =>
+                Transform.rotate(angle: -_sparkCtrl1.value * pi,
+                  child: const Text('🎨', style: TextStyle(fontSize: 32)))),
+            ]),
+            if (_selectedWorld != null && _selectedChar != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(color: _selectedWorld!.color.withOpacity(0.1), borderRadius: BorderRadius.circular(30)),
+                child: Text(
+                  '${_selectedChar!.emoji} ${_selectedChar!.name}  ➜  ${_selectedWorld!.emoji} ${_selectedWorld!.name}',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _selectedWorld!.color)),
+              ),
+            ],
+          ]),
+        ),
+        Padding(padding: const EdgeInsets.all(14),
+          child: GridView.count(
+            shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.84,
+            children: moods.asMap().entries.map((e) {
+              final i = e.key; final m = e.value;
+              final sel = _selectedMood == m.name;
+              return TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: Duration(milliseconds: 240 + i * 75),
+                builder: (_, v, __) => Transform.scale(scale: 0.84 + v * 0.16,
+                  child: Opacity(opacity: v,
+                    child: GestureDetector(
+                      onTap: () async {
+                        setState(() => _selectedMood = m.name);
+                        _moodCardCtrl.forward(from: 0);
+                        await Future.delayed(const Duration(milliseconds: 210));
+                        if (mounted) { _moodCtrl.reset(); Navigator.pop(context); _showLoaderThenStory(); }
+                      },
+                      child: AnimatedBuilder(animation: _moodCardCtrl, builder: (_, __) =>
+                        Transform.scale(scale: sel ? _moodCardScale.value : 1.0,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 220),
+                            decoration: BoxDecoration(
+                              gradient: sel
+                                  ? LinearGradient(colors: [m.color, m.color.withOpacity(0.8)])
+                                  : const LinearGradient(colors: [Colors.white, Color(0xFFFFF5F0)]),
+                              borderRadius: BorderRadius.circular(26),
+                              border: Border.all(color: sel ? Colors.white.withOpacity(0.5) : Colors.grey.shade200, width: 2.5),
+                              boxShadow: [BoxShadow(color: sel ? m.color.withOpacity(0.45) : Colors.grey.withOpacity(0.1), blurRadius: 14, offset: const Offset(0, 5))]),
+                            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              AnimatedBuilder(animation: _pulseCtrl, builder: (_, __) =>
+                                Transform.scale(scale: sel ? 1.0 + _pulseCtrl.value * 0.09 : 1.0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: sel ? Colors.white.withOpacity(0.28) : m.color.withOpacity(0.14),
+                                      shape: BoxShape.circle),
+                                    child: Text(m.emoji, style: TextStyle(fontSize: sel ? 44 : 38))))),
+                              const SizedBox(height: 8),
+                              Text(m.name, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: sel ? Colors.white : m.color)),
+                              if (sel) ...[const SizedBox(height: 5), const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18)],
+                            ]),
+                          ))),
+                    ),
+                  )),
+              );
+            }).toList(),
+          )),
+        Padding(padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+          child: _modalBtn('← Back to Worlds', () {
+            _moodCtrl.reset(); Navigator.pop(context); _openWorldModal();
+          })),
+      ]),
+    );
+  }
+
+  Widget _modalBtn(String label, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 13),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.white.withOpacity(0.5), width: 1.5)),
+      child: Text(label, textAlign: TextAlign.center,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
     ),
-  ),
-),
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  LOADING DIALOG
+// ═══════════════════════════════════════════════════════════════════
+class _LoadingDialog extends StatefulWidget {
+  @override State<_LoadingDialog> createState() => _LoadingDialogState();
+}
+class _LoadingDialogState extends State<_LoadingDialog> with SingleTickerProviderStateMixin {
+  late AnimationController _c;
+  late Animation<double> _rot, _scale;
+
+  @override void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _rot   = Tween<double>(begin: 0, end: 2 * pi).animate(CurvedAnimation(parent: _c, curve: Curves.linear));
+    _scale = Tween<double>(begin: 0.8, end: 1.1).animate(CurvedAnimation(parent: _c, curve: Curves.easeInOut));
+  }
+  @override void dispose() { _c.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutBack,
+        builder: (_, v, __) => Transform.scale(scale: v,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 28),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF1A0533), Color(0xFF0D1B4B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.circular(36),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
+              boxShadow: [BoxShadow(color: const Color(0xFF6C63FF).withOpacity(0.4), blurRadius: 36)]),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              AnimatedBuilder(animation: _c, builder: (_, __) =>
+                Transform.scale(scale: _scale.value,
+                  child: Text(_c.value < 0.33 ? '📖' : _c.value < 0.66 ? '✨' : '🌟',
+                    style: const TextStyle(fontSize: 64)))),
+              const SizedBox(height: 20),
+              const Text('✨ Weaving Your Magic Story...', textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 22),
+              AnimatedBuilder(animation: _rot, builder: (_, __) {
+                return Row(mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) {
+                    final phase = ((_c.value * 5 - i) % 5) / 5;
+                    final y = -sin(phase * pi * 2) * 8;
+                    return Padding(padding: const EdgeInsets.symmetric(horizontal: 5),
+                      child: Transform.translate(offset: Offset(0, y),
+                        child: Text(['⭐','🌟','✨','💫','⭐'][i], style: const TextStyle(fontSize: 22))));
+                  }),
+                );
+              }),
+            ]),
+          )),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  STORY DIALOG  –  with Urdu TTS button
+// ═══════════════════════════════════════════════════════════════════
+class _StoryDialog extends StatefulWidget {
+  final String story;
+  final String? storyTitle;
+  final String? videoUrl;
+  final Character char;
+  final StoryWorld world;
+  final String mood;
+  final FlutterTts tts;
+  final VoidCallback onClose;
+  final Future<String> Function() onNewStory;
+
+  const _StoryDialog({
+    required this.story,
+    this.storyTitle,
+    required this.videoUrl,
+    required this.char,
+    required this.world,
+    required this.mood,
+    required this.tts,
+    required this.onClose,
+    required this.onNewStory,
+  });
+
+  @override State<_StoryDialog> createState() => _StoryDialogState();
+}
+
+class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderStateMixin {
+  late String _story;
+  String? _storyTitle;
+
+  // ── English TTS state ──
+  bool _speaking = false;
+
+  // ── Urdu TTS state ──
+  bool _urduReading = false;
+
+  bool _isLoadingNew = false;
+  late AnimationController _textCtrl;
+  late Animation<double> _textFade, _textSlide;
+  int _highlightStart = 0;
+  int _highlightEnd   = 0;
+  String _plainStory  = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _story      = widget.story;
+    _storyTitle = widget.storyTitle;
+    _plainStory = _story.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim();
+
+    _textCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _textFade  = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeIn));
+    _textSlide = Tween<double>(begin: 28, end: 0).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic));
+    _textCtrl.forward();
+
+    widget.tts.setCompletionHandler(() {
+      if (mounted) setState(() {
+        _speaking      = false;
+        _urduReading   = false;
+        _highlightStart = 0;
+        _highlightEnd   = 0;
+      });
+      // Always restore English after any completion
+      widget.tts.setLanguage('en-US');
+      widget.tts.setSpeechRate(0.44);
+      widget.tts.setPitch(1.1);
+    });
+
+    widget.tts.setErrorHandler((_) {
+      if (mounted) setState(() {
+        _speaking      = false;
+        _urduReading   = false;
+        _highlightStart = 0;
+        _highlightEnd   = 0;
+      });
+      widget.tts.setLanguage('en-US');
+      widget.tts.setSpeechRate(0.44);
+      widget.tts.setPitch(1.1);
+    });
+
+    widget.tts.setProgressHandler((String text, int start, int end, String word) {
+      if (mounted && _speaking) {
+        setState(() { _highlightStart = start; _highlightEnd = end; });
+      }
+    });
+  }
+
+  @override void dispose() { _textCtrl.dispose(); super.dispose(); }
+
+  // ── English read aloud ──────────────────────────────────────────
+  Future<void> _toggleTts() async {
+    if (_speaking) {
+      await widget.tts.stop();
+      setState(() { _speaking = false; _highlightStart = 0; _highlightEnd = 0; });
+      return;
+    }
+    // Stop Urdu if running
+    if (_urduReading) {
+      await widget.tts.stop();
+      await Future.delayed(const Duration(milliseconds: 150));
+      setState(() => _urduReading = false);
+    }
+    await widget.tts.setLanguage('en-US');
+    await widget.tts.setSpeechRate(0.44);
+    await widget.tts.setPitch(1.1);
+    setState(() => _speaking = true);
+    final clean = _story.replaceAll(RegExp(r'[^\x00-\x7F]+'), '').trim();
+    await widget.tts.speak(clean.isEmpty ? _story : clean);
+  }
+
+  // ── Urdu read aloud ─────────────────────────────────────────────
+  Future<void> _startUrduRead() async {
+    // Toggle off if already reading Urdu
+    if (_urduReading) {
+      await widget.tts.stop();
+      if (mounted) setState(() => _urduReading = false);
+      await widget.tts.setLanguage('en-US');
+      await widget.tts.setSpeechRate(0.44);
+      await widget.tts.setPitch(1.1);
+      return;
+    }
+
+    // Stop English TTS if running
+    await widget.tts.stop();
+    await Future.delayed(const Duration(milliseconds: 150));
+    setState(() { _speaking = false; _highlightStart = 0; _highlightEnd = 0; });
+
+    // Check if Urdu is available on the device
+    final dynamic langs = await widget.tts.getLanguages;
+    final List<String> available = (langs as List).map((e) => e.toString().toLowerCase()).toList();
+    final bool urduOk = available.any((l) => l.contains('ur'));
+
+    if (!urduOk) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: const Text(
+            '🇵🇰 Urdu TTS not installed.\nSettings → Accessibility → TTS Output → Install Urdu',
+            style: TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.deepPurple,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 4),
+        ));
+      }
+      return;
+    }
+
+    // Apply Urdu settings with a delay so Android TTS engine registers new locale
+    await widget.tts.setLanguage('ur-PK');
+    await widget.tts.setSpeechRate(0.36);
+    await widget.tts.setPitch(1.05);
+    await Future.delayed(const Duration(milliseconds: 250));
+
+    if (mounted) setState(() => _urduReading = true);
+
+    await widget.tts.speak(_story);
+  }
+
+  Future<void> _newStory() async {
+    if (_isLoadingNew) return;
+    setState(() => _isLoadingNew = true);
+    await widget.tts.stop();
+    setState(() { _speaking = false; _urduReading = false; _highlightStart = 0; _highlightEnd = 0; });
+    final newStory = await widget.onNewStory();
+    if (mounted) {
+      setState(() {
+        _story      = newStory;
+        _plainStory = newStory.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim();
+        _isLoadingNew = false;
+      });
+      _textCtrl.reset();
+      _textCtrl.forward();
+    }
+  }
+
+  void _openVideoModal() {
+    if (widget.videoUrl == null) return;
+    showDialog(context: context, builder: (_) => _VideoDialog(url: widget.videoUrl!, char: widget.char, world: widget.world, mood: widget.mood));
+  }
+
+  Color get _moodColor => {
+    'Happy': const Color(0xFFFFCC00), 'Funny': const Color(0xFFFF5500),
+    'Adventure': const Color(0xFFCC0000), 'Bedtime': const Color(0xFF4C5FC4),
+  }[widget.mood] ?? const Color(0xFF6C63FF);
+
+  String get _moodEmoji => {'Happy':'🌟','Funny':'🎪','Adventure':'⚡','Bedtime':'🌙'}[widget.mood] ?? '✨';
+
+  Widget _buildHighlightedStory() {
+    if (_plainStory.isEmpty) {
+      return Text(_story, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.9, wordSpacing: 2.5));
+    }
+    final List<String> tokens = [];
+    final List<int> tokenStarts = [];
+    int i = 0;
+    final int len = _plainStory.length;
+    while (i < len) {
+      final char = _plainStory[i];
+      final bool isWordChar = _isWordCharacter(char);
+      final bool isSpace = char == ' ';
+      if (isSpace) { tokens.add(' '); tokenStarts.add(i); i++; }
+      else if (isWordChar) {
+        final start = i;
+        while (i < len && _isWordCharacter(_plainStory[i])) i++;
+        tokens.add(_plainStory.substring(start, i)); tokenStarts.add(start);
+      } else { tokens.add(char); tokenStarts.add(i); i++; }
+    }
+    final List<TextSpan> spans = [];
+    for (int idx = 0; idx < tokens.length; idx++) {
+      final token = tokens[idx];
+      final tokenStart = tokenStarts[idx];
+      final tokenEnd = tokenStart + token.length;
+      final bool isHighlighted = (tokenStart >= _highlightStart && tokenStart < _highlightEnd) ||
+                                 (tokenEnd > _highlightStart && tokenEnd <= _highlightEnd);
+      spans.add(TextSpan(
+        text: token,
+        style: TextStyle(
+          color: Colors.white,
+          backgroundColor: isHighlighted ? Colors.amber.shade700 : Colors.transparent,
+          fontWeight: isHighlighted ? FontWeight.w800 : FontWeight.w500,
+          fontSize: 15, height: 1.9, wordSpacing: 2.5,
+          shadows: isHighlighted ? const [Shadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1))] : null,
+        ),
+      ));
+    }
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(scale: Tween<double>(begin: 0.96, end: 1.0).animate(animation), child: child)),
+      child: RichText(key: ValueKey('$_highlightStart-$_highlightEnd'), text: TextSpan(children: spans)),
+    );
+  }
+
+  bool _isWordCharacter(String c) {
+    final code = c.codeUnitAt(0);
+    return (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || code == 39 || (code >= 48 && code <= 57);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.80, end: 1.0),
+        duration: const Duration(milliseconds: 660), curve: Curves.easeOutBack,
+        builder: (_, scale, __) => Transform.scale(scale: scale,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF150D2E), Color(0xFF0B1845), Color(0xFF081630)],
+                begin: Alignment.topCenter, end: Alignment.bottomCenter),
+              borderRadius: BorderRadius.circular(38),
+              border: Border.all(color: Colors.white.withOpacity(0.13), width: 1.5),
+              boxShadow: [
+                BoxShadow(color: _moodColor.withOpacity(0.32), blurRadius: 44, spreadRadius: 5),
+                BoxShadow(color: Colors.black.withOpacity(0.55), blurRadius: 22),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(38),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+
+                // ── Header ──────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [_moodColor.withOpacity(0.30), Colors.transparent],
+                      begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+                  child: Row(children: [
+                    _AvatarRing(gif: widget.char.gif, emoji: widget.char.emoji, color: widget.char.color, size: 60),
+                    const SizedBox(width: 12),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_storyTitle ?? '${widget.char.name}\'s Story',
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: 0.3)),
+                      const SizedBox(height: 5),
+                      Row(children: [
+                        _Tag(label: '${widget.world.emoji} ${widget.world.name}', color: Colors.white.withOpacity(0.18)),
+                        const SizedBox(width: 6),
+                        _Tag(label: '$_moodEmoji ${widget.mood}', color: _moodColor.withOpacity(0.34)),
+                      ]),
+                    ])),
+                    _AvatarRing(gif: widget.world.gif, emoji: widget.world.emoji, color: widget.world.color, size: 52),
+                  ]),
+                ),
+
+                Container(height: 1, margin: const EdgeInsets.symmetric(horizontal: 18), color: Colors.white.withOpacity(0.1)),
+
+                // ── Story text ───────────────────────────────────────
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.35),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
+                    child: AnimatedBuilder(animation: _textCtrl, builder: (_, __) =>
+                      Opacity(opacity: _textFade.value,
+                        child: Transform.translate(offset: Offset(0, _textSlide.value),
+                          child: Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.07),
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(color: Colors.white.withOpacity(0.1))),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Row(children: const [
+                                Text('📖', style: TextStyle(fontSize: 17)),
+                                SizedBox(width: 8),
+                                Text('Your Magical Story',
+                                  style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                              ]),
+                              const SizedBox(height: 12),
+                              _buildHighlightedStory(),
+                            ]),
+                          )))),
+                  ),
+                ),
+
+                // ── Action buttons ───────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
+                  child: Column(children: [
+
+                    // English read aloud button
+                    GestureDetector(
+                      onTap: _toggleTts,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          gradient: _speaking
+                              ? const LinearGradient(colors: [Color(0xFFE53935), Color(0xFFC62828)])
+                              : LinearGradient(colors: [_moodColor, _moodColor.withOpacity(0.78)]),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [BoxShadow(
+                            color: (_speaking ? const Color(0xFFE53935) : _moodColor).withOpacity(0.44),
+                            blurRadius: 16, offset: const Offset(0, 7))]),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 280),
+                            transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: RotationTransition(turns: Tween(begin: 0.0, end: 0.5).animate(anim), child: child)),
+                            child: Icon(
+                              _speaking ? Icons.stop_circle_rounded : Icons.record_voice_over_rounded,
+                              key: ValueKey(_speaking), color: Colors.white, size: 26)),
+                          const SizedBox(width: 10),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 240),
+                            child: Text(
+                              _speaking ? '⏹  Stop Reading' : '🔊  Read Story Aloud',
+                              key: ValueKey(_speaking),
+                              style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800))),
+                        ]),
                       ),
                     ),
+
                     const SizedBox(height: 10),
 
-                    // 🔥 GENERATE BUTTON
-                    SizedBox(
-                      width: 300,
-                      height: 44,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: GlobalVariables.whitecolor,
-                          backgroundColor: GlobalVariables.btncolor,
-                          shape: const StadiumBorder(),
+                    // ── Urdu button ──────────────────────────────────
+                    GestureDetector(
+                      onTap: _startUrduRead,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 280),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        decoration: BoxDecoration(
+                          gradient: _urduReading
+                              ? const LinearGradient(colors: [Color(0xFF6A0DAD), Color(0xFF4A0080)])
+                              : const LinearGradient(colors: [Color(0xFF1C1C3A), Color(0xFF2A2A50)]),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: _urduReading ? const Color(0xFFAA00FF) : Colors.white.withOpacity(0.18),
+                            width: _urduReading ? 2.0 : 1.5),
+                          boxShadow: _urduReading
+                              ? [BoxShadow(color: const Color(0xFF6A0DAD).withOpacity(0.5), blurRadius: 16, offset: const Offset(0, 6))]
+                              : [],
                         ),
-                        onPressed: generateStory,
-                        child: const Text("Generate Story"),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 10),
-
-              // 🔹 OUTPUT
-              Container(
-                height: 490,
-                child: isLoaded
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            height: 300,
-                            width: double.infinity,
-                            color: Colors.grey.shade200,
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Text(
-                                generatedCode,
-                                style: const TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 15,
-                                ),
+                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          Text(_urduReading ? '🔊' : '🇵🇰', style: const TextStyle(fontSize: 20)),
+                          const SizedBox(width: 10),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 240),
+                            child: Text(
+                              _urduReading ? 'اردو میں پڑھ رہا ہے...' : 'اردو میں سنیں',
+                              key: ValueKey(_urduReading),
+                              style: TextStyle(
+                                color: _urduReading ? Colors.white : Colors.white70,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
-
-                          // 🔹 BUTTONS
-                       Column(
-  children: [
-    // 🔹 FIRST ROW (Copy + Save)
-    Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 160,
-          height: 50,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.copy),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: GlobalVariables.btncolor,
-              foregroundColor: GlobalVariables.whitecolor,
-            ),
-            onPressed: () {
-              Clipboard.setData(
-                ClipboardData(text: generatedCode),
-              );
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Story copied!")),
-              );
-            },
-            label: const Text('Copy Story'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 150,
-          height: 50,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.save),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: GlobalVariables.btncolor,
-              foregroundColor: GlobalVariables.whitecolor,
-            ),
-            onPressed: saveStoryToFile,
-            label: const Text('Save Story'),
-          ),
-        ),
-      ],
-    ),
-
-    const SizedBox(height: 15),
-
-    // 🔥 SECOND ROW (Comic + Video)
-    Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 160,
-          height: 50,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.auto_stories),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: generateComic,
-            label: const Text('Comic Version'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 150,
-          height: 50,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.movie),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: generateVideo,
-            label: const Text('Video'),
-          ),
-        ),
-      ],
-    ),
-  ],
-) ],
-                      )
-                    : Container(
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: GlobalVariables.whitecolor,
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Image.asset("assets/images/loader.gif"),
-                            const Text(
-                              '✨ Tell your story with AI',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Color.fromARGB(255, 139, 139, 139),
-                              ),
+                          if (_urduReading) ...[
+                            const SizedBox(width: 10),
+                            const SizedBox(
+                              width: 14, height: 14,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                             ),
                           ],
-                        ),
+                        ]),
                       ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ── Bottom row buttons ───────────────────────────
+                    Row(children: [
+                      Expanded(child: _BottomBtn(
+                        label: _isLoadingNew ? '🎲 Generating...' : '🎲 New Story',
+                        onTap: _isLoadingNew ? null : _newStory,
+                        highlight: true,
+                        color: _moodColor)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _BottomBtn(
+                        label: '🎬 Watch Video',
+                        onTap: widget.videoUrl != null ? _openVideoModal : null,
+                        highlight: true,
+                        color: const Color(0xFFFF6D00))),
+                      const SizedBox(width: 8),
+                      Expanded(child: _BottomBtn(
+                        label: '✕  Close',
+                        onTap: () { widget.onClose(); Navigator.pop(context); })),
+                    ]),
+                  ]),
+                ),
+              ]),
+            ),
+          )),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VIDEO DIALOG
+// ═══════════════════════════════════════════════════════════════════
+class _VideoDialog extends StatefulWidget {
+  final String url;
+  final Character char;
+  final StoryWorld world;
+  final String mood;
+  const _VideoDialog({required this.url, required this.char, required this.world, required this.mood});
+  @override State<_VideoDialog> createState() => _VideoDialogState();
+}
+class _VideoDialogState extends State<_VideoDialog> with SingleTickerProviderStateMixin {
+  late AnimationController _c;
+  late WebViewController _webCtrl;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 500))..forward();
+    _webCtrl = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(NavigationDelegate(onPageFinished: (_) => setState(() => _loading = false)))
+      ..loadRequest(Uri.parse(widget.url));
+  }
+  @override void dispose() { _c.dispose(); super.dispose(); }
+
+  String get _moodEmoji => {'Happy':'🌟','Funny':'🎪','Adventure':'⚡','Bedtime':'🌙'}[widget.mood] ?? '✨';
+  Color get _moodColor => {
+    'Happy': const Color(0xFFFFCC00), 'Funny': const Color(0xFFFF5500),
+    'Adventure': const Color(0xFFCC0000), 'Bedtime': const Color(0xFF4C5FC4),
+  }[widget.mood] ?? const Color(0xFF6C63FF);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 28),
+      child: ScaleTransition(
+        scale: CurvedAnimation(parent: _c, curve: Curves.easeOutBack),
+        child: FadeTransition(
+          opacity: _c,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF0D0020), Color(0xFF0A1840)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+              borderRadius: BorderRadius.circular(36),
+              border: Border.all(color: Colors.white.withOpacity(0.14)),
+              boxShadow: [BoxShadow(color: _moodColor.withOpacity(0.3), blurRadius: 40, spreadRadius: 4)]),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(18, 16, 14, 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(colors: [_moodColor.withOpacity(0.28), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(36), topRight: Radius.circular(36))),
+                child: Row(children: [
+                  _AvatarRing(gif: widget.char.gif, emoji: widget.char.emoji, color: widget.char.color, size: 44),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('🎬 ${widget.char.name}\'s Story Movie',
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 3),
+                    Row(children: [
+                      _Tag(label: '${widget.world.emoji} ${widget.world.name}', color: Colors.white.withOpacity(0.16)),
+                      const SizedBox(width: 5),
+                      _Tag(label: '$_moodEmoji ${widget.mood}', color: _moodColor.withOpacity(0.32)),
+                    ]),
+                  ])),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.14), shape: BoxShape.circle),
+                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 18))),
+                ]),
               ),
-            ],
+              Container(
+                height: 240,
+                margin: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withOpacity(0.12)),
+                  color: Colors.black),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(children: [
+                    WebViewWidget(controller: _webCtrl),
+                    if (_loading) Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      const CircularProgressIndicator(color: Colors.white),
+                      const SizedBox(height: 12),
+                      Text('Loading video...', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13)),
+                    ])),
+                  ]),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
+                child: Row(children: [
+                  Expanded(child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(16)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.info_outline_rounded, color: Colors.white.withOpacity(0.5), size: 14),
+                      const SizedBox(width: 6),
+                      Text('Tap video to play / pause',
+                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11, fontWeight: FontWeight.w600)),
+                    ]),
+                  )),
+                  const SizedBox(width: 10),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [_moodColor, _moodColor.withOpacity(0.75)]),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [BoxShadow(color: _moodColor.withOpacity(0.4), blurRadius: 12)]),
+                      child: const Text('Done', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13))),
+                  ),
+                ]),
+              ),
+            ]),
           ),
         ),
       ),
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+//  HELPER WIDGETS
+// ═══════════════════════════════════════════════════════════════════
+class _AvatarRing extends StatelessWidget {
+  final String gif, emoji; final Color color; final double size;
+  const _AvatarRing({required this.gif, required this.emoji, required this.color, required this.size});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(3),
+    decoration: BoxDecoration(shape: BoxShape.circle,
+      gradient: LinearGradient(colors: [color, color.withOpacity(0.55)]),
+      boxShadow: [BoxShadow(color: color.withOpacity(0.42), blurRadius: 11)]),
+    child: ClipRRect(borderRadius: BorderRadius.circular(size),
+      child: Image.asset(gif, height: size, width: size, fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Text(emoji, style: TextStyle(fontSize: size * 0.55)))),
+  );
+}
+
+class _Tag extends StatelessWidget {
+  final String label; final Color color;
+  const _Tag({required this.label, required this.color});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+    child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+  );
+}
+
+class _BottomBtn extends StatelessWidget {
+  final String label; final VoidCallback? onTap;
+  final bool highlight; final Color? color;
+  const _BottomBtn({required this.label, required this.onTap, this.highlight = false, this.color});
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: onTap,
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        gradient: highlight && color != null && onTap != null
+            ? LinearGradient(colors: [color!, color!.withOpacity(0.75)])
+            : null,
+        color: highlight && color != null && onTap != null ? null : Colors.white.withOpacity(onTap != null ? 0.11 : 0.05),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(onTap != null ? 0.18 : 0.07)),
+        boxShadow: highlight && onTap != null ? [BoxShadow(color: color!.withOpacity(0.35), blurRadius: 10)] : []),
+      child: Text(label, textAlign: TextAlign.center,
+        style: TextStyle(color: onTap != null ? Colors.white : Colors.white38,
+          fontSize: 12, fontWeight: FontWeight.w700)),
+    ),
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  FLOATING PARTICLE SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+class _Particle {
+  final double x, y, size, speed, delay, drift;
+  final String emoji;
+  const _Particle({required this.x, required this.y, required this.size,
+    required this.speed, required this.emoji, required this.delay, required this.drift});
+}
+
+class _ParticlePainter extends CustomPainter {
+  final List<_Particle> ps; final double t;
+  _ParticlePainter(this.ps, this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    for (final p in ps) {
+      final phase = (t * p.speed + p.delay) % 1.0;
+      final y   = size.height * (1.0 - phase);
+      final x   = size.width  * p.x + sin(phase * pi * 2 + p.delay * pi) * size.width * 0.06 + p.drift * size.width * phase;
+      final opa = phase < 0.12 ? phase / 0.12 : (phase > 0.88 ? (1 - phase) / 0.12 : 1.0);
+      tp.text = TextSpan(text: p.emoji, style: TextStyle(fontSize: p.size, color: Colors.white.withOpacity(opa * 0.28)));
+      tp.layout();
+      tp.paint(canvas, Offset(x, y));
+    }
+  }
+
+  @override bool shouldRepaint(covariant _ParticlePainter old) => old.t != t;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DATA MODELS
+// ═══════════════════════════════════════════════════════════════════
+class Character {
+  final String name, gif, sound, emoji;
+  final Color color, light;
+  const Character({required this.name, required this.gif, required this.sound,
+    required this.emoji, required this.color, required this.light});
+}
+
+class StoryWorld {
+  final String name, gif, emoji, desc;
+  final Color color, light, bg;
+  const StoryWorld({required this.name, required this.gif, required this.emoji,
+    required this.color, required this.light, required this.desc, required this.bg});
+}
+
+class Mood {
+  final String name, emoji;
+  final Color color, bg;
+  const Mood({required this.name, required this.emoji, required this.color, required this.bg});
+}
+

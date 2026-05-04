@@ -7,6 +7,7 @@ import 'dart:math';
 
 import '../../providers/user_provider.dart';
 import '../../services/audio.dart';
+import '../../../common/widgets/header.dart'; // Import the MagicHeader
 
 enum GameId { numberPop, colorMatch, memoryFlip, quickTap, shapeMatcher, patternRepeat }
 
@@ -593,136 +594,7 @@ class _LevelUpBannerState extends State<LevelUpBanner> with SingleTickerProvider
 }
 
 // ============================================================================
-// GAME HEADER (Colorful, Immersive)
-// ============================================================================
-class GameScreenHeader extends StatefulWidget {
-  final String title;
-  final String subtitle;
-  final Color color;
-  final String emoji;
-  final List<Widget> scoreWidgets;
-  final VoidCallback onBack;
-  final SoundService? sound;
-  const GameScreenHeader({
-    Key? key, required this.title, required this.subtitle,
-    required this.color, required this.emoji, required this.scoreWidgets,
-    required this.onBack, this.sound,
-  }) : super(key: key);
-  @override
-  State<GameScreenHeader> createState() => _GameScreenHeaderState();
-}
-
-class _GameScreenHeaderState extends State<GameScreenHeader> with SingleTickerProviderStateMixin {
-  late AnimationController _waveCtrl;
-  @override
-  void initState() {
-    super.initState();
-    _waveCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
-  }
-  @override
-  void dispose() { _waveCtrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _waveCtrl,
-      builder: (_, __) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(widget.color, widget.color.withBlue(255), _waveCtrl.value)!,
-                widget.color.withOpacity(0.85),
-              ],
-            ),
-            borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
-            boxShadow: [BoxShadow(color: widget.color.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))],
-          ),
-          child: SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _BackButton(onTap: widget.onBack, color: widget.color),
-                    const SizedBox(width: 12),
-                    Text(widget.emoji, style: const TextStyle(fontSize: 28)),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(widget.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5)),
-                          Text(widget.subtitle, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.7))),
-                        ],
-                      ),
-                    ),
-                    if (widget.sound != null) _MuteButton(sound: widget.sound!),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: widget.scoreWidgets,
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _BackButton extends StatefulWidget {
-  final VoidCallback onTap;
-  final Color color;
-  const _BackButton({required this.onTap, required this.color});
-  @override
-  State<_BackButton> createState() => _BackButtonState();
-}
-
-class _BackButtonState extends State<_BackButton> with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _scale;
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 120));
-    _scale = Tween<double>(begin: 1.0, end: 0.88).animate(_ctrl);
-  }
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => _ctrl.forward(),
-      onTapUp: (_) { _ctrl.reverse(); widget.onTap(); },
-      onTapCancel: () => _ctrl.reverse(),
-      child: AnimatedBuilder(
-        animation: _scale,
-        builder: (_, __) => Transform.scale(
-          scale: _scale.value,
-          child: Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
-            ),
-            child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ============================================================================
-// GAMES SCREEN (Header unchanged, grid enhanced)
+// GAMES SCREEN WITH MAGIC HEADER (UPDATED)
 // ============================================================================
 class GamesScreen extends StatefulWidget {
   static const String routeName = '/games';
@@ -757,9 +629,27 @@ class _GamesScreenState extends State<GamesScreen> with TickerProviderStateMixin
   late Animation<double> _moodFadeAnimation;
   late Animation<double> _moodCardScaleAnimation;
 
+  // Animation controllers for MagicHeader (these will be passed to the header)
+  late AnimationController _magicWaveController;
+  late AnimationController _magicFloatController;
+  late AnimationController _magicPulseController;
+  late AnimationController _magicSparkleController1;
+  late AnimationController _magicSparkleController2;
+  late AnimationController _magicGlowController;
+  late AnimationController _magicShimmerController;
+  
+  late Animation<double> _magicWaveAnimation;
+  late Animation<double> _magicFloatAnimation;
+  late Animation<double> _magicPulseAnimation;
+  late Animation<double> _magicSparkleAnimation1;
+  late Animation<double> _magicSparkleAnimation2;
+  late Animation<double> _magicGlowAnimation;
+  late Animation<double> _magicShimmerAnimation;
+
   @override
   void initState() {
     super.initState();
+    _setupMagicHeaderAnimations();
     _floatCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat(reverse: true);
     _entranceCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..forward();
     _bounceController = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat(reverse: true);
@@ -785,12 +675,50 @@ class _GamesScreenState extends State<GamesScreen> with TickerProviderStateMixin
     WidgetsBinding.instance.addPostFrameCallback((_) { AudioService().init(); });
   }
 
+  void _setupMagicHeaderAnimations() {
+    _magicWaveController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _magicWaveAnimation = CurvedAnimation(parent: _magicWaveController, curve: Curves.easeInOut);
+
+    _magicFloatController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+    _magicFloatAnimation = Tween<double>(begin: -6, end: 6).animate(CurvedAnimation(parent: _magicFloatController, curve: Curves.easeInOut));
+
+    _magicPulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
+    _magicPulseAnimation = _magicPulseController;
+
+    _magicSparkleController1 = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _magicSparkleAnimation1 = _magicSparkleController1;
+
+    _magicSparkleController2 = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _magicSparkleAnimation2 = _magicSparkleController2;
+
+    _magicGlowController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _magicGlowAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _magicGlowController, curve: Curves.easeInOut));
+
+    _magicShimmerController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _magicShimmerAnimation = Tween<double>(begin: -1.5, end: 2.5).animate(CurvedAnimation(parent: _magicShimmerController, curve: Curves.easeInOut));
+  }
+
   @override
   void dispose() {
-    _bounceController.dispose(); _waveController.dispose(); _glowController.dispose();
-    _floatController.dispose(); _pulseController.dispose(); _sparkleController1.dispose();
-    _sparkleController2.dispose(); _modalController.dispose(); _moodController.dispose();
-    _moodCardController.dispose(); _floatCtrl.dispose(); _entranceCtrl.dispose();
+    _magicWaveController.dispose();
+    _magicFloatController.dispose();
+    _magicPulseController.dispose();
+    _magicSparkleController1.dispose();
+    _magicSparkleController2.dispose();
+    _magicGlowController.dispose();
+    _magicShimmerController.dispose();
+    _bounceController.dispose(); 
+    _waveController.dispose(); 
+    _glowController.dispose();
+    _floatController.dispose(); 
+    _pulseController.dispose(); 
+    _sparkleController1.dispose();
+    _sparkleController2.dispose(); 
+    _modalController.dispose(); 
+    _moodController.dispose();
+    _moodCardController.dispose(); 
+    _floatCtrl.dispose(); 
+    _entranceCtrl.dispose();
     _sound.dispose();
     super.dispose();
   }
@@ -835,6 +763,8 @@ class _GamesScreenState extends State<GamesScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final user = Provider.of<UserProvider>(context).user;
+    
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -846,159 +776,36 @@ class _GamesScreenState extends State<GamesScreen> with TickerProviderStateMixin
         ),
         child: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              Expanded(child: _buildGameGrid()),
-            ],
-          ),
-        ),
+         children: [
+  // HEADER + MIC TOGETHER
+  Stack(
+    clipBehavior: Clip.none,
+    children: [
+      MagicHeader(
+        waveAnimation: _magicWaveAnimation,
+        floatAnimation: _magicFloatAnimation,
+        pulseAnimation: _magicPulseAnimation,
+        sparkleAnimation1: _magicSparkleAnimation1,
+        sparkleAnimation2: _magicSparkleAnimation2,
+        glowAnimation: _magicGlowAnimation,
+        shimmerAnimation: _magicShimmerAnimation,
+        selectedCharacterName: user.name.split(" ")[0],
+        hasSelectedCharacter: true,
+        height: 180,
       ),
-    );
-  }
 
-  // ---- ORIGINAL HEADER (unchanged) ----
-  Widget _buildHeader() {
-    final user = Provider.of<UserProvider>(context).user;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+      // 🎤 MIC BUTTON (RIGHT SIDE FIXED)
+      Positioned(
+        top: 55,
+        right: 20, // ✅ proper spacing from right
+        child: _MuteButton(sound: _sound),
+      ),
+    ],
+  ),
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Stack(
-              children: [
-                AnimatedBuilder(
-                  animation: _waveController,
-                  builder: (context, child) {
-                    return Container(
-                      height: screenHeight * 0.19,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Color.lerp(const Color(0xFF667EEA), const Color(0xFF764BA2), _waveAnimation.value)!,
-                            Color.lerp(const Color(0xFF764BA2), const Color(0xFFF093FB), _waveAnimation.value)!,
-                          ],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(35),
-                          bottomRight: Radius.circular(35),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                Positioned(
-                  top: 100,
-                  right: 16,
-                  child: _MuteButton(sound: _sound),
-                ),
-                Positioned(
-                  top: -30, right: -20,
-                  child: AnimatedBuilder(
-                    animation: _pulseController,
-                    builder: (context, child) {
-                      return Container(
-                        width: 80 + _pulseController.value * 15,
-                        height: 80 + _pulseController.value * 15,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)),
-                      );
-                    },
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.015),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          AnimatedBuilder(
-                            animation: _floatController,
-                            builder: (context, child) {
-                              return Transform.translate(
-                                offset: Offset(0, _floatAnimation.value),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                                      child: AnimatedBuilder(
-                                        animation: _sparkleController1,
-                                        builder: (context, child) {
-                                          return Transform.scale(
-                                            scale: 0.9 + (_sparkleController1.value * 0.2),
-                                            child: Container(
-                                              decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 10, spreadRadius: 1)]),
-                                              child: Image.asset("assets/images/logo.png", width: 30, height: 30),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: const [
-                                        Text("MAGIC STORY", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.white)),
-                                        Text("Adventure Awaits!", style: TextStyle(fontSize: 9, color: Colors.white70)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          AnimatedBuilder(
-                            animation: _glowAnimation,
-                            builder: (context, child) {
-                              return Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(3),
-                                      decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                      child: const Icon(Icons.person, color: Color(0xFF667EEA), size: 12),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(user.name.split(" ")[0], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white)),
-                                    const SizedBox(width: 4),
-                                    const Icon(Icons.verified, color: Colors.yellow, size: 10),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(25)),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.auto_awesome, color: Colors.yellow, size: 14),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text("Create Magic Story", style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
+  // GAME GRID
+  Expanded(child: _buildGameGrid()),
+], ),
         ),
       ),
     );
@@ -2579,6 +2386,135 @@ class _PatternButtonState extends State<_PatternButton> with SingleTickerProvide
                 Text(widget.name, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white, shadows: [Shadow(color: Colors.black38, offset: Offset(1, 1))])),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ============================================================================
+// GAME SCREEN HEADER (Kept for individual games)
+// ============================================================================
+class GameScreenHeader extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final Color color;
+  final String emoji;
+  final List<Widget> scoreWidgets;
+  final VoidCallback onBack;
+  final SoundService? sound;
+  const GameScreenHeader({
+    Key? key, required this.title, required this.subtitle,
+    required this.color, required this.emoji, required this.scoreWidgets,
+    required this.onBack, this.sound,
+  }) : super(key: key);
+  @override
+  State<GameScreenHeader> createState() => _GameScreenHeaderState();
+}
+
+class _GameScreenHeaderState extends State<GameScreenHeader> with SingleTickerProviderStateMixin {
+  late AnimationController _waveCtrl;
+  @override
+  void initState() {
+    super.initState();
+    _waveCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+  }
+  @override
+  void dispose() { _waveCtrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _waveCtrl,
+      builder: (_, __) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.lerp(widget.color, widget.color.withBlue(255), _waveCtrl.value)!,
+                widget.color.withOpacity(0.85),
+              ],
+            ),
+            borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(32), bottomRight: Radius.circular(32)),
+            boxShadow: [BoxShadow(color: widget.color.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))],
+          ),
+          child: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    _GameBackButton(onTap: widget.onBack, color: widget.color),
+                    const SizedBox(width: 12),
+                    Text(widget.emoji, style: const TextStyle(fontSize: 28)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(widget.title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: -0.5)),
+                          Text(widget.subtitle, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.7))),
+                        ],
+                      ),
+                    ),
+                    if (widget.sound != null) _MuteButton(sound: widget.sound!),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: widget.scoreWidgets,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _GameBackButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final Color color;
+  const _GameBackButton({required this.onTap, required this.color});
+  @override
+  State<_GameBackButton> createState() => _GameBackButtonState();
+}
+
+class _GameBackButtonState extends State<_GameBackButton> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 120));
+    _scale = Tween<double>(begin: 1.0, end: 0.88).animate(_ctrl);
+  }
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _ctrl.forward(),
+      onTapUp: (_) { _ctrl.reverse(); widget.onTap(); },
+      onTapCancel: () => _ctrl.reverse(),
+      child: AnimatedBuilder(
+        animation: _scale,
+        builder: (_, __) => Transform.scale(
+          scale: _scale.value,
+          child: Container(
+            width: 40, height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+            ),
+            child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
           ),
         ),
       ),

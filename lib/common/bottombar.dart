@@ -1,27 +1,10 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables
 
 import 'package:flutter/material.dart';
-import 'package:google_nav_bar/google_nav_bar.dart';
-import 'package:pictureai/constants/global_variables.dart';
 import '../features/game/games_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/home/screens/test.dart';
 import '../features/setting/setting.dart';
-
-// 👉 Create a dummy Games screen (replace later)
-// class GamesScreen extends StatelessWidget {
-//   const GamesScreen({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return const Center(
-//       child: Text(
-//         "Games Screen 🎮",
-//         style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-//       ),
-//     );
-//   }
-// }
 
 class BottomBar extends StatefulWidget {
   static const String routeName = 'actual-home';
@@ -31,8 +14,7 @@ class BottomBar extends StatefulWidget {
   State<BottomBar> createState() => _BottomBarState();
 }
 
-class _BottomBarState extends State<BottomBar>
-    with SingleTickerProviderStateMixin {
+class _BottomBarState extends State<BottomBar> {
   int page = 0;
 
   final List<Widget> pages = [
@@ -50,63 +32,37 @@ class _BottomBarState extends State<BottomBar>
         child: pages[page],
       ),
 
-      // 🔥 Attractive Bottom Bar
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: GlobalVariables.backgroundColor,
-          boxShadow: [
-            BoxShadow(
-              blurRadius: 20,
-              color: Colors.black.withOpacity(0.15),
-            )
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: GNav(
-              selectedIndex: page,
-              onTabChange: (index) {
-                setState(() {
-                  page = index;
-                });
-              },
-
-              // 🔥 Design Improvements
-              rippleColor: Colors.grey.shade300,
-              hoverColor: Colors.grey.shade200,
-              haptic: true,
-              tabBorderRadius: 20,
-              curve: Curves.easeOutExpo,
-              duration: const Duration(milliseconds: 500),
-              gap: 10,
-              iconSize: 26,
-
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 18, vertical: 12),
-
-              color: Colors.grey[600],
-              activeColor: Colors.white,
-
-              tabBackgroundColor: const Color(0xff6C63FF), // 💜 Premium color
-
-              tabs: [
-                GButton(
-                  icon: Icons.home_rounded,
-                  text: 'Home',
-                ),
-                GButton(
-                  icon: Icons.auto_stories_rounded,
-                  text: 'Story',
-                ),
-                GButton(
-                  icon: Icons.sports_esports_rounded,
-                  text: 'Games',
-                ),
-                GButton(
-                  icon: Icons.settings_rounded,
-                  text: 'Settings',
-                ),
+      // 🔥 CUSTOM EXACT UI BOTTOM BAR
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Container(
+            height: 70,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(40),
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFFE9E4FF),
+                  Color(0xFFD6CCFF),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 15,
+                  offset: Offset(0, 5),
+                )
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                buildTab(Icons.home_rounded, "Home", 0),
+                buildTab(Icons.menu_book_rounded, "Library", 1),
+                buildTab(Icons.sports_esports_rounded, "Games", 2),
+                buildTab(Icons.settings_rounded, "Settings", 3),
               ],
             ),
           ),
@@ -114,4 +70,97 @@ class _BottomBarState extends State<BottomBar>
       ),
     );
   }
+
+  // 🔥 TAB BUILDER (Exact UI behavior)
+Widget buildTab(IconData icon, String label, int index) {
+  bool isActive = page == index;
+
+  return GestureDetector(
+    onTap: () {
+      setState(() {
+        page = index;
+      });
+    },
+    child: AnimatedContainer(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutBack,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      decoration: BoxDecoration(
+        gradient: isActive
+            ? const LinearGradient(
+                colors: [
+                  Color(0xFF7B61FF),
+                  Color(0xFF5A4DFF),
+                ],
+              )
+            : null,
+        borderRadius: BorderRadius.circular(30),
+        border: isActive
+            ? Border.all(color: Colors.white, width: 2)
+            : null,
+        boxShadow: isActive
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF7B61FF).withOpacity(0.5),
+                  blurRadius: 15,
+                  offset: const Offset(0, 6),
+                )
+              ]
+            : [],
+      ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Row(
+            children: [
+              Icon(
+                icon,
+                color: isActive ? Colors.white : Colors.deepPurple,
+                size: 24,
+              ),
+              if (isActive) ...[
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ],
+          ),
+
+          // ⭐ STAR FLOATING TOP EFFECT
+        //   if (isActive)
+        //     Positioned(
+        //       top: -14,
+        //       left: -13,
+        //       right: 170,
+        //       child: TweenAnimationBuilder<double>(
+        //         duration: const Duration(milliseconds: 600),
+        //         tween: Tween(begin: 0.5, end: 1),
+        //         curve: Curves.elasticOut,
+        //         builder: (context, value, child) {
+        //           return Transform.scale(
+        //             scale: value,
+        //             child: const Text(
+        //               "⭐",
+        //               textAlign: TextAlign.center,
+        //               style: TextStyle(fontSize: 16),
+        //             ),
+        //           );
+        //         },
+        //       ),
+        //     ),
+        ],
+      ),
+    ),
+  );
+}
+
+
+
+
+
 }

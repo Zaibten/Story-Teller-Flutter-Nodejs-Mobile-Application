@@ -5,527 +5,487 @@ import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:video_player/video_player.dart';
 
-import '../../../providers/user_provider.dart';
+import '../../../common/widgets/header.dart';
 
-// ──────────────────────────────────────────────────────────────
-//  COLOUR PALETTE
-// ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+//  PREMIUM KIDS MAGICAL DESIGN SYSTEM
+//  Professional, playful, and child-optimized
+// ═══════════════════════════════════════════════════════════════════
 class K {
   K._();
-  static const bg      = Color(0xFFFFF7ED);
+  
+  // Core colors - vibrant and child-friendly
+  static const bg = Color(0xFFFEF5E7);
   static const surface = Color(0xFFFFFFFF);
-  static const ink     = Color(0xFF12072A);
-  static const red     = Color(0xFFFF2D55);
-  static const orange  = Color(0xFFFF8000);
-  static const yellow  = Color(0xFFFFCC00);
-  static const lime    = Color(0xFF2DEB6F);
-  static const cyan    = Color(0xFF00CFFF);
-  static const blue    = Color(0xFF1B6FFF);
-  static const purple  = Color(0xFF8B2FFF);
-  static const pink    = Color(0xFFFF3DA6);
-  static const mint    = Color(0xFF00E5C3);
-  static const white   = Color(0xFFFFFFFF);
+  static const ink = Color(0xFF2D1B4E);
+  static const red = Color(0xFFFF6B6B);
+  static const orange = Color(0xFFFFA559);
+  static const yellow = Color(0xFFFFE66D);
+  static const lime = Color(0xFF5D9B4B);
+  static const cyan = Color(0xFF4ECDC4);
+  static const blue = Color(0xFF45B7D1);
+  static const purple = Color(0xFF9B59B6);
+  static const pink = Color(0xFFFF6B8D);
+  static const mint = Color(0xFF2DCD9F);
+  static const white = Color(0xFFFFFFFF);
+  static const gold = Color(0xFFFFD700);
+  static const silver = Color(0xFFC0C0C0);
 
+  // Magical gradients for special moments
+  static const rainbowGradient = LinearGradient(
+    colors: [red, orange, yellow, lime, cyan, blue, purple],
+    stops: [0, 0.16, 0.33, 0.5, 0.66, 0.83, 1],
+  );
+  
+  static const sunsetGradient = LinearGradient(
+    colors: [purple, pink, orange, yellow],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
+  static const oceanGradient = LinearGradient(
+    colors: [cyan, blue, purple],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  
   static const rainbow = [red, orange, yellow, lime, cyan, blue, purple, pink];
+  static const pastel = [Color(0xFFFFF0F0), Color(0xFFFFF4E6), Color(0xFFFFFFE0), Color(0xFFE8F5E9), Color(0xFFE3F2FD)];
+  static const rainbowLabels = ['⭐ EXTRAORDINARY!', '💫 MAGICAL!', '🌟 SPECTACULAR!', '🔥 AMAZING!', '✨ WONDERFUL!', '💎 MARVELOUS!'];
 
-  static const panels = <List<Color>>[
-    [Color(0xFFFFFADD), yellow],
-    [Color(0xFFFFE8F2), pink],
-    [Color(0xFFE3F0FF), blue],
-    [Color(0xFFE6FFF2), lime],
-    [Color(0xFFF3E8FF), purple],
-    [Color(0xFFFFEFE0), orange],
-  ];
-
-  static const zapLabels = ['⚡ ZAP!','💥 POW!','🌟 WOW!','🔥 HOT!','✨ BAM!','💫 YAY!'];
-  static const zapCols   = [yellow, red, cyan, orange, purple, lime];
-
-  static Color panelAccent(int i) => panels[i % panels.length][1] as Color;
+  static Color panelAccent(int i) => rainbow[i % rainbow.length];
 }
 
-// ──────────────────────────────────────────────────────────────
-//  TEXT STYLES
-// ──────────────────────────────────────────────────────────────
-TextStyle ts(double sz, Color c,
-    {FontWeight fw = FontWeight.w700, double h = 1.35, List<Shadow>? sh}) =>
-    TextStyle(fontFamily: 'Comic Sans MS', fontSize: sz, color: c,
-        fontWeight: fw, height: h, shadows: sh);
+// Typography optimized for children - slightly larger, highly readable
+TextStyle ts(double sz, Color c, {FontWeight fw = FontWeight.w800, double h = 1.4, List<Shadow>? sh}) =>
+    TextStyle(fontFamily: 'Poppins', fontSize: sz, color: c, fontWeight: fw, height: h, shadows: sh, letterSpacing: -0.3);
 
-TextStyle tb(double sz, Color c,
-    {FontWeight fw = FontWeight.w500, double h = 1.5}) =>
-    TextStyle(fontFamily: 'Comic Sans MS', fontSize: sz, color: c,
-        fontWeight: fw, height: h);
+TextStyle tb(double sz, Color c, {FontWeight fw = FontWeight.w600, double h = 1.5}) =>
+    TextStyle(fontFamily: 'Poppins', fontSize: sz, color: c, fontWeight: fw, height: h, letterSpacing: -0.2);
 
-// ──────────────────────────────────────────────────────────────
-//  CONFETTI
-// ──────────────────────────────────────────────────────────────
-class _Piece {
-  double x, y, vx, vy, r, rot, rotV, life;
+// ═══════════════════════════════════════════════════════════════════
+//  MAGICAL BACKGROUND - Floating Stars & Sparkles Animation
+// ═══════════════════════════════════════════════════════════════════
+class _MagicSparkle {
+  double x, y, size, speed, angle, rotationSpeed;
   Color color;
-  int shape;
-  _Piece(Random rng, double w)
-      : x = rng.nextDouble() * w, y = -16,
-        vx = (rng.nextDouble() - .5) * 10,
-        vy = rng.nextDouble() * 5 + 2,
-        r  = rng.nextDouble() * 9 + 4,
-        rot  = rng.nextDouble() * pi * 2,
-        rotV = (rng.nextDouble() - .5) * .24,
-        life  = 1.0,
-        color = K.rainbow[rng.nextInt(K.rainbow.length)],
-        shape = rng.nextInt(4);
-  void tick() { x += vx; y += vy; vy += .26; rot += rotV; life -= .007; }
-}
-
-class _ConfPainter extends CustomPainter {
-  final List<_Piece> ps;
-  _ConfPainter(this.ps);
-  @override void paint(Canvas c, Size s) {
-    for (final d in ps) {
-      if (d.life <= 0) continue;
-      final pt = Paint()..color = d.color.withOpacity(d.life.clamp(0, 1));
-      c.save(); c.translate(d.x, d.y); c.rotate(d.rot);
-      switch (d.shape) {
-        case 0: c.drawCircle(Offset.zero, d.r, pt); break;
-        case 1: c.drawRect(Rect.fromCenter(center: Offset.zero, width: d.r * 2, height: d.r * 1.2), pt); break;
-        case 2: _star(c, pt, d.r); break;
-        case 3: c.drawPath(Path()..moveTo(0, -d.r)..lineTo(d.r * .87, d.r * .5)..lineTo(-d.r * .87, d.r * .5)..close(), pt); break;
-      }
-      c.restore();
-    }
-  }
-  static void _star(Canvas c, Paint p, double r) {
-    final path = Path();
-    for (int i = 0; i < 10; i++) {
-      final a = i * pi / 5 - pi / 2, rad = i.isEven ? r : r * .38;
-      i == 0 ? path.moveTo(cos(a) * rad, sin(a) * rad) : path.lineTo(cos(a) * rad, sin(a) * rad);
-    }
-    path.close(); c.drawPath(path, p);
-  }
-  @override bool shouldRepaint(_ConfPainter o) => true;
-}
-
-// ──────────────────────────────────────────────────────────────
-//  FLOATING DOODLES
-// ──────────────────────────────────────────────────────────────
-class _Doodle {
-  double x, y, size, speed, angle, phase; Color color; int type;
-  _Doodle(Random rng, double w, double h)
-      : x = rng.nextDouble() * w, y = rng.nextDouble() * h,
-        size  = rng.nextDouble() * 18 + 8,
-        speed = rng.nextDouble() * .55 + .15,
+  int type;
+  _MagicSparkle(Random rng, double w, double h)
+      : x = rng.nextDouble() * w,
+        y = rng.nextDouble() * h,
+        size = rng.nextDouble() * 12 + 4,
+        speed = rng.nextDouble() * 0.8 + 0.3,
         angle = rng.nextDouble() * pi * 2,
-        phase = rng.nextDouble() * pi * 2,
-        color = K.rainbow[rng.nextInt(K.rainbow.length)].withOpacity(.13),
-        type  = rng.nextInt(5);
+        rotationSpeed = (rng.nextDouble() - 0.5) * 0.05,
+        color = K.rainbow[rng.nextInt(K.rainbow.length)].withOpacity(0.45),
+        type = rng.nextInt(3);
 }
 
-class _DoodlePainter extends CustomPainter {
-  final List<_Doodle> ds; final double t;
-  _DoodlePainter(this.ds, this.t);
-  @override void paint(Canvas canvas, Size size) {
-    for (final d in ds) {
-      final ox = sin(t * .9 + d.phase) * 7;
-      canvas.save(); canvas.translate(d.x + ox, d.y); canvas.rotate(d.angle + t * .22);
-      final fp = Paint()..color = d.color..style = PaintingStyle.fill;
-      final sp = Paint()..color = d.color..style = PaintingStyle.stroke..strokeWidth = 2.2..strokeCap = StrokeCap.round;
-      switch (d.type) {
-        case 0: _star(canvas, fp, d.size / 2); break;
-        case 1: _heart(canvas, fp, d.size / 2); break;
-        case 2: canvas.drawCircle(Offset.zero, d.size / 2, sp); break;
-        case 3: _zz(canvas, sp, d.size); break;
-        case 4: _spark(canvas, sp, d.size / 2); break;
+class _MagicSparklePainter extends CustomPainter {
+  final List<_MagicSparkle> particles;
+  final double time;
+  _MagicSparklePainter(this.particles, this.time);
+
+  void _drawStar(Canvas canvas, Offset center, double radius, Paint paint) {
+    final path = Path();
+    final outerRadius = radius;
+    final innerRadius = radius * 0.4;
+    for (int i = 0; i < 5; i++) {
+      final angle = (i * 72 - 90) * pi / 180;
+      final outerX = center.dx + cos(angle) * outerRadius;
+      final outerY = center.dy + sin(angle) * outerRadius;
+      final innerAngle = angle + 36 * pi / 180;
+      final innerX = center.dx + cos(innerAngle) * innerRadius;
+      final innerY = center.dy + sin(innerAngle) * innerRadius;
+      if (i == 0) {
+        path.moveTo(outerX, outerY);
+      } else {
+        path.lineTo(outerX, outerY);
+      }
+      path.lineTo(innerX, innerY);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawDiamond(Canvas canvas, Offset center, double size, Paint paint) {
+    final path = Path()
+      ..moveTo(center.dx, center.dy - size)
+      ..lineTo(center.dx + size, center.dy)
+      ..lineTo(center.dx, center.dy + size)
+      ..lineTo(center.dx - size, center.dy)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final p in particles) {
+      final alpha = (sin(time * p.speed + p.x * 0.5) * 0.4 + 0.5).clamp(0.3, 0.85);
+      final paint = Paint()..color = p.color.withOpacity(alpha);
+      final x = p.x + cos(time * 0.3 + p.angle) * 4;
+      final y = p.y + sin(time * 0.5 + p.angle) * 4;
+      
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(time * p.rotationSpeed);
+      
+      if (p.type == 0) {
+        _drawStar(canvas, Offset.zero, p.size * 0.6, paint);
+      } else if (p.type == 1) {
+        canvas.drawCircle(Offset.zero, p.size * 0.5, paint);
+      } else {
+        _drawDiamond(canvas, Offset.zero, p.size * 0.4, paint);
       }
       canvas.restore();
     }
   }
-  static void _star(Canvas c, Paint p, double r) { final path = Path(); for (int i = 0; i < 10; i++) { final a = i * pi / 5 - pi / 2, rad = i.isEven ? r : r * .4; i == 0 ? path.moveTo(cos(a) * rad, sin(a) * rad) : path.lineTo(cos(a) * rad, sin(a) * rad); } path.close(); c.drawPath(path, p); }
-  static void _heart(Canvas c, Paint p, double r) { c.drawPath(Path()..moveTo(0, r * .3)..cubicTo(-r, -r * .4, -r * 1.6, r * .5, 0, r * 1.2)..cubicTo(r * 1.6, r * .5, r, -r * .4, 0, r * .3)..close(), p); }
-  static void _zz(Canvas c, Paint sp, double s) { final path = Path()..moveTo(-s / 2, 0); for (int i = 0; i <= 4; i++) path.lineTo(-s / 2 + s * i / 4, i.isEven ? -s / 3 : s / 3); c.drawPath(path, sp); }
-  static void _spark(Canvas c, Paint sp, double r) { for (int i = 0; i < 6; i++) { final a = i * pi / 3; c.drawLine(Offset.zero, Offset(cos(a) * r, sin(a) * r), sp); } }
-  @override bool shouldRepaint(_DoodlePainter o) => true;
+
+  @override
+  bool shouldRepaint(_MagicSparklePainter old) => old.time != time;
 }
 
-// ──────────────────────────────────────────────────────────────
-//  HALFTONE TEXTURE
-// ──────────────────────────────────────────────────────────────
-class _HalftonePainter extends CustomPainter {
-  final Color color; final double spacing;
-  _HalftonePainter(this.color, {this.spacing = 18});
-  @override void paint(Canvas canvas, Size size) {
-    final p = Paint()..color = color;
-    final cols = (size.width / spacing).ceil() + 1, rows = (size.height / spacing).ceil() + 1;
-    for (int r = 0; r < rows; r++) for (int c = 0; c < cols; c++) {
-      final ox = r.isOdd ? spacing / 2 : 0.0;
-      canvas.drawCircle(Offset(c * spacing + ox, r * spacing), spacing * .16, p);
-    }
-  }
-  @override bool shouldRepaint(_HalftonePainter o) => false;
-}
-
-// ──────────────────────────────────────────────────────────────
-//  WOBBLY INK BORDER
-// ──────────────────────────────────────────────────────────────
-class _WobblePainter extends CustomPainter {
-  final Color color; final double sw; final Random _rng;
-  _WobblePainter(this.color, this.sw, int seed) : _rng = Random(seed);
-  @override void paint(Canvas canvas, Size sz) {
-    final paint = Paint()..color = color..strokeWidth = sw..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round;
-    const seg = 50, pad = 10.0, w2 = 3.5; final W = sz.width, H = sz.height;
-    final path = Path();
-    path.moveTo(pad, _rng.nextDouble() * w2);
-    for (int i = 1; i <= seg; i++) path.lineTo(pad + (W - pad * 2) * i / seg, _rng.nextDouble() * w2);
-    for (int i = 1; i <= seg; i++) path.lineTo(W - _rng.nextDouble() * w2, pad + (H - pad * 2) * i / seg);
-    for (int i = seg; i >= 0; i--) path.lineTo(pad + (W - pad * 2) * i / seg, H - _rng.nextDouble() * w2);
-    for (int i = seg; i >= 0; i--) path.lineTo(_rng.nextDouble() * w2, pad + (H - pad * 2) * i / seg);
-    path.close(); canvas.drawPath(path, paint);
-  }
-  @override bool shouldRepaint(_WobblePainter o) => false;
-}
-
-// ──────────────────────────────────────────────────────────────
-//  SPEECH BUBBLE
-// ──────────────────────────────────────────────────────────────
-class _BubblePainter extends CustomPainter {
-  final Color fill, stroke;
-  _BubblePainter({required this.fill, required this.stroke});
-  @override void paint(Canvas canvas, Size sz) {
-    const r = 18.0, tail = 22.0, tw = 24.0; final W = sz.width, H = sz.height;
-    final bg = Paint()..color = fill;
-    final sp = Paint()..color = stroke..style = PaintingStyle.stroke..strokeWidth = 3.0..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round;
-    final path = Path()
-      ..moveTo(r, 0)..lineTo(W - r, 0)..quadraticBezierTo(W, 0, W, r)
-      ..lineTo(W, H - tail - r)..quadraticBezierTo(W, H - tail, W - r, H - tail)
-      ..lineTo(r + tw + 14, H - tail)..lineTo(r + 5, H)..lineTo(r + tw - 5, H - tail)
-      ..lineTo(r, H - tail)..quadraticBezierTo(0, H - tail, 0, H - tail - r)
-      ..lineTo(0, r)..quadraticBezierTo(0, 0, r, 0)..close();
-    canvas.drawPath(path, bg); canvas.drawPath(path, sp);
-  }
-  @override bool shouldRepaint(_BubblePainter o) => false;
-}
-
-// ──────────────────────────────────────────────────────────────
-//  BURST / STARBURST
-// ──────────────────────────────────────────────────────────────
-class _BurstPainter extends CustomPainter {
-  final Color fill, stroke; final int spikes;
-  _BurstPainter({required this.fill, required this.stroke, this.spikes = 14});
-  @override void paint(Canvas canvas, Size sz) {
-    final cx = sz.width / 2, cy = sz.height / 2, r = min(cx, cy) * .94, ri = r * .60;
-    final bg = Paint()..color = fill;
-    final sp = Paint()..color = stroke..style = PaintingStyle.stroke..strokeWidth = 3.5..strokeJoin = StrokeJoin.round;
-    final path = Path();
-    for (int i = 0; i < spikes * 2; i++) {
-      final a = i * pi / spikes - pi / 2, rad = i.isEven ? r : ri;
-      final o = Offset(cx + cos(a) * rad, cy + sin(a) * rad);
-      i == 0 ? path.moveTo(o.dx, o.dy) : path.lineTo(o.dx, o.dy);
-    }
-    path.close(); canvas.drawPath(path, bg); canvas.drawPath(path, sp);
-  }
-  @override bool shouldRepaint(_BurstPainter o) => false;
-}
-
-// ──────────────────────────────────────────────────────────────
-//  RAINBOW PROGRESS BAR
-// ──────────────────────────────────────────────────────────────
-class _RainbowBar extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════════════
+//  RAINBOW GRADIENT PROGRESS BAR - For generation feedback
+// ═══════════════════════════════════════════════════════════════════
+class _RainbowProgressBar extends StatelessWidget {
   final double value;
-  const _RainbowBar(this.value);
-  @override Widget build(BuildContext context) {
-    return Container(
-      height: 22,
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(.35),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: K.ink, width: 2.5),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(11),
-        child: FractionallySizedBox(
-          alignment: Alignment.centerLeft, widthFactor: value.clamp(0, 1),
-          child: Container(decoration: const BoxDecoration(gradient: LinearGradient(
-              colors: [K.red, K.orange, K.yellow, K.lime, K.cyan, K.blue, K.purple]))),
+  final String label;
+  const _RainbowProgressBar(this.value, {this.label = ''});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (label.isNotEmpty) ...[
+          Text(label, style: ts(13, K.purple, fw: FontWeight.w600)),
+          const SizedBox(height: 8),
+        ],
+        Container(
+          height: 36,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: K.ink, width: 3),
+            boxShadow: const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(25),
+            child: Stack(
+              children: [
+                Container(color: Colors.grey.shade100),
+                FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: value.clamp(0, 1),
+                  child: Container(decoration: const BoxDecoration(gradient: K.rainbowGradient)),
+                ),
+                Center(
+                  child: Text(
+                    '${(value * 100).toInt()}%',
+                    style: ts(14, value > 0.5 ? K.white : K.ink, fw: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PREMIUM PULSING BUTTON - Attracts children's attention
+// ═══════════════════════════════════════════════════════════════════
+class _PremiumPulseButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final bool isActive;
+  final Color? pulseColor;
+  const _PremiumPulseButton({required this.child, this.onTap, this.isActive = true, this.pulseColor});
+
+  @override
+  State<_PremiumPulseButton> createState() => _PremiumPulseButtonState();
+}
+
+class _PremiumPulseButtonState extends State<_PremiumPulseButton> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+  late Animation<double> _glow;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
+    _scale = Tween<double>(begin: 1.0, end: 1.06).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _glow = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, child) {
+          if (!widget.isActive) return child!;
+          return Container(
+            decoration: BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: (widget.pulseColor ?? K.purple).withOpacity(0.35 * _glow.value),
+                  blurRadius: 18 * _glow.value,
+                  spreadRadius: 2 * _glow.value,
+                ),
+              ],
+            ),
+            child: Transform.scale(scale: _scale.value, child: child),
+          );
+        },
+        child: widget.child,
       ),
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  MAIN PAGE
-// ══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+//  FLOATING CHARACTER ANIMATION - Adds whimsy and delight
+// ═══════════════════════════════════════════════════════════════════
+class _FloatingCharacter extends StatefulWidget {
+  final String emoji;
+  final double duration;
+  const _FloatingCharacter(this.emoji, {this.duration = 3.0});
+
+  @override
+  State<_FloatingCharacter> createState() => _FloatingCharacterState();
+}
+
+class _FloatingCharacterState extends State<_FloatingCharacter> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _float;
+  late Animation<double> _rotate;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: Duration(seconds: widget.duration.toInt()))..repeat(reverse: true);
+    _float = Tween<double>(begin: -10, end: 10).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _rotate = Tween<double>(begin: -0.1, end: 0.1).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, __) => Transform.translate(
+        offset: Offset(0, _float.value),
+        child: Transform.rotate(angle: _rotate.value, child: Text(widget.emoji, style: const TextStyle(fontSize: 28))),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  MAIN PAGE - Professionally Enhanced for Children
+// ═══════════════════════════════════════════════════════════════════
 class NewPage extends StatefulWidget {
   static const routeName = '/new-page';
   final String userName;
   const NewPage({Key? key, this.userName = 'Super Reader'}) : super(key: key);
-  @override State<NewPage> createState() => _NewPageState();
+  
+  @override
+  State<NewPage> createState() => _NewPageState();
 }
 
 class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   final _ctrl = TextEditingController();
-  final _tts  = FlutterTts();
-  final _rng  = Random();
+  final _tts = FlutterTts();
+  final _rng = Random();
   static const _base = 'http://192.168.100.177:9000';
 
-  // ── Language toggle: 'english' | 'urdu' ──
   String _selectedLanguage = 'english';
-
-  // ── Speech-to-text ──
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _speechAvailable = false;
-  bool _isListening     = false;
+  bool _isListening = false;
 
-  // ── existing controllers ──
-  late AnimationController _bounceController;
+  // Professional Animation Controllers for rich animations
   late AnimationController _waveController;
-  late AnimationController _glowController;
   late AnimationController _floatController;
   late AnimationController _pulseController;
-  late AnimationController _sparkleController1;
-  late AnimationController _sparkleController2;
-  late AnimationController _modalController;
-  late AnimationController _moodController;
-  late AnimationController _moodCardController;
-
-  late Animation<double> _glowAnimation;
-  late Animation<double> _floatAnimation;
+  late AnimationController _sparkleController;
+  late AnimationController _glowController;
+  late AnimationController _shimmerController;
+  late AnimationController _bounceController;
+  late AnimationController _rotateController;
+  late AnimationController _slideController;
+  
   late Animation<double> _waveAnimation;
-  late Animation<double> _modalScaleAnimation;
-  late Animation<double> _modalFadeAnimation;
-  late Animation<double> _moodScaleAnimation;
-  late Animation<double> _moodFadeAnimation;
-  late Animation<double> _moodCardScaleAnimation;
+  late Animation<double> _floatAnimation;
+  late Animation<double> _pulseAnimation;
+  late Animation<double> _sparkleAnimation;
+  late Animation<double> _glowAnimation;
+  late Animation<double> _shimmerAnimation;
+  late Animation<double> _bounceAnimation;
+  late Animation<double> _rotateAnimation;
+  late Animation<double> _slideAnimation;
 
-  // ── video button controllers ──
-  late AnimationController _videoBtnShineCtrl;
-  late AnimationController _videoBtnPulseCtrl;
-  late AnimationController _videoBtnStarCtrl;
-  late AnimationController _videoBtnLoadingCtrl;
-  late AnimationController _videoBtnReadyCtrl;
-  late Animation<double>   _videoBtnShineAnim;
-  late Animation<double>   _videoBtnPulseAnim;
-  late Animation<double>   _videoBtnStarAnim;
-  late Animation<double>   _videoBtnLoadingAnim;
-  late Animation<double>   _videoBtnReadyAnim;
+  // Background magic sparkles
+  List<_MagicSparkle> _magicSparkles = [];
+  double _sparkleTime = 0;
 
-  // ── video player ──
   VideoPlayerController? _videoController;
-  ChewieController?      _chewieController;
+  ChewieController? _chewieController;
   bool _videoInitialized = false;
-  bool _videoError       = false;
+  bool _videoError = false;
 
-  // app state
-  String _story = ''; List _panels = []; double _pct = 0;
-  bool _loading = false; String _genTime = ''; bool _showComic = false;
-
-  // video state: 'idle' | 'generating' | 'ready' | 'error'
+  String _story = '';
+  List _panels = [];
+  double _pct = 0;
+  bool _loading = false;
+  String _genTime = '';
+  bool _showComic = false;
   String _videoState = 'idle';
   String? _videoUrl;
 
-  // story word reading
-  bool _reading = false, _paused = false; int _cw = -1;
-  List<String> _words = []; List<int> _starts = [];
-
-  // ── Urdu TTS state ──
+  bool _reading = false, _paused = false;
+  int _cw = -1;
+  List<String> _words = [];
+  List<int> _starts = [];
   bool _urduReading = false;
+  bool _comicReading = false;
+  int _comicPanel = 0;
 
-  // comic panel storytelling
-  bool _comicReading = false; int _comicPanel = 0;
-
-  // confetti
-  List<_Piece> _pieces = []; bool _confOn = false;
-
-  // doodles
-  List<_Doodle> _doodles = []; double _doodleT = 0;
-
-  // wobble seeds per panel
   List<int> _seeds = [];
-
-  // animations
-  late AnimationController _acBounce, _acPulse, _acBg, _acConf,
-      _acReveal, _acTitle, _acLoad, _acWiggle;
-  late Animation<double> _aBounce, _aPulse, _aReveal, _aTitle, _aWiggle;
   List<AnimationController> _panelACs = [];
-  List<Animation<double>>   _panelSc  = [], _panelOp = [];
+  List<Animation<double>> _panelSc = [], _panelOp = [];
 
   late PageController _pageCtrl;
-
   bool _showVideoOverlay = false;
 
   @override
   void initState() {
     super.initState();
-
-    _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
-    _waveAnimation  = CurvedAnimation(parent: _waveController, curve: Curves.easeInOut);
-
-    _pulseController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-
-    _floatController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
-    _floatAnimation  = Tween<double>(begin: -3, end: 3).animate(CurvedAnimation(parent: _floatController, curve: Curves.easeInOut));
-
-    _glowController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-    _glowAnimation  = Tween<double>(begin: 0.8, end: 1.2).animate(CurvedAnimation(parent: _glowController, curve: Curves.easeInOut));
-
-    _sparkleController1 = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-    _sparkleController2 = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
-
-    _modalController    = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
-    _moodController     = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
-    _moodCardController = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
-    _bounceController   = AnimationController(vsync: this, duration: const Duration(milliseconds: 400));
-
-    _modalScaleAnimation = Tween<double>(begin: 0, end: 1).animate(_modalController);
-    _modalFadeAnimation  = Tween<double>(begin: 0, end: 1).animate(_modalController);
-    _moodScaleAnimation  = Tween<double>(begin: 0, end: 1).animate(_moodController);
-    _moodFadeAnimation   = Tween<double>(begin: 0, end: 1).animate(_moodController);
-    _moodCardScaleAnimation = Tween<double>(begin: 0, end: 1).animate(_moodCardController);
-
-    _videoBtnShineCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
-    _videoBtnShineAnim = CurvedAnimation(parent: _videoBtnShineCtrl, curve: Curves.easeInOut);
-
-    _videoBtnPulseCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 850))..repeat(reverse: true);
-    _videoBtnPulseAnim = Tween<double>(begin: 1.0, end: 1.07).animate(CurvedAnimation(parent: _videoBtnPulseCtrl, curve: Curves.easeInOut));
-
-    _videoBtnStarCtrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat(reverse: true);
-    _videoBtnStarAnim  = Tween<double>(begin: 0.7, end: 1.0).animate(CurvedAnimation(parent: _videoBtnStarCtrl, curve: Curves.easeInOut));
-
-    _videoBtnLoadingCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))..repeat();
-    _videoBtnLoadingAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _videoBtnLoadingCtrl, curve: Curves.linear));
-
-    _videoBtnReadyCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _videoBtnReadyAnim = Tween<double>(begin: 1.0, end: 1.15).animate(CurvedAnimation(parent: _videoBtnReadyCtrl, curve: Curves.elasticOut));
-
+    _initAnimations();
     _setupTts();
     _initSpeech();
     _pageCtrl = PageController();
-
-    _acBounce = AnimationController(vsync: this, duration: const Duration(milliseconds: 430));
-    _aBounce  = Tween(begin: 1.0, end: 1.32).animate(CurvedAnimation(parent: _acBounce, curve: Curves.elasticOut));
-
-    _acPulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat(reverse: true);
-    _aPulse  = Tween(begin: 1.0, end: 1.065).animate(CurvedAnimation(parent: _acPulse, curve: Curves.easeInOut));
-
-    _acWiggle = AnimationController(vsync: this, duration: const Duration(milliseconds: 380))..repeat(reverse: true);
-    _aWiggle  = Tween(begin: -1.8, end: 1.8).animate(CurvedAnimation(parent: _acWiggle, curve: Curves.easeInOut));
-
-    _acBg = AnimationController(vsync: this, duration: const Duration(seconds: 5))..repeat();
-    _acBg.addListener(() {
-      _doodleT = _acBg.value * pi * 2;
-      for (final d in _doodles) { d.y -= d.speed; d.angle += .007; if (d.y < -40) d.y = MediaQuery.of(context).size.height + 20; }
-      if (mounted) setState(() {});
-    });
-
-    _acConf = AnimationController(vsync: this, duration: const Duration(seconds: 3));
-    _acConf.addListener(() { for (final p in _pieces) p.tick(); if (mounted) setState(() {}); });
-    _acConf.addStatusListener((s) { if (s == AnimationStatus.completed) setState(() => _confOn = false); });
-
-    _acReveal = AnimationController(vsync: this, duration: const Duration(milliseconds: 550));
-    _aReveal  = CurvedAnimation(parent: _acReveal, curve: Curves.easeOutBack);
-
-    _acTitle = AnimationController(vsync: this, duration: const Duration(milliseconds: 2400))..repeat(reverse: true);
-    _aTitle  = Tween(begin: -5.0, end: 5.0).animate(CurvedAnimation(parent: _acTitle, curve: Curves.easeInOut));
-
-    _acLoad = AnimationController(vsync: this, duration: const Duration(milliseconds: 500))..repeat();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final s = MediaQuery.of(context).size;
-      setState(() { _doodles = List.generate(26, (_) => _Doodle(_rng, s.width, s.height)); });
-    });
+    
+    _bounceController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _bounceAnimation = Tween<double>(begin: 0.96, end: 1.04).animate(CurvedAnimation(parent: _bounceController, curve: Curves.easeInOut));
+    
+    _rotateController = AnimationController(vsync: this, duration: const Duration(seconds: 5))..repeat();
+    _rotateAnimation = Tween<double>(begin: 0, end: 2 * pi).animate(CurvedAnimation(parent: _rotateController, curve: Curves.linear));
+    
+    _slideController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+    _slideAnimation = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic));
   }
 
   @override
-  void dispose() {
-    _bounceController.dispose();
-    _waveController.dispose();
-    _glowController.dispose();
-    _floatController.dispose();
-    _pulseController.dispose();
-    _sparkleController1.dispose();
-    _sparkleController2.dispose();
-    _modalController.dispose();
-    _moodController.dispose();
-    _moodCardController.dispose();
-    _videoBtnShineCtrl.dispose();
-    _videoBtnPulseCtrl.dispose();
-    _videoBtnStarCtrl.dispose();
-    _videoBtnLoadingCtrl.dispose();
-    _videoBtnReadyCtrl.dispose();
-    _disposeVideo();
-    _ctrl.dispose(); _pageCtrl.dispose();
-    _stopRead(reset: true); _stopComicRead(); _tts.stop();
-    for (final c in [_acBounce, _acPulse, _acBg, _acConf, _acReveal, _acTitle, _acLoad, _acWiggle]) c.dispose();
-    for (final c in _panelACs) c.dispose();
-    super.dispose();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _initBackgroundSparkles();
   }
 
-  // ── Speech-to-text init ────────────────────────────────────
+  void _initAnimations() {
+    _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+    _waveAnimation = CurvedAnimation(parent: _waveController, curve: Curves.easeInOut);
+
+    _floatController = AnimationController(vsync: this, duration: const Duration(seconds: 3))..repeat(reverse: true);
+    _floatAnimation = Tween<double>(begin: -6, end: 6).animate(CurvedAnimation(parent: _floatController, curve: Curves.easeInOut));
+
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))..repeat(reverse: true);
+    _pulseAnimation = _pulseController;
+
+    _sparkleController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _sparkleAnimation = _sparkleController;
+
+    _glowController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _glowAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _glowController, curve: Curves.easeInOut));
+
+    _shimmerController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _shimmerAnimation = Tween<double>(begin: -1.5, end: 2.5).animate(CurvedAnimation(parent: _shimmerController, curve: Curves.easeInOut));
+  }
+
+  void _initBackgroundSparkles() {
+    final size = MediaQuery.of(context).size;
+    _magicSparkles = List.generate(50, (_) => _MagicSparkle(_rng, size.width, size.height));
+    _sparkleTime = 0;
+    
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(milliseconds: 50));
+      if (mounted) {
+        setState(() => _sparkleTime += 0.03);
+        return true;
+      }
+      return false;
+    });
+  }
+
   Future<void> _initSpeech() async {
     try {
       _speechAvailable = await _speech.initialize(
-        onStatus: (status) {
-          if (mounted) setState(() { _isListening = (status == 'listening'); });
-        },
-        onError: (error) {
-          if (mounted) {
-            setState(() => _isListening = false);
-            if (error.errorMsg != 'error_speech_timeout') {
-              _snack('🎙️ ${error.errorMsg}', K.orange);
-            }
-          }
-        },
-        debugLogging: false,
+        onStatus: (status) => setState(() => _isListening = (status == 'listening')),
+        onError: (_) => setState(() => _isListening = false),
       );
-    } catch (e) { _speechAvailable = false; }
-    if (mounted) setState(() {});
+    } catch (_) {
+      _speechAvailable = false;
+    }
+    setState(() {});
   }
 
   Future<void> _toggleListening() async {
     if (_isListening) {
       await _speech.stop();
-      if (mounted) setState(() => _isListening = false);
+      setState(() => _isListening = false);
       return;
     }
     if (!_speechAvailable) {
       _speechAvailable = await _speech.initialize(
-        onStatus: (status) { if (mounted) setState(() => _isListening = (status == 'listening')); },
-        onError: (error) { if (mounted) setState(() => _isListening = false); },
+        onStatus: (status) => setState(() => _isListening = (status == 'listening')),
+        onError: (_) => setState(() => _isListening = false),
       );
     }
     if (!_speechAvailable) {
-      _snack('🎙️ Microphone permission denied.\nGo to App Settings → Permissions → Microphone → Allow.', K.red);
+      _showSnackbar('🎙️ Microphone permission needed!', K.red);
       return;
     }
     setState(() => _isListening = true);
-    final bool started = await _speech.listen(
-      onResult: (result) {
-        if (mounted) setState(() {
-          _ctrl.text = result.recognizedWords;
-          _ctrl.selection = TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
-        });
-      },
+    final started = await _speech.listen(
+      onResult: (result) => setState(() {
+        _ctrl.text = result.recognizedWords;
+        _ctrl.selection = TextSelection.fromPosition(TextPosition(offset: _ctrl.text.length));
+      }),
       listenFor: const Duration(seconds: 30),
       pauseFor: const Duration(seconds: 5),
-      partialResults: true,
-      cancelOnError: false,
     );
     if (!started && mounted) {
       setState(() => _isListening = false);
-      _snack('🎙️ Could not start listening. Try again.', K.orange);
+      _showSnackbar('🎙️ Could not start listening', K.orange);
     }
   }
 
-  // ── Video player lifecycle ──────────────────────────────────
   void _disposeVideo() {
     _chewieController?.dispose();
     _videoController?.dispose();
     _chewieController = null;
-    _videoController  = null;
+    _videoController = null;
     _videoInitialized = false;
-    _videoError       = false;
+    _videoError = false;
   }
 
   Future<void> _initVideoPlayer(String url) async {
@@ -533,7 +493,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
       final ctrl = VideoPlayerController.networkUrl(Uri.parse(url));
       _videoController = ctrl;
       await ctrl.initialize();
-      final double ar = ctrl.value.aspectRatio > 0 ? ctrl.value.aspectRatio : 16 / 9;
+      final ar = ctrl.value.aspectRatio > 0 ? ctrl.value.aspectRatio : 16 / 9;
       _chewieController = ChewieController(
         videoPlayerController: ctrl,
         autoPlay: false,
@@ -543,100 +503,99 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
         showControls: true,
         aspectRatio: ar,
         materialProgressColors: ChewieProgressColors(
-          playedColor:     K.yellow,
-          handleColor:     K.orange,
+          playedColor: K.yellow,
+          handleColor: K.orange,
           backgroundColor: Colors.white24,
-          bufferedColor:   K.white.withOpacity(.35),
+          bufferedColor: Colors.white.withOpacity(0.35),
         ),
         placeholder: Container(
-          color: const Color(0xFF12005E),
-          child: const Center(child: CircularProgressIndicator(color: K.yellow, strokeWidth: 3)),
+          color: const Color(0xFF2D1B4E),
+          child: const Center(child: CircularProgressIndicator(color: K.yellow, strokeWidth: 4)),
         ),
-        errorBuilder: (_, msg) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.error_outline_rounded, color: K.red, size: 40),
-          const SizedBox(height: 8),
-          Text(msg, style: ts(12, K.red), textAlign: TextAlign.center),
-        ])),
       );
-      if (mounted) setState(() { _videoInitialized = true; _videoError = false; });
-    } catch (e) {
-      if (mounted) setState(() { _videoError = true; _videoInitialized = false; });
+      setState(() {
+        _videoInitialized = true;
+        _videoError = false;
+      });
+    } catch (_) {
+      setState(() {
+        _videoError = true;
+        _videoInitialized = false;
+      });
     }
   }
 
-  // ── TTS ──
   void _setupTts() async {
     await _tts.setLanguage('en-US');
-    await _tts.setSpeechRate(.42);
-    await _tts.setPitch(1.25);
+    await _tts.setSpeechRate(0.45);
+    await _tts.setPitch(1.15);
   }
 
-  // ── Story word reading ──
-  void _prepWords() {
+  void _prepareWords() {
     _words = _story.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    _starts = []; int pos = 0;
-    for (int i = 0; i < _words.length; i++) { _starts.add(pos); pos += _words[i].length + (i < _words.length - 1 ? 1 : 0); }
+    _starts = [];
+    int pos = 0;
+    for (int i = 0; i < _words.length; i++) {
+      _starts.add(pos);
+      pos += _words[i].length + (i < _words.length - 1 ? 1 : 0);
+    }
   }
 
-  void _startRead() async {
+  void _startReading() async {
     if (_story.isEmpty || (_reading && !_paused)) return;
-    if (_words.isEmpty) _prepWords();
+    if (_words.isEmpty) _prepareWords();
     if (_cw < 0 || !_paused) _cw = 0;
-    if (_cw >= _words.length) _cw = 0;
-    setState(() { _reading = true; _paused = false; _urduReading = false; });
+    setState(() {
+      _reading = true;
+      _paused = false;
+      _urduReading = false;
+    });
     await _tts.setLanguage('en-US');
     _tts.setProgressHandler((_, start, __, ___) {
       if (!_reading || _paused) return;
-      final idx = _wordAt(start);
-      if (idx != -1 && idx != _cw) { setState(() => _cw = idx); _acBounce..reset()..forward(); }
+      final idx = _findWordAt(start);
+      if (idx != -1 && idx != _cw) setState(() => _cw = idx);
     });
-    _tts.setCompletionHandler(() { if (!_paused) _stopRead(reset: true); });
+    _tts.setCompletionHandler(() {
+      if (!_paused) _stopReading(reset: true);
+    });
     await _tts.speak(_story.substring(_starts[_cw]));
   }
 
-  // ── Urdu TTS ──
-  Future<void> _startUrduRead() async {
+  Future<void> _startUrduReading() async {
     if (_story.isEmpty) return;
     if (_urduReading) {
       await _tts.stop();
-      if (mounted) setState(() => _urduReading = false);
+      setState(() => _urduReading = false);
       await _tts.setLanguage('en-US');
-      await _tts.setSpeechRate(.42);
-      await _tts.setPitch(1.25);
+      await _tts.setSpeechRate(0.45);
+      await _tts.setPitch(1.15);
       return;
     }
     await _tts.stop();
     await Future.delayed(const Duration(milliseconds: 150));
-    _stopRead(reset: true);
-    final dynamic langs = await _tts.getLanguages;
-    final List<String> available = (langs as List).map((e) => e.toString().toLowerCase()).toList();
-    final bool urduOk = available.any((l) => l.contains('ur'));
-    if (!urduOk) {
-      _snack('🇵🇰 Urdu TTS not found.\nGo to: Settings → Accessibility → TTS Output → Install Urdu', K.orange);
+    _stopReading(reset: true);
+    final langs = await _tts.getLanguages;
+    final available = (langs as List).map((e) => e.toString().toLowerCase()).toList();
+    if (!available.any((l) => l.contains('ur'))) {
+      _showSnackbar('🇵🇰 Urdu TTS not installed', K.orange);
       return;
     }
     await _tts.setLanguage('ur-PK');
-    await _tts.setSpeechRate(.36);
-    await _tts.setPitch(1.05);
+    await _tts.setSpeechRate(0.38);
+    await _tts.setPitch(1.08);
     await Future.delayed(const Duration(milliseconds: 250));
-    if (mounted) setState(() => _urduReading = true);
+    setState(() => _urduReading = true);
     _tts.setCompletionHandler(() async {
-      if (mounted) setState(() => _urduReading = false);
+      setState(() => _urduReading = false);
       await _tts.setLanguage('en-US');
-      await _tts.setSpeechRate(.42);
-      await _tts.setPitch(1.25);
-    });
-    _tts.setErrorHandler((msg) async {
-      if (mounted) setState(() => _urduReading = false);
-      await _tts.setLanguage('en-US');
-      await _tts.setSpeechRate(.42);
-      await _tts.setPitch(1.25);
-      _snack('🎙️ TTS error: $msg', K.red);
+      await _tts.setSpeechRate(0.45);
+      await _tts.setPitch(1.15);
     });
     await _tts.speak(_story);
   }
 
-  int _wordAt(int pos) {
+  int _findWordAt(int pos) {
     for (int i = 0; i < _starts.length; i++) {
       final end = i < _starts.length - 1 ? _starts[i + 1] - 1 : _story.length;
       if (pos >= _starts[i] && pos <= end) return i;
@@ -644,86 +603,123 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
     return -1;
   }
 
-  void _pauseRead() { if (!_reading || _paused) return; _tts.stop(); setState(() { _paused = true; _reading = false; }); }
-  void _stopRead({bool reset = false}) {
-    _tts.stop(); setState(() {
-      _reading = false; _paused = false; _urduReading = false;
-      if (reset) { _cw = -1; _words = []; _starts = []; }
+  void _pauseReading() {
+    if (!_reading || _paused) return;
+    _tts.stop();
+    setState(() {
+      _paused = true;
+      _reading = false;
     });
   }
 
-  // ── Comic storytelling ──
-  void _startComicRead() async {
-    if (_panels.isEmpty) return;
-    setState(() { _comicReading = true; _comicPanel = 0; });
-    if (_pageCtrl.hasClients) await _pageCtrl.animateToPage(0, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
-    _readPanel(0);
+  void _stopReading({bool reset = false}) {
+    _tts.stop();
+    setState(() {
+      _reading = false;
+      _paused = false;
+      _urduReading = false;
+      if (reset) {
+        _cw = -1;
+        _words = [];
+        _starts = [];
+      }
+    });
   }
 
-  void _readPanel(int idx) async {
-    if (!_comicReading || idx >= _panels.length) { _stopComicRead(); return; }
+  void _startComicReading() async {
+    if (_panels.isEmpty) return;
+    setState(() {
+      _comicReading = true;
+      _comicPanel = 0;
+    });
+    if (_pageCtrl.hasClients) {
+      await _pageCtrl.animateToPage(0, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
+    }
+    _readComicPanel(0);
+  }
+
+  void _readComicPanel(int idx) async {
+    if (!_comicReading || idx >= _panels.length) {
+      _stopComicReading();
+      return;
+    }
     setState(() => _comicPanel = idx);
     if (_pageCtrl.hasClients) {
       await _pageCtrl.animateToPage(idx, duration: const Duration(milliseconds: 650), curve: Curves.easeInOutCubic);
     }
     final panel = _panels[idx];
-    final text  = '${panel['title'] ?? ''}. ${panel['description'] ?? ''}';
-    _tts.setCompletionHandler(() { if (_comicReading) _readPanel(idx + 1); });
+    final text = '${panel['title'] ?? ''}. ${panel['description'] ?? ''}';
+    _tts.setCompletionHandler(() {
+      if (_comicReading) _readComicPanel(idx + 1);
+    });
     await _tts.speak(text);
   }
 
-  void _stopComicRead() { _tts.stop(); setState(() => _comicReading = false); }
-
-  // ── Confetti ──
-  void _burst() {
-    final w = MediaQuery.of(context).size.width;
-    _pieces = List.generate(130, (_) => _Piece(_rng, w));
-    setState(() => _confOn = true);
-    _acConf..reset()..forward();
+  void _stopComicReading() {
+    _tts.stop();
+    setState(() => _comicReading = false);
   }
 
-  // ── Panel animations ──
-  void _setupPanelAnims(int n) {
+  void _celebrateWithConfetti() {
+    _showCelebration();
+  }
+
+  void _showCelebration() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => const _CelebrationOverlay(),
+    );
+  }
+
+  void _setupPanelAnimations(int n) {
     for (final c in _panelACs) c.dispose();
-    _panelACs = List.generate(n, (_) => AnimationController(vsync: this, duration: const Duration(milliseconds: 620)));
-    _panelSc  = _panelACs.map((c) => Tween(begin: .4, end: 1.0).animate(CurvedAnimation(parent: c, curve: Curves.elasticOut))).toList();
-    _panelOp  = _panelACs.map((c) => Tween(begin: .0, end: 1.0).animate(CurvedAnimation(parent: c, curve: Curves.easeIn))).toList();
+    _panelACs = List.generate(n, (_) => AnimationController(vsync: this, duration: const Duration(milliseconds: 500)));
+    _panelSc = _panelACs.map((c) => Tween<double>(begin: 0.85, end: 1.0).animate(CurvedAnimation(parent: c, curve: Curves.elasticOut))).toList();
+    _panelOp = _panelACs.map((c) => Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: c, curve: Curves.easeIn))).toList();
   }
 
-  void _animPanels() async {
+  void _animatePanels() async {
     for (int i = 0; i < _panelACs.length; i++) {
-      await Future.delayed(Duration(milliseconds: i * 200));
-      if (mounted) _panelACs[i].forward(from: 0);
+      await Future.delayed(Duration(milliseconds: i * 100));
+      if (mounted) _panelACs[i].forward();
     }
   }
 
-  void _toggle() {
+  void _toggleComic() {
     setState(() => _showComic = !_showComic);
-    if (_showComic) { _acReveal.forward(from: 0); Future.delayed(const Duration(milliseconds: 300), _animPanels); }
-    else { _acReveal.reverse(); _stopComicRead(); }
+    if (_showComic) {
+      _animatePanels();
+      _slideController.forward();
+    } else {
+      _stopComicReading();
+    }
   }
 
-  // ── GENERATE ──
-  Future<void> _generate() async {
+  Future<void> _generateStory() async {
     final prompt = _ctrl.text.trim();
-    if (prompt.isEmpty) { _snack('✏️ Type a story idea first!', K.orange); return; }
-    _stopRead(reset: true); _stopComicRead();
+    if (prompt.isEmpty) {
+      _showSnackbar('✏️ Type a magical story idea first!', K.orange);
+      return;
+    }
+    _stopReading(reset: true);
+    _stopComicReading();
     _disposeVideo();
     setState(() {
-      _loading = true; _story = ''; _panels = []; _pct = 0; _genTime = '';
-      _showComic = false; _seeds = [];
+      _loading = true;
+      _story = '';
+      _panels = [];
+      _pct = 0;
+      _genTime = '';
+      _showComic = false;
+      _seeds = [];
       _videoState = 'generating';
-      _videoUrl   = null;
+      _videoUrl = null;
       _showVideoOverlay = false;
     });
-    _acReveal.reset();
 
     try {
-      // ── Pass language param to the server ──
-      final url = '$_base/generate-story-comic-stream'
-          '?prompt=${Uri.encodeComponent(prompt)}'
-          '&language=$_selectedLanguage';
-
+      final url = '$_base/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}&language=$_selectedLanguage';
       final req = http.Request('GET', Uri.parse(url));
       final res = await req.send();
       res.stream.transform(utf8.decoder).listen((chunk) {
@@ -735,11 +731,16 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
             final data = jsonDecode(js);
             setState(() {
               _pct = (data['progress'] ?? _pct).toDouble();
-              if (data['story'] != null) { _story = data['story']; _words = []; _starts = []; _cw = -1; }
+              if (data['story'] != null) {
+                _story = data['story'];
+                _words = [];
+                _starts = [];
+                _cw = -1;
+              }
               if (data['panels'] != null) {
                 _panels = List.from(data['panels']);
-                _seeds  = List.generate(_panels.length, (i) => i * 137 + 91);
-                _setupPanelAnims(_panels.length);
+                _seeds = List.generate(_panels.length, (i) => i * 137 + 91);
+                _setupPanelAnimations(_panels.length);
               }
               if (data['panelIndex'] != null && data['image'] != null) {
                 final idx = data['panelIndex'] as int;
@@ -749,171 +750,112 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
                 }
               }
               if (data['step'] == 'done') {
-                _loading  = false;
-                _genTime  = data['generationTime'] ?? '';
+                _loading = false;
+                _genTime = data['generationTime'] ?? '';
                 final vUrl = data['videoUrl'];
                 if (vUrl != null && (vUrl as String).isNotEmpty) {
-                  _videoUrl   = vUrl;
+                  _videoUrl = vUrl;
                   _videoState = 'ready';
-                  _videoBtnReadyCtrl.forward(from: 0);
                   _initVideoPlayer(vUrl);
                 } else {
                   _videoState = 'idle';
                 }
-                _burst();
+                _celebrateWithConfetti();
               }
             });
           } catch (_) {}
         }
       }, onError: (_) {
-        setState(() { _loading = false; _videoState = 'error'; });
+        setState(() {
+          _loading = false;
+          _videoState = 'error';
+        });
       });
     } catch (_) {
-      setState(() { _loading = false; _videoState = 'idle'; });
-      _snack('❌ Oops! Something went wrong.', K.red);
+      setState(() {
+        _loading = false;
+        _videoState = 'idle';
+      });
+      _showSnackbar('❌ Oops! Something went wrong.', K.red);
     }
   }
 
-  void _snack(String msg, Color c) {
+  void _showSnackbar(String msg, Color c) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg, style: ts(15, K.white)),
-      backgroundColor: c, behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      content: Row(
+        children: [
+          const Icon(Icons.star, color: K.yellow, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(msg, style: ts(14, K.white))),
+        ],
+      ),
+      backgroundColor: c,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       margin: const EdgeInsets.all(16),
+      duration: const Duration(seconds: 2),
     ));
   }
 
-  // ════════════════════════════════════════════════════════
-  //  BUILD
-  // ════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final user         = Provider.of<UserProvider>(context).user;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth  = MediaQuery.of(context).size.width;
-
     return Scaffold(
       backgroundColor: K.bg,
-      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          Positioned.fill(child: CustomPaint(painter: _HalftonePainter(K.ink.withOpacity(.033)))),
-          if (_doodles.isNotEmpty)
-            Positioned.fill(child: CustomPaint(painter: _DoodlePainter(_doodles, _doodleT))),
+          // Premium Animated Background
+          if (_magicSparkles.isNotEmpty)
+            AnimatedBuilder(
+              animation: _sparkleController,
+              builder: (_, __) => CustomPaint(
+                painter: _MagicSparklePainter(_magicSparkles, _sparkleTime),
+                size: MediaQuery.of(context).size,
+              ),
+            ),
 
           SafeArea(
             child: Column(
               children: [
-                // ── ANIMATED HEADER ──
-                Stack(children: [
-                  AnimatedBuilder(
-                    animation: _waveController,
-                    builder: (context, child) => Container(
-                      height: screenHeight * 0.19,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft, end: Alignment.bottomRight,
-                          colors: [
-                            Color.lerp(const Color(0xFF667EEA), const Color(0xFF764BA2), _waveAnimation.value)!,
-                            Color.lerp(const Color(0xFF764BA2), const Color(0xFFF093FB), _waveAnimation.value)!,
-                          ],
-                        ),
-                        borderRadius: const BorderRadius.only(
-                          bottomLeft: Radius.circular(35), bottomRight: Radius.circular(35)),
-                      ),
-                    ),
-                  ),
-                  Positioned(top: -20, right: -20,
-                    child: AnimatedBuilder(animation: _pulseController, builder: (context, child) =>
-                      Container(
-                        width: 80 + _pulseController.value * 15,
-                        height: 80 + _pulseController.value * 15,
-                        decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white.withOpacity(0.1)),
-                      ))),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04, vertical: screenHeight * 0.015),
-                    child: Column(children: [
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        AnimatedBuilder(animation: _floatController, builder: (context, child) =>
-                          Transform.translate(offset: Offset(0, _floatAnimation.value),
-                            child: Row(children: [
-                              Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                                child: AnimatedBuilder(animation: _sparkleController1, builder: (context, child) =>
-                                  Transform.scale(scale: 0.9 + (_sparkleController1.value * 0.2),
-                                    child: Container(
-                                      decoration: BoxDecoration(boxShadow: [BoxShadow(color: Colors.white.withOpacity(0.6), blurRadius: 10, spreadRadius: 1)]),
-                                      child: Image.asset("assets/images/logo.png", width: 30, height: 30),
-                                    ))),
-                              ),
-                              const SizedBox(width: 8),
-                              Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-                                Text("MAGIC STORY", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2, color: Colors.white)),
-                                Text("Adventure Awaits!", style: TextStyle(fontSize: 9, color: Colors.white70)),
-                              ]),
-                            ]))),
-                        AnimatedBuilder(animation: _glowAnimation, builder: (context, child) =>
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(20)),
-                            child: Row(children: [
-                              Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
-                                child: const Icon(Icons.person, color: Color(0xFF667EEA), size: 12)),
-                              const SizedBox(width: 6),
-                              Text(user.name.split(" ")[0], style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.white)),
-                              const SizedBox(width: 4),
-                              const Icon(Icons.verified, color: Colors.yellow, size: 10),
-                            ]),
-                          )),
-                      ]),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(25)),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          const Icon(Icons.auto_awesome, color: Colors.yellow, size: 14),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text("Create Magic Story",
-                            style: const TextStyle(fontSize: 15, color: Colors.white, fontWeight: FontWeight.bold),
-                            textAlign: TextAlign.center)),
-                        ]),
-                      ),
-                    ]),
-                  ),
-                ]),
+                // Premium Header
+                MagicHeader(
+                  waveAnimation: _waveAnimation,
+                  floatAnimation: _floatAnimation,
+                  pulseAnimation: _pulseAnimation,
+                  sparkleAnimation1: _sparkleAnimation,
+                  sparkleAnimation2: _sparkleAnimation,
+                  glowAnimation: _glowAnimation,
+                  shimmerAnimation: _shimmerAnimation,
+                  selectedCharacterName: null,
+                  hasSelectedCharacter: false,
+                  height: 160,
+                ),
 
-                // ── SCROLLABLE BODY ──
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 48),
+                    padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const SizedBox(height: 14),
-                        _inputCard(),
-                        const SizedBox(height: 14),
-                        // ── LANGUAGE TOGGLE ──
-                        _languageToggle(),
-                        const SizedBox(height: 14),
-                        _genBtn(),
-                        const SizedBox(height: 14),
-                        _videoBtn(),
-
-                        if (_loading) ...[const SizedBox(height: 14), _progressCard()],
-
+                        _buildPremiumInputCard(),
+                        const SizedBox(height: 18),
+                        _buildProfessionalLanguageToggle(),
+                        const SizedBox(height: 18),
+                        _buildPremiumGenerateButton(),
+                        const SizedBox(height: 18),
+                        if (_loading) _buildPremiumProgressCard(),
                         if (_videoState == 'ready' && _videoUrl != null) ...[
                           const SizedBox(height: 18),
-                          _videoCard(),
+                          _buildPremiumVideoCard(),
                         ],
-
-                        if (_story.isNotEmpty) ...[const SizedBox(height: 18), _storySection()],
-
+                        if (_story.isNotEmpty) ...[
+                          const SizedBox(height: 18),
+                          _buildPremiumStorySection(),
+                        ],
                         if (_panels.isNotEmpty) ...[
                           const SizedBox(height: 18),
-                          _toggleBtn(),
-                          _comicSection(),
+                          _buildProfessionalToggleButton(),
+                          const SizedBox(height: 16),
+                          _buildPremiumComicSection(),
                         ],
                       ],
                     ),
@@ -923,1049 +865,1254 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
             ),
           ),
 
-          if (_confOn)
-            Positioned.fill(child: IgnorePointer(
-              child: CustomPaint(painter: _ConfPainter(_pieces), size: MediaQuery.of(context).size),
-            )),
-
-          if (_showVideoOverlay && _videoUrl != null)
-            _videoOverlay(),
+          if (_showVideoOverlay && _videoUrl != null) _buildPremiumVideoOverlay(),
         ],
       ),
     );
   }
 
-  // ════════════════════════════════════════════════════════
-  //  🌐  LANGUAGE TOGGLE BUTTON
-  // ════════════════════════════════════════════════════════
-  Widget _languageToggle() {
-    final bool isEnglish = _selectedLanguage == 'english';
-
-    return Container(
-      decoration: BoxDecoration(
-        color: K.surface,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: K.ink, width: 3.5),
-        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
-      ),
-      padding: const EdgeInsets.all(5),
-      child: Row(children: [
-        // ── English Option ──
-        Expanded(
-          child: GestureDetector(
-            onTap: _loading ? null : () => setState(() => _selectedLanguage = 'english'),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeInOut,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: isEnglish ? K.blue : Colors.transparent,
-                borderRadius: BorderRadius.circular(17),
-                border: isEnglish ? Border.all(color: K.ink, width: 2.5) : null,
-                boxShadow: isEnglish
-                    ? const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)]
-                    : null,
-              ),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text('🇺🇸', style: TextStyle(fontSize: isEnglish ? 22 : 18)),
-                const SizedBox(width: 8),
-                Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('English',
-                    style: ts(14, isEnglish ? K.white : K.ink.withOpacity(.55),
-                      fw: isEnglish ? FontWeight.w900 : FontWeight.w600)),
-                  Text('Video in English',
-                    style: tb(9, isEnglish ? K.white.withOpacity(.8) : K.ink.withOpacity(.35),
-                      fw: FontWeight.w500)),
-                ]),
-                if (isEnglish) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: K.white.withOpacity(.22),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text('ON', style: ts(9, K.yellow)),
-                  ),
-                ],
-              ]),
-            ),
-          ),
-        ),
-        const SizedBox(width: 5),
-        // ── Urdu Option ──
-        Expanded(
-          child: GestureDetector(
-            onTap: _loading ? null : () => setState(() => _selectedLanguage = 'urdu'),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 280),
-              curve: Curves.easeInOut,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(
-                color: !isEnglish ? K.purple : Colors.transparent,
-                borderRadius: BorderRadius.circular(17),
-                border: !isEnglish ? Border.all(color: K.ink, width: 2.5) : null,
-                boxShadow: !isEnglish
-                    ? const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)]
-                    : null,
-              ),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Text('🇵🇰', style: TextStyle(fontSize: !isEnglish ? 22 : 18)),
-                const SizedBox(width: 8),
-                Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('اردو',
-                    style: ts(14, !isEnglish ? K.white : K.ink.withOpacity(.55),
-                      fw: !isEnglish ? FontWeight.w900 : FontWeight.w600)),
-                  Text('Roman Urdu voice',
-                    style: tb(9, !isEnglish ? K.white.withOpacity(.8) : K.ink.withOpacity(.35),
-                      fw: FontWeight.w500)),
-                ]),
-                if (!isEnglish) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: K.white.withOpacity(.22),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text('ON', style: ts(9, K.yellow)),
-                  ),
-                ],
-              ]),
-            ),
-          ),
-        ),
-      ]),
-    );
-  }
-
-  // ════════════════════════════════════════════════════════
-  //  🎬  VIDEO BUTTON
-  // ════════════════════════════════════════════════════════
-  Widget _videoBtn() {
-    final bool isReady      = _videoState == 'ready';
-    final bool isGenerating = _videoState == 'generating';
-    final bool isUrdu       = _selectedLanguage == 'urdu';
-
+  // ═══════════════════════════════════════════════════════════════════
+  //  PREMIUM INPUT CARD - Glassmorphism Style
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildPremiumInputCard() {
     return AnimatedBuilder(
-      animation: Listenable.merge([
-        _videoBtnPulseAnim, _videoBtnShineAnim,
-        _videoBtnStarAnim,  _videoBtnLoadingAnim,
-        _videoBtnReadyAnim,
-      ]),
-      builder: (context, child) {
-        double scale = isReady ? _videoBtnPulseAnim.value : 1.0;
-        return Transform.scale(
-          scale: scale,
-          child: GestureDetector(
-            onTap: isReady ? () => setState(() => _showVideoOverlay = true) : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 500),
-              height: 72,
-              decoration: BoxDecoration(
-                gradient: isReady
-                    ? const LinearGradient(
-                        colors: [Color(0xFF6200EA), Color(0xFFAA00FF), Color(0xFFFFD600)],
-                        begin: Alignment.topLeft, end: Alignment.bottomRight)
-                    : isGenerating
-                        ? const LinearGradient(colors: [Color(0xFF2D0060), Color(0xFF4A0080)])
-                        : LinearGradient(colors: [Colors.grey.shade400, Colors.grey.shade500]),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: isReady ? K.ink : isGenerating ? const Color(0xFF7B00FF) : Colors.grey.shade400,
-                  width: 3.5,
+      animation: _shimmerAnimation,
+      builder: (_, __) => Container(
+        decoration: BoxDecoration(
+          gradient: _isListening 
+              ? const LinearGradient(colors: [K.red, K.orange, K.yellow])
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [K.surface, K.surface.withOpacity(0.95)],
                 ),
-                boxShadow: isReady
-                    ? const [
-                        BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0),
-                        BoxShadow(color: Color(0x55AA00FF), blurRadius: 22, offset: Offset(0, 8)),
-                      ]
-                    : isGenerating
-                        ? [BoxShadow(color: const Color(0xFF7B00FF).withOpacity(.35), blurRadius: 16)]
-                        : [],
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Stack(alignment: Alignment.center, children: [
-                if (isReady)
-                  Positioned.fill(child: Container(
-                    decoration: BoxDecoration(gradient: LinearGradient(
-                      begin: Alignment(_videoBtnShineAnim.value * 2 - 1, -0.5),
-                      end:   Alignment(_videoBtnShineAnim.value * 2,      0.5),
-                      colors: [Colors.transparent, Colors.white.withOpacity(0.18), Colors.transparent],
-                    )),
-                  )),
-                if (isReady)
-                  Positioned(left: 16, child: Transform.scale(
-                    scale: _videoBtnStarAnim.value,
-                    child: const Text('⭐', style: TextStyle(fontSize: 20)),
-                  )),
-                if (isReady)
-                  Positioned(right: 16, child: Transform.scale(
-                    scale: 1.0 - (_videoBtnStarAnim.value - 0.7),
-                    child: const Text('🌟', style: TextStyle(fontSize: 20)),
-                  )),
-                if (isGenerating)
-                  Positioned(left: 16, child: Transform.rotate(
-                    angle: _videoBtnLoadingAnim.value * 2 * pi,
-                    child: const Text('🎬', style: TextStyle(fontSize: 26)),
-                  )),
-                if (isGenerating)
-                  Positioned(right: 14, child: AnimatedBuilder(
-                    animation: _acLoad,
-                    builder: (_, __) {
-                      final dots = '●' * ((_acLoad.value * 3).floor().clamp(1, 3));
-                      return Text(dots, style: ts(14, Colors.white.withOpacity(.6)));
-                    },
-                  )),
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (!isGenerating)
-                    Text(isReady ? '' : '🎞️', style: const TextStyle(fontSize: 30)),
-                  if (!isGenerating) const SizedBox(width: 10),
-                  if (isGenerating) const SizedBox(width: 48),
-                  Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text(
-                      isReady ? '  WATCH MY Magic Story!'
-                          : isGenerating
-                              ? (isUrdu ? 'Creating Urdu video...' : 'Creating English video...')
-                              : 'MAKE A VIDEO!',
-                      style: ts(isGenerating ? 16 : 19, K.white, fw: FontWeight.w900,
-                          sh: [const Shadow(color: Colors.black38, offset: Offset(0, 2), blurRadius: 4)]),
-                    ),
-                    Text(
-                      isReady
-                          ? 'Tap to watch your Magic Story! 🍿'
-                          : isGenerating
-                              ? (isUrdu ? '🇵🇰 Roman Urdu voiceover magic ✨' : '🇺🇸 English voiceover magic ✨')
-                              : 'Create a comic first!',
-                      style: tb(11, isReady ? K.white.withOpacity(.88) : Colors.white54),
-                    ),
-                  ]),
-                ]),
-              ]),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(color: _isListening ? K.white : K.purple, width: 3),
+          boxShadow: [
+            BoxShadow(
+              color: (_isListening ? K.red : K.purple).withOpacity(0.3),
+              blurRadius: _isListening ? 24 : 14,
+              offset: Offset(0, _isListening ? 0 : 6),
+              spreadRadius: _isListening ? 2 : 1,
             ),
-          ),
-        );
-      },
-    );
-  }
-
-  // ════════════════════════════════════════════════════════
-  //  📺  VIDEO CARD
-  // ════════════════════════════════════════════════════════
-  Widget _videoCard() {
-    return LayoutBuilder(builder: (context, constraints) {
-      final double videoH = constraints.maxWidth * 9 / 16;
-
-      return AnimatedBuilder(
-        animation: _videoBtnReadyAnim,
-        builder: (_, child) => Transform.scale(scale: _videoBtnReadyAnim.value, child: child),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D003D),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: K.ink, width: 3.5),
-            boxShadow: const [
-              BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0),
-              BoxShadow(color: Color(0x55AA00FF), blurRadius: 24, offset: Offset(0, 10)),
-            ],
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF6200EA), Color(0xFFAA00FF), Color(0xFFFFD600)],
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                ),
-              ),
-              child: Row(children: [
-                AnimatedBuilder(
-                  animation: _videoBtnLoadingAnim,
-                  builder: (_, __) => Transform.rotate(
-                    angle: _videoInitialized ? 0 : _videoBtnLoadingAnim.value * 2 * pi,
-                    child: const Text('🎬', style: TextStyle(fontSize: 26)),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('YOUR MAGIC VIDEO IS READY!', style: ts(13, K.white, fw: FontWeight.w900)),
-                  Text(
-                    _videoInitialized
-                        ? (_selectedLanguage == 'urdu'
-                            ? '🇵🇰 Roman Urdu voiceover • Tap play! 🍿'
-                            : '🇺🇸 English voiceover • Tap play! 🍿')
-                        : _videoError ? '⚠️ Could not load video'
-                        : 'Loading video player...',
-                    style: tb(10, K.white.withOpacity(.88)),
-                  ),
-                ])),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: K.white.withOpacity(.2),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: K.white, width: 1.5),
-                  ),
-                  child: Text('✨ NEW', style: ts(9, K.yellow)),
-                ),
-              ]),
-            ),
-            SizedBox(
-              height: videoH,
-              child: _videoInitialized && _chewieController != null
-                  ? Chewie(controller: _chewieController!)
-                  : Stack(alignment: Alignment.center, children: [
-                      Positioned.fill(child: Container(decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFF12005E), Color(0xFF4A0080)],
-                          begin: Alignment.topLeft, end: Alignment.bottomRight,
-                        ),
-                      ))),
-                      _FilmStrip(top: 8),
-                      _FilmStrip(bottom: 8),
-                      _videoError
-                          ? Column(mainAxisSize: MainAxisSize.min, children: [
-                              const Icon(Icons.error_outline_rounded, color: K.red, size: 48),
-                              const SizedBox(height: 10),
-                              Text('Could not play video', style: ts(14, K.red)),
-                              const SizedBox(height: 6),
-                              Text('Check your connection', style: tb(11, Colors.white54)),
-                            ])
-                          : Column(mainAxisSize: MainAxisSize.min, children: [
-                              AnimatedBuilder(
-                                animation: _videoBtnLoadingAnim,
-                                builder: (_, __) => Transform.rotate(
-                                  angle: _videoBtnLoadingAnim.value * 2 * pi,
-                                  child: const Text('🎞️', style: TextStyle(fontSize: 60, color: Colors.white24)),
-                                ),
-                              ),
-                              const SizedBox(height: 14),
-                              const SizedBox(
-                                width: 36, height: 36,
-                                child: CircularProgressIndicator(color: K.yellow, strokeWidth: 3),
-                              ),
-                              const SizedBox(height: 12),
-                              Text('Preparing your movie...', style: ts(13, K.yellow)),
-                            ]),
-                    ]),
-            ),
-            Container(
-              color: const Color(0xFF1A0035),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Row(children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _showVideoOverlay = true),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF6200EA), Color(0xFFAA00FF)]),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: K.yellow, width: 2),
-                        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
-                      ),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        const Icon(Icons.fullscreen_rounded, color: K.yellow, size: 20),
-                        const SizedBox(width: 6),
-                        Text('Full Screen', style: ts(13, K.yellow)),
-                      ]),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                GestureDetector(
-                  onTap: _videoInitialized ? () async {
-                    await _videoController?.seekTo(Duration.zero);
-                    _chewieController?.play();
-                  } : null,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 300),
-                    opacity: _videoInitialized ? 1.0 : 0.35,
-                    child: Container(
-                      width: 50, height: 48,
-                      decoration: BoxDecoration(
-                        color: K.yellow,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: K.ink, width: 2.5),
-                        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
-                      ),
-                      child: const Icon(Icons.replay_rounded, color: K.ink, size: 26),
-                    ),
-                  ),
-                ),
-              ]),
-            ),
-          ]),
+          ],
         ),
-      );
-    });
-  }
-
-  // ════════════════════════════════════════════════════════
-  //  📽️  FULL-SCREEN VIDEO OVERLAY
-  // ════════════════════════════════════════════════════════
-  Widget _videoOverlay() {
-    return Material(
-      color: Colors.black.withOpacity(.96),
-      child: SafeArea(
-        child: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-            child: Row(children: [
-              GestureDetector(
-                onTap: () => setState(() => _showVideoOverlay = false),
-                child: Container(
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(.1),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white24, width: 1.5),
-                  ),
-                  child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+        child: Stack(
+          children: [
+            if (!_isListening)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(37),
+                child: ShaderMask(
+                  shaderCallback: (rect) => const LinearGradient(
+                    colors: [Colors.transparent, Colors.white, Colors.transparent],
+                    stops: [0, 0.5, 1],
+                  ).createShader(rect),
+                  child: Container(color: Colors.white.withOpacity(0.1)),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(child: Text('🎬  Your Magic Video', style: ts(17, K.yellow))),
-              // Language badge in overlay
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _selectedLanguage == 'urdu' ? K.purple.withOpacity(.3) : K.blue.withOpacity(.3),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _selectedLanguage == 'urdu' ? K.purple : K.blue,
-                    width: 1.5,
-                  ),
+            Row(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(left: 18),
+                  child: _FloatingCharacter('🌈', duration: 2.5),
                 ),
-                child: Text(
-                  _selectedLanguage == 'urdu' ? '🇵🇰 Roman Urdu' : '🇺🇸 English',
-                  style: ts(10, K.white),
-                ),
-              ),
-              if (_videoInitialized) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () async {
-                    await _videoController?.seekTo(Duration.zero);
-                    _chewieController?.play();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(9),
-                    decoration: BoxDecoration(
-                      color: K.yellow.withOpacity(.15),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: K.yellow, width: 1.5),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    style: tb(16, _isListening ? K.white : K.ink),
+                    decoration: InputDecoration(
+                      hintText: _isListening ? '🎙️ Listening to your magical idea...' : "✨ What's your story about? ✨",
+                      hintStyle: tb(14, _isListening ? K.white.withOpacity(0.9) : Colors.grey.shade500),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Icon(Icons.replay_rounded, color: K.yellow, size: 22),
+                  ),
+                ),
+                _PremiumPulseButton(
+                  isActive: !_isListening,
+                  onTap: _toggleListening,
+                  pulseColor: K.purple,
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 14),
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: _isListening 
+                          ? const LinearGradient(colors: [K.white, K.yellow])
+                          : LinearGradient(colors: [K.purple.withOpacity(0.15), K.purple.withOpacity(0.05)]),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: _isListening ? K.purple : K.purple, width: 2.5),
+                      boxShadow: _isListening ? [BoxShadow(color: K.yellow.withOpacity(0.5), blurRadius: 14)] : [],
+                    ),
+                    child: Icon(
+                      _isListening ? Icons.mic : Icons.mic_none_rounded,
+                      color: _isListening ? K.purple : K.purple,
+                      size: 26,
+                    ),
                   ),
                 ),
               ],
-            ]),
-          ),
-          Expanded(
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: LayoutBuilder(builder: (context, constraints) {
-                  final double ar = _videoInitialized && _videoController != null
-                      ? _videoController!.value.aspectRatio
-                      : 16 / 9;
-                  final double maxW = constraints.maxWidth;
-                  final double maxH = constraints.maxHeight;
-                  double w = maxW;
-                  double h = w / ar;
-                  if (h > maxH) { h = maxH; w = h * ar; }
-                  return Container(
-                    width: w, height: h,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: K.yellow, width: 3),
-                      boxShadow: [BoxShadow(color: K.yellow.withOpacity(.3), blurRadius: 28, spreadRadius: 4)],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: _videoInitialized && _chewieController != null
-                        ? Chewie(controller: _chewieController!)
-                        : Stack(alignment: Alignment.center, children: [
-                            Container(decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFF0D003D), Color(0xFF3D0080)],
-                                begin: Alignment.topLeft, end: Alignment.bottomRight,
-                              ),
-                            )),
-                            _videoError
-                                ? Column(mainAxisSize: MainAxisSize.min, children: [
-                                    const Icon(Icons.error_outline_rounded, color: K.red, size: 56),
-                                    const SizedBox(height: 14),
-                                    Text('Video failed to load', style: ts(16, K.red)),
-                                    const SizedBox(height: 10),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(.07),
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: Colors.white24),
-                                        ),
-                                        child: Text(_videoUrl ?? '', style: tb(10, Colors.white54),
-                                          maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
-                                      ),
-                                    ),
-                                  ])
-                                : Column(mainAxisSize: MainAxisSize.min, children: [
-                                    AnimatedBuilder(
-                                      animation: _videoBtnLoadingAnim,
-                                      builder: (_, __) => Transform.rotate(
-                                        angle: _videoBtnLoadingAnim.value * 2 * pi,
-                                        child: const Text('🎞️',
-                                            style: TextStyle(fontSize: 80, color: Colors.white24)),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 20),
-                                    const SizedBox(
-                                      width: 40, height: 40,
-                                      child: CircularProgressIndicator(color: K.yellow, strokeWidth: 3.5),
-                                    ),
-                                    const SizedBox(height: 14),
-                                    Text('Loading your movie...', style: ts(15, K.yellow)),
-                                  ]),
-                          ]),
-                  );
-                }),
-              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-            child: GestureDetector(
-              onTap: () => setState(() => _showVideoOverlay = false),
-              child: Container(
-                height: 52,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFF6200EA), Color(0xFFAA00FF)]),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: K.yellow, width: 2.5),
-                  boxShadow: const [BoxShadow(color: K.ink, offset: Offset(4, 4), blurRadius: 0)],
-                ),
-                child: Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.check_circle_outline_rounded, color: K.yellow, size: 22),
-                  const SizedBox(width: 8),
-                  Text('Done Watching', style: ts(15, K.white)),
-                ])),
-              ),
-            ),
-          ),
-        ]),
+          ],
+        ),
       ),
     );
   }
 
-  // ════════════════════════════════════════════════════════
-  //  INPUT CARD
-  // ════════════════════════════════════════════════════════
-  Widget _inputCard() {
+  // ═══════════════════════════════════════════════════════════════════
+  //  PROFESSIONAL LANGUAGE TOGGLE - Child-friendly interaction
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildProfessionalLanguageToggle() {
+    final isEnglish = _selectedLanguage == 'english';
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Container(
       decoration: BoxDecoration(
         color: K.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(
-          color: _isListening ? K.red : K.ink,
-          width: _isListening ? 4.0 : 3.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _isListening ? K.red.withOpacity(.35) : K.ink,
-            offset: _isListening ? Offset.zero : const Offset(5, 5),
-            blurRadius: _isListening ? 18 : 0,
-            spreadRadius: _isListening ? 2 : 0,
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: K.ink, width: 3),
+        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
+      ),
+      padding: const EdgeInsets.all(6),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: _loading ? null : () => setState(() => _selectedLanguage = 'english'),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: EdgeInsets.symmetric(vertical: screenWidth < 380 ? 12 : 14),
+                decoration: BoxDecoration(
+                  gradient: isEnglish ? const LinearGradient(colors: [K.blue, K.cyan]) : null,
+                  color: isEnglish ? null : Colors.white,
+                  borderRadius: BorderRadius.circular(34),
+                  border: Border.all(color: isEnglish ? K.white : K.purple.withOpacity(0.25), width: isEnglish ? 2.5 : 1.5),
+                  boxShadow: isEnglish ? const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)] : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedBuilder(
+                      animation: _bounceAnimation,
+                      builder: (_, __) => Transform.scale(
+                        scale: isEnglish ? _bounceAnimation.value : 1.0,
+                        child: Text('🇺🇸', style: TextStyle(fontSize: screenWidth < 380 ? 22 : (isEnglish ? 28 : 24))),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'English',
+                          style: ts(screenWidth < 380 ? 12 : 14, isEnglish ? K.white : K.ink.withOpacity(0.6),
+                              fw: isEnglish ? FontWeight.w900 : FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    if (isEnglish) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: screenWidth < 380 ? 5 : 8, vertical: screenWidth < 380 ? 3 : 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [K.yellow, K.orange]),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: FittedBox(
+                          child: Text('ACTIVE', style: ts(screenWidth < 380 ? 8 : 10, K.ink, fw: FontWeight.w900)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: GestureDetector(
+              onTap: _loading ? null : () => setState(() => _selectedLanguage = 'urdu'),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: EdgeInsets.symmetric(vertical: screenWidth < 380 ? 12 : 14),
+                decoration: BoxDecoration(
+                  gradient: !isEnglish ? const LinearGradient(colors: [K.purple, K.pink]) : null,
+                  color: !isEnglish ? null : Colors.white,
+                  borderRadius: BorderRadius.circular(34),
+                  border: Border.all(color: !isEnglish ? K.white : K.purple.withOpacity(0.25), width: !isEnglish ? 2.5 : 1.5),
+                  boxShadow: !isEnglish ? const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)] : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedBuilder(
+                      animation: _bounceAnimation,
+                      builder: (_, __) => Transform.scale(
+                        scale: !isEnglish ? _bounceAnimation.value : 1.0,
+                        child: Text('🇵🇰', style: TextStyle(fontSize: screenWidth < 380 ? 22 : (!isEnglish ? 28 : 24))),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'اردو',
+                          style: ts(screenWidth < 380 ? 12 : 14, !isEnglish ? K.white : K.ink.withOpacity(0.6),
+                              fw: !isEnglish ? FontWeight.w900 : FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    if (!isEnglish) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: screenWidth < 380 ? 5 : 8, vertical: screenWidth < 380 ? 3 : 4),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [K.yellow, K.orange]),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: FittedBox(
+                          child: Text('ACTIVE', style: ts(screenWidth < 380 ? 8 : 10, K.ink, fw: FontWeight.w900)),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      child: Row(children: [
-        const Padding(padding: EdgeInsets.only(left: 14), child: Text('🌈', style: TextStyle(fontSize: 26))),
-        const SizedBox(width: 8),
-        Expanded(child: TextField(
-          controller: _ctrl, style: tb(16, K.ink, fw: FontWeight.w600),
-          decoration: InputDecoration(
-            hintText: _isListening ? '🎙️ Listening...' : "What's your story about?",
-            hintStyle: tb(15, _isListening ? K.red : Colors.grey.shade400),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(vertical: 18),
-          ),
-        )),
-        Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: GestureDetector(
-            onTap: _toggleListening,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              width: 42, height: 42,
-              decoration: BoxDecoration(
-                color: _isListening ? K.red : K.purple.withOpacity(.12),
-                shape: BoxShape.circle,
-                border: Border.all(color: _isListening ? K.red : K.purple, width: 2.5),
-                boxShadow: _isListening
-                    ? [BoxShadow(color: K.red.withOpacity(.5), blurRadius: 12, spreadRadius: 2)]
-                    : [],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  PREMIUM GENERATE BUTTON - Eye-catching for children
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildPremiumGenerateButton() {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return _PremiumPulseButton(
+      isActive: !_loading,
+      onTap: _loading ? null : _generateStory,
+      pulseColor: K.orange,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(vertical: screenWidth < 360 ? 16 : 18, horizontal: 12),
+        decoration: BoxDecoration(
+          gradient: _loading ? const LinearGradient(colors: [Colors.grey, Colors.grey]) : K.rainbowGradient,
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(color: K.ink, width: 4),
+          boxShadow: _loading ? [] : const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedBuilder(
+              animation: _rotateAnimation,
+              builder: (_, __) => Transform.rotate(
+                angle: _rotateAnimation.value,
+                child: Text('🚀', style: TextStyle(fontSize: screenWidth < 360 ? 26 : 32)),
               ),
-              child: Icon(
-                _isListening ? Icons.mic : Icons.mic_none_rounded,
-                color: _isListening ? K.white : K.purple,
-                size: 22,
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  _loading ? '✨ Creating MAGIC... ✨' : '⚡ CREATE MY COMIC! ⚡',
+                  textAlign: TextAlign.center,
+                  style: ts(screenWidth < 360 ? 15 : 18, K.white, fw: FontWeight.w900),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            AnimatedBuilder(
+              animation: _sparkleAnimation,
+              builder: (_, __) => Opacity(
+                opacity: 0.6 + _sparkleAnimation.value * 0.4,
+                child: Text('✨', style: TextStyle(fontSize: screenWidth < 360 ? 22 : 28)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  PREMIUM PROGRESS CARD - Shows generation status
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildPremiumProgressCard() {
+    final isUrdu = _selectedLanguage == 'urdu';
+    final pastelIndex = _pct.toInt().clamp(0, K.pastel.length - 1);
+    
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [K.surface, K.pastel[pastelIndex]],
+        ),
+        borderRadius: BorderRadius.circular(40),
+        border: Border.all(color: K.cyan, width: 4),
+        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _FloatingCharacter('🎨', duration: 2),
+              const SizedBox(width: 10),
+              AnimatedBuilder(
+                animation: _pulseController,
+                builder: (_, __) => Text('${_pct.toInt()}', style: ts(52, K.cyan, fw: FontWeight.w900)),
+              ),
+              Text('%', style: ts(26, K.cyan, fw: FontWeight.w700)),
+              const SizedBox(width: 10),
+              _FloatingCharacter('✨', duration: 2.5),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _RainbowProgressBar(_pct / 100, label: 'Brewing Magic...'),
+          const SizedBox(height: 16),
+          AnimatedBuilder(
+            animation: _sparkleAnimation,
+            builder: (_, __) => Text(
+              _pct > 85
+                  ? (isUrdu ? '🇵🇰 Creating Urdu masterpiece... 🎬' : '🇺🇸 Creating English masterpiece... 🎬')
+                  : '🌈 Crafting your extraordinary comic adventure... 🌈',
+              style: tb(12, K.purple),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _FloatingCharacter('⭐', duration: 1.5),
+              const SizedBox(width: 6),
+              _FloatingCharacter('💫', duration: 1.8),
+              const SizedBox(width: 6),
+              _FloatingCharacter('🌟', duration: 2.2),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  PREMIUM VIDEO CARD - Pro presentation for video content
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildPremiumVideoCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D1B4E),
+        borderRadius: BorderRadius.circular(36),
+        border: Border.all(color: K.yellow, width: 4),
+        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            decoration: const BoxDecoration(gradient: LinearGradient(colors: [K.purple, K.pink])),
+            child: Row(
+              children: [
+                AnimatedBuilder(
+                  animation: _rotateAnimation,
+                  builder: (_, __) => Transform.rotate(
+                    angle: _rotateAnimation.value,
+                    child: const Text('🎬', style: TextStyle(fontSize: 32)),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('🎉 YOUR MAGIC VIDEO IS READY! 🎉', style: ts(13, K.white, fw: FontWeight.w900)),
+                      Text(
+                        _videoInitialized
+                            ? (_selectedLanguage == 'urdu' ? '🇵🇰 Urdu Voiceover' : '🇺🇸 English Voiceover')
+                            : 'Loading your video...',
+                        style: tb(11, K.white.withOpacity(0.85)),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [K.yellow, K.orange]),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: K.ink, width: 2.5),
+                  ),
+                  child: Text('✨ PREMIUM ✨', style: ts(10, K.ink, fw: FontWeight.w900)),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 210,
+            child: _videoInitialized && _chewieController != null
+                ? Chewie(controller: _chewieController!)
+                : Container(
+                    color: const Color(0xFF1A0A3E),
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const CircularProgressIndicator(color: K.yellow, strokeWidth: 4),
+                          const SizedBox(height: 12),
+                          Text('Preparing your video...', style: ts(13, K.white)),
+                        ],
+                      ),
+                    ),
+                  ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: _PremiumPulseButton(
+              onTap: () => setState(() => _showVideoOverlay = true),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [K.yellow, K.orange]),
+                  borderRadius: BorderRadius.circular(28),
+                  border: Border.all(color: K.ink, width: 3),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.fullscreen_rounded, color: K.ink, size: 24),
+                    SizedBox(width: 10),
+                    Text('WATCH FULL SCREEN', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: K.ink)),
+                    SizedBox(width: 6),
+                    Icon(Icons.arrow_forward_rounded, color: K.ink, size: 20),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        Padding(padding: const EdgeInsets.only(right: 12),
-          child: AnimatedBuilder(animation: _aWiggle, builder: (_, __) =>
-            Transform.rotate(angle: _aWiggle.value * .06, child: const Text('🎨', style: TextStyle(fontSize: 22))))),
-      ]),
-    );
-  }
-
-  // ════════════════════════════════════════════════════════
-  //  GENERATE BUTTON
-  // ════════════════════════════════════════════════════════
-  Widget _genBtn() {
-    return AnimatedBuilder(
-      animation: _aPulse,
-      builder: (_, child) => Transform.scale(scale: _loading ? 1.0 : _aPulse.value, child: child),
-      child: GestureDetector(
-        onTap: _loading ? null : _generate,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          decoration: BoxDecoration(
-            color: _loading ? Colors.grey.shade400 : K.red,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: K.ink, width: 3.5),
-            boxShadow: _loading ? [] : const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
-          ),
-          child: Center(child: Text(
-            _loading ? '🎨  Making Magic...' : '🚀  CREATE MY COMIC!',
-            style: ts(20, K.white, fw: FontWeight.w900,
-                sh: [const Shadow(color: Colors.black26, offset: Offset(1, 2), blurRadius: 4)]),
-          )),
-        ),
+        ],
       ),
     );
   }
 
-  // ════════════════════════════════════════════════════════
-  //  PROGRESS CARD
-  // ════════════════════════════════════════════════════════
-  Widget _progressCard() {
-    final bool isUrdu = _selectedLanguage == 'urdu';
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: K.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: K.cyan, width: 3.5),
-        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
-      ),
-      child: Column(children: [
-        AnimatedBuilder(animation: _acLoad, builder: (_, __) {
-          final dots = '●' * ((_acLoad.value * 3).floor().clamp(1, 3));
-          return Text('✨  ${_pct.toInt()}%  $dots', style: ts(19, K.cyan, fw: FontWeight.w900));
-        }),
-        const SizedBox(height: 12),
-        _RainbowBar(_pct / 100),
-        const SizedBox(height: 10),
-        Text(
-          _pct > 84
-              ? (isUrdu ? '🇵🇰 Creating Roman Urdu video...' : '🇺🇸 Creating English video...')
-              : 'Brewing your comic adventure...',
-          style: tb(13, K.purple, fw: FontWeight.w600),
-        ),
-      ]),
-    );
-  }
-
-  // ════════════════════════════════════════════════════════
-  //  STORY SECTION
-  // ════════════════════════════════════════════════════════
-  Widget _storySection() {
-    final words = _story.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-    return Column(children: [
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [K.lime, K.cyan], begin: Alignment.topLeft, end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: K.ink, width: 3.5),
-          boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const Text('📖', style: TextStyle(fontSize: 26)),
-            const SizedBox(width: 10),
-            Text('STORY TIME!', style: ts(18, K.ink, fw: FontWeight.w900)),
-            const Spacer(),
-            _ttsBtn(Icons.play_circle_filled, K.ink, (_reading && !_paused) ? null : _startRead),
-            const SizedBox(width: 4),
-            _ttsBtn(Icons.pause_circle_filled, K.orange, (_reading && !_paused) ? _pauseRead : null),
-            const SizedBox(width: 4),
-            _ttsBtn(Icons.stop_circle, K.red, () => _stopRead(reset: true)),
-          ]),
-          const SizedBox(height: 10),
-          GestureDetector(
-            onTap: _startUrduRead,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 250),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-              decoration: BoxDecoration(
-                color: _urduReading ? K.purple : K.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _urduReading ? K.purple : K.ink, width: 2.5),
-                boxShadow: [
-                  BoxShadow(
-                    color: _urduReading ? K.purple.withOpacity(.4) : K.ink,
-                    offset: _urduReading ? Offset.zero : const Offset(3, 3),
-                    blurRadius: _urduReading ? 12 : 0,
+  // ═══════════════════════════════════════════════════════════════════
+  //  PREMIUM VIDEO OVERLAY - Fullscreen immersive experience
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildPremiumVideoOverlay() {
+    return Material(
+      color: Colors.black.withOpacity(0.98),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _showVideoOverlay = false),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [K.purple, K.pink]),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: K.yellow, width: 2),
+                      ),
+                      child: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_selectedLanguage == 'urdu' ? K.purple : K.blue, _selectedLanguage == 'urdu' ? K.pink : K.cyan],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: K.yellow),
+                    ),
+                    child: Text(
+                      _selectedLanguage == 'urdu' ? '🇵🇰 Roman Urdu' : '🇺🇸 English',
+                      style: ts(12, K.white, fw: FontWeight.w800),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: K.yellow,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: K.ink),
+                    ),
+                    child: Text('HD', style: ts(10, K.ink, fw: FontWeight.w900)),
                   ),
                 ],
               ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Text(_urduReading ? '🔊' : '🇵🇰', style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Text(
-                  _urduReading ? 'اردو میں پڑھ رہا ہے...' : 'اردو میں سنیں',
-                  style: ts(13, _urduReading ? K.white : K.ink, fw: FontWeight.w800),
-                ),
-                if (_urduReading) ...[
-                  const SizedBox(width: 8),
-                  SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: K.yellow, strokeWidth: 2)),
-                ],
-              ]),
             ),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 12),
-      Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFBE8),
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: K.yellow, width: 3.5),
-          boxShadow: const [BoxShadow(color: K.ink, offset: Offset(4, 4), blurRadius: 0)],
-        ),
-        child: Wrap(spacing: 8, runSpacing: 10,
-          children: words.asMap().entries.map((e) {
-            final i = e.key, w = e.value;
-            final active = (_reading || _paused) && i == _cw;
-            Widget chip = AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: EdgeInsets.symmetric(horizontal: active ? 12 : 6, vertical: 6),
-              decoration: BoxDecoration(
-                color: active ? K.yellow : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: active ? Border.all(color: K.orange, width: 2.5) : null,
-                boxShadow: active ? [BoxShadow(color: K.orange.withOpacity(.45), blurRadius: 12, spreadRadius: 1)] : null,
+            Expanded(
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: K.yellow, width: 4),
+                    boxShadow: const [BoxShadow(color: K.yellow, blurRadius: 16, spreadRadius: 2)],
+                  ),
+                  child: _videoInitialized && _chewieController != null
+                      ? Chewie(controller: _chewieController!)
+                      : const Center(child: CircularProgressIndicator(color: K.yellow, strokeWidth: 5)),
+                ),
               ),
-              child: Text(w, style: tb(active ? 22 : 17, active ? const Color(0xFF5E2000) : K.ink,
-                  fw: active ? FontWeight.w800 : FontWeight.w600)),
-            );
-            if (active) chip = AnimatedBuilder(animation: _aBounce,
-              builder: (_, child) => Transform.scale(scale: _aBounce.value, child: child), child: chip);
-            return GestureDetector(
-              onTap: () { if (_reading || _paused) { setState(() => _cw = i); _stopRead(reset: false); _startRead(); } },
-              child: chip,
-            );
-          }).toList(),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+              child: _PremiumPulseButton(
+                onTap: () => setState(() => _showVideoOverlay = false),
+                child: Container(
+                  height: 54,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [K.purple, K.pink]),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: K.yellow, width: 3),
+                    boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
+                  ),
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.check_circle_outline_rounded, color: K.yellow, size: 24),
+                        SizedBox(width: 12),
+                        Text('Done Watching', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: K.white)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-    ]);
+    );
   }
 
-  Widget _ttsBtn(IconData icon, Color c, VoidCallback? fn) => GestureDetector(
-    onTap: fn,
-    child: AnimatedOpacity(duration: const Duration(milliseconds: 200), opacity: fn == null ? .28 : 1.0,
-      child: Icon(icon, color: c, size: 34)),
-  );
+  // ═══════════════════════════════════════════════════════════════════
+  //  PREMIUM STORY SECTION - With word-by-word highlighting
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildPremiumStorySection() {
+    final words = _story.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [K.lime, K.cyan]),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: K.ink, width: 4),
+            boxShadow: const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  _FloatingCharacter('📖', duration: 2),
+                  const SizedBox(width: 12),
+                  Text('STORY TIME!', style: ts(20, K.ink, fw: FontWeight.w900)),
+                  const Spacer(),
+                  _buildPremiumTtsButton(Icons.play_circle_filled, K.ink, (_reading && !_paused) ? null : _startReading),
+                  const SizedBox(width: 6),
+                  _buildPremiumTtsButton(Icons.pause_circle_filled, K.orange, (_reading && !_paused) ? _pauseReading : null),
+                  const SizedBox(width: 6),
+                  _buildPremiumTtsButton(Icons.stop_circle, K.red, () => _stopReading(reset: true)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _PremiumPulseButton(
+                isActive: !_urduReading,
+                onTap: _startUrduReading,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: _urduReading 
+                        ? const LinearGradient(colors: [K.purple, K.pink])
+                        : null,
+                    color: _urduReading ? null : K.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: _urduReading ? K.white : K.ink, width: 2.5),
+                    boxShadow: _urduReading 
+                        ? [BoxShadow(color: K.purple.withOpacity(0.35), blurRadius: 14)] 
+                        : const [BoxShadow(color: K.ink, offset: Offset(4, 4), blurRadius: 0)],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_urduReading ? '🔊' : '🇵🇰', style: const TextStyle(fontSize: 24)),
+                      const SizedBox(width: 12),
+                      Text(
+                        _urduReading ? 'اردو میں پڑھ رہا ہے...' : '🇵🇰 اردو میں سنیں',
+                        style: ts(14, _urduReading ? K.white : K.ink),
+                      ),
+                      if (_urduReading) ...[
+                        const SizedBox(width: 12),
+                        const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: K.yellow, strokeWidth: 2.5)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF8E7),
+            borderRadius: BorderRadius.circular(32),
+            border: Border.all(color: K.yellow, width: 4),
+            boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
+          ),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: words.asMap().entries.map((e) {
+              final i = e.key, w = e.value;
+              final active = (_reading || _paused) && i == _cw;
+              return GestureDetector(
+                onTap: () {
+                  if (_reading || _paused) {
+                    setState(() => _cw = i);
+                    _stopReading(reset: false);
+                    _startReading();
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: EdgeInsets.symmetric(horizontal: active ? 16 : 10, vertical: active ? 12 : 8),
+                  decoration: BoxDecoration(
+                    gradient: active ? const LinearGradient(colors: [K.yellow, K.orange]) : null,
+                    color: active ? null : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: active ? Border.all(color: K.ink, width: 2) : null,
+                    boxShadow: active ? [BoxShadow(color: K.orange.withOpacity(0.4), blurRadius: 12, spreadRadius: 1)] : null,
+                  ),
+                  child: AnimatedBuilder(
+                    animation: _bounceAnimation,
+                    builder: (_, __) => Transform.scale(
+                      scale: active ? _bounceAnimation.value : 1.0,
+                      child: Text(
+                        w,
+                        style: tb(active ? 24 : 18, active ? K.ink : K.ink.withOpacity(0.8),
+                            fw: active ? FontWeight.w900 : FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
 
-  // ════════════════════════════════════════════════════════
-  //  TOGGLE COMIC BUTTON
-  // ════════════════════════════════════════════════════════
-  Widget _toggleBtn() {
+  Widget _buildPremiumTtsButton(IconData icon, Color c, VoidCallback? fn) {
     return GestureDetector(
-      onTap: _toggle,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 280),
-        padding: const EdgeInsets.symmetric(vertical: 16),
+      onTap: fn,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: fn == null ? 0.4 : 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            boxShadow: fn != null ? [BoxShadow(color: c.withOpacity(0.25), blurRadius: 6)] : null,
+          ),
+          child: Icon(icon, color: c, size: 44),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  PROFESSIONAL TOGGLE COMIC BUTTON - Shows/hides comic section
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildProfessionalToggleButton() {
+    return _PremiumPulseButton(
+      isActive: true,
+      onTap: _toggleComic,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18),
         decoration: BoxDecoration(
-          color: _showComic ? K.blue : K.purple,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: K.ink, width: 3.5),
+          gradient: _showComic ? K.oceanGradient : K.sunsetGradient,
+          borderRadius: BorderRadius.circular(36),
+          border: Border.all(color: K.ink, width: 4),
           boxShadow: const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
         ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(_showComic ? '🙈  HIDE COMIC' : '🎉  SHOW MY COMIC!',
-            style: ts(18, K.white, fw: FontWeight.w900,
-                sh: [const Shadow(color: Colors.black26, offset: Offset(1, 2), blurRadius: 4)])),
-          const SizedBox(width: 10),
-          AnimatedRotation(turns: _showComic ? .5 : 0, duration: const Duration(milliseconds: 380),
-              curve: Curves.easeInOut, child: const Icon(Icons.expand_more_rounded, color: K.white, size: 30)),
-        ]),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_showComic ? '🙈 HIDE COMIC' : '🎉 SHOW MY COMIC! 🎉', 
+                style: ts(18, K.white, fw: FontWeight.w900)),
+            const SizedBox(width: 12),
+            AnimatedRotation(
+              turns: _showComic ? 0.5 : 0,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeInOut,
+              child: const Icon(Icons.expand_more_rounded, color: K.white, size: 32),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // ════════════════════════════════════════════════════════
-  //  COMIC SECTION
-  // ════════════════════════════════════════════════════════
-  Widget _comicSection() {
-    return SizeTransition(
-      sizeFactor: _aReveal, axisAlignment: -1,
-      child: Column(children: [
-        const SizedBox(height: 18),
-        _comicHeader(),
-        const SizedBox(height: 14),
-        _comicControls(),
-        const SizedBox(height: 14),
-        _panelDots(),
-        const SizedBox(height: 10),
-        SizedBox(
-          height: 500,
-          child: PageView.builder(
-            controller: _pageCtrl,
-            onPageChanged: (idx) => setState(() => _comicPanel = idx),
-            itemCount: _panels.length,
-            itemBuilder: (_, idx) {
-              final panel = Map<String, dynamic>.from(_panels[idx]);
-              return _buildPanel(idx, panel);
-            },
+  // ═══════════════════════════════════════════════════════════════════
+  //  PREMIUM COMIC SECTION - Professional comic panel display
+  // ═══════════════════════════════════════════════════════════════════
+  Widget _buildPremiumComicSection() {
+    if (_panels.isEmpty) return const SizedBox();
+    return FadeTransition(
+      opacity: AlwaysStoppedAnimation(_slideAnimation.value),
+      child: Column(
+        children: [
+          _buildPremiumComicHeader(),
+          const SizedBox(height: 18),
+          _buildPremiumComicControls(),
+          const SizedBox(height: 16),
+          _buildPremiumPanelDots(),
+          const SizedBox(height: 14),
+          SizedBox(
+            height: 540,
+            child: PageView.builder(
+              controller: _pageCtrl,
+              onPageChanged: (idx) => setState(() => _comicPanel = idx),
+              itemCount: _panels.length,
+              itemBuilder: (_, idx) => _buildPremiumComicPanel(idx, _panels[idx]),
+            ),
+          ),
+          const SizedBox(height: 18),
+          _buildPremiumPanelNav(),
+          if (_genTime.isNotEmpty) ...[const SizedBox(height: 18), _buildPremiumTimeBadge()],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPremiumComicHeader() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Container(
+          height: 130,
+          decoration: BoxDecoration(
+            gradient: K.rainbowGradient,
+            borderRadius: BorderRadius.circular(50),
+            border: Border.all(color: K.ink, width: 4),
           ),
         ),
-        const SizedBox(height: 14),
-        _panelNav(),
-        if (_genTime.isNotEmpty) ...[const SizedBox(height: 14), _timeBadge()],
-        const SizedBox(height: 32),
-      ]),
-    );
-  }
-
-  Widget _comicHeader() {
-    return Stack(alignment: Alignment.center, children: [
-      SizedBox(height: 110, child: CustomPaint(
-        painter: _BurstPainter(fill: K.yellow, stroke: K.ink, spikes: 14),
-        size: const Size(double.infinity, 110),
-      )),
-      Column(children: [
-        ShaderMask(
-          shaderCallback: (b) => const LinearGradient(colors: [K.red, K.purple]).createShader(b),
-          child: Text('💥 POW!  🦸  BAM! 💫', style: ts(23, K.white, fw: FontWeight.w900)),
+        Column(
+          children: [
+            ShaderMask(
+              shaderCallback: (b) => const LinearGradient(colors: [K.purple, K.pink, K.blue]).createShader(b),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _FloatingCharacter('💥', duration: 1.5),
+                  const SizedBox(width: 6),
+                  Text(' SPECTACULAR! ', style: ts(20, K.white, fw: FontWeight.w900)),
+                  _FloatingCharacter('🦸', duration: 2),
+                  const SizedBox(width: 6),
+                  Text(' AMAZING! ', style: ts(20, K.white, fw: FontWeight.w900)),
+                  _FloatingCharacter('💫', duration: 1.8),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text('YOUR COMIC MASTERPIECE', style: ts(12, K.ink, fw: FontWeight.w900)),
+          ],
         ),
-        const SizedBox(height: 3),
-        Text('YOUR COMIC ADVENTURE!', style: ts(13, K.orange, fw: FontWeight.w900)),
-      ]),
-    ]);
-  }
-
-  Widget _comicControls() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [K.pink, K.purple], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: K.ink, width: 3),
-        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(4, 4), blurRadius: 0)],
-      ),
-      child: Row(children: [
-        const Text('🎙️', style: TextStyle(fontSize: 24)),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('COMIC STORY MODE', style: ts(13, K.white, fw: FontWeight.w900)),
-          Text(_comicReading ? 'Reading panel ${_comicPanel + 1} of ${_panels.length}...' : 'Tap ▶ to hear the full story!',
-            style: tb(11, K.white.withOpacity(.88), fw: FontWeight.w600)),
-        ])),
-        const SizedBox(width: 10),
-        _ctrlBtn(Icons.play_circle_filled_rounded, K.lime, _comicReading ? null : _startComicRead),
-        const SizedBox(width: 8),
-        _ctrlBtn(Icons.stop_circle_rounded, K.red, _comicReading ? _stopComicRead : null),
-      ]),
+      ],
     );
   }
 
-  Widget _ctrlBtn(IconData icon, Color c, VoidCallback? fn) => GestureDetector(
-    onTap: fn,
-    child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-      width: 44, height: 44,
+  Widget _buildPremiumComicControls() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        color: fn == null ? K.white.withOpacity(.2) : K.white,
-        shape: BoxShape.circle,
-        border: Border.all(color: K.ink, width: 2.5),
-        boxShadow: fn == null ? [] : const [BoxShadow(color: K.ink, offset: Offset(2, 2), blurRadius: 0)],
+        gradient: const LinearGradient(colors: [K.pink, K.purple]),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: K.ink, width: 3),
+        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)],
       ),
-      child: Icon(icon, color: fn == null ? K.white.withOpacity(.4) : c, size: 26)),
-  );
+      child: Row(
+        children: [
+          _FloatingCharacter('🎙️', duration: 1.8),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('COMIC STORY MODE', style: ts(13, K.white, fw: FontWeight.w900)),
+                Text(
+                  _comicReading ? 'Reading panel ${_comicPanel + 1} of ${_panels.length}...' : 'Tap ▶ to hear the epic story!',
+                  style: tb(11, K.white.withOpacity(0.9)),
+                ),
+              ],
+            ),
+          ),
+          _buildPremiumComicControlButton(Icons.play_circle_filled_rounded, K.lime, _comicReading ? null : _startComicReading),
+          const SizedBox(width: 12),
+          _buildPremiumComicControlButton(Icons.stop_circle_rounded, K.red, _comicReading ? _stopComicReading : null),
+        ],
+      ),
+    );
+  }
 
-  Widget _panelDots() {
-    return Row(mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildPremiumComicControlButton(IconData icon, Color c, VoidCallback? fn) {
+    return GestureDetector(
+      onTap: fn,
+      child: Container(
+        width: 54,
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: fn == null ? null : LinearGradient(colors: [c, c.withOpacity(0.7)]),
+          color: fn == null ? Colors.white.withOpacity(0.2) : null,
+          shape: BoxShape.circle,
+          border: Border.all(color: K.ink, width: 2.5),
+          boxShadow: fn == null ? [] : const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
+        ),
+        child: Icon(icon, color: fn == null ? Colors.white.withOpacity(0.4) : K.white, size: 34),
+      ),
+    );
+  }
+
+  Widget _buildPremiumPanelDots() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(_panels.length, (i) {
         final active = i == _comicPanel;
         return AnimatedContainer(
-          duration: const Duration(milliseconds: 300), curve: Curves.easeInOut,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          width: active ? 28 : 10, height: 10,
+          duration: const Duration(milliseconds: 250),
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          width: active ? 36 : 12,
+          height: 12,
           decoration: BoxDecoration(
-            color: active ? K.panelAccent(i) : K.ink.withOpacity(.2),
-            borderRadius: BorderRadius.circular(6),
-            border: active ? Border.all(color: K.ink, width: 2) : null));
-      }));
+            gradient: active ? LinearGradient(colors: [K.panelAccent(i), K.panelAccent(i).withOpacity(0.7)]) : null,
+            color: active ? null : K.ink.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: active ? Border.all(color: K.ink, width: 2) : null,
+          ),
+        );
+      }),
+    );
   }
 
-  Widget _panelNav() {
-    return Row(children: [
-      _navBtn('◀  PREV', K.blue, _comicPanel > 0 ? () =>
-        _pageCtrl.previousPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic) : null),
-      const SizedBox(width: 12),
-      _navBtn('NEXT  ▶', K.red, _comicPanel < _panels.length - 1 ? () =>
-        _pageCtrl.nextPage(duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic) : null),
-    ]);
-  }
-
-  Widget _navBtn(String label, Color c, VoidCallback? fn) {
-    return Expanded(child: GestureDetector(
-      onTap: fn,
-      child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: fn == null ? Colors.grey.shade300 : c,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: K.ink, width: 3),
-          boxShadow: fn == null ? [] : const [BoxShadow(color: K.ink, offset: Offset(4, 4), blurRadius: 0)],
+  Widget _buildPremiumPanelNav() {
+    return Row(
+      children: [
+        Expanded(
+          child: _PremiumPulseButton(
+            isActive: _comicPanel > 0,
+            onTap: _comicPanel > 0 ? () => _pageCtrl.previousPage(duration: const Duration(milliseconds: 500), curve: Curves.easeInOutCubic) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                gradient: _comicPanel > 0 ? const LinearGradient(colors: [K.blue, K.cyan]) : null,
+                color: _comicPanel > 0 ? null : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: K.ink, width: 3),
+                boxShadow: _comicPanel > 0 ? const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)] : [],
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.arrow_back_ios_rounded, size: 18),
+                    SizedBox(width: 8),
+                    Text('PREVIOUS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ),
-        child: Center(child: Text(label, style: ts(15, fn == null ? Colors.grey.shade500 : K.white))))));
+        const SizedBox(width: 18),
+        Expanded(
+          child: _PremiumPulseButton(
+            isActive: _comicPanel < _panels.length - 1,
+            onTap: _comicPanel < _panels.length - 1 ? () => _pageCtrl.nextPage(duration: const Duration(milliseconds: 500), curve: Curves.easeInOutCubic) : null,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                gradient: _comicPanel < _panels.length - 1 ? const LinearGradient(colors: [K.red, K.orange]) : null,
+                color: _comicPanel < _panels.length - 1 ? null : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(color: K.ink, width: 3),
+                boxShadow: _comicPanel < _panels.length - 1 ? const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)] : [],
+              ),
+              child: Center(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Text('NEXT', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                    SizedBox(width: 8),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
-  // ════════════════════════════════════════════════════════
-  //  SINGLE COMIC PANEL
-  // ════════════════════════════════════════════════════════
-  Widget _buildPanel(int idx, Map<String, dynamic> panel) {
-    final palette = K.panels[idx % K.panels.length];
-    final bg      = palette[0] as Color;
-    final bc      = palette[1] as Color;
-    final seed    = idx < _seeds.length ? _seeds[idx] : idx * 137 + 7;
-    final active  = idx == _comicPanel && _comicReading;
-    final imgUrl  = panel['image'] as String? ?? '';
+  Widget _buildPremiumComicPanel(int idx, Map<String, dynamic> panel) {
+    final bg = K.pastel[idx % K.pastel.length];
+    final bc = K.rainbow[idx % K.rainbow.length];
+    final seed = idx < _seeds.length ? _seeds[idx] : idx * 137 + 7;
+    final active = idx == _comicPanel && _comicReading;
+    final imgUrl = panel['image'] as String? ?? '';
 
     Widget card = Padding(
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-      child: Stack(children: [
-        Positioned(left: 7, top: 7, right: 0, bottom: 0, child: Container(
-          decoration: BoxDecoration(color: K.ink, borderRadius: BorderRadius.circular(26)))),
-        AnimatedContainer(duration: const Duration(milliseconds: 350),
-          decoration: BoxDecoration(
-            color: bg, borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: active ? bc : bg, width: 4)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Stack(children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                child: Stack(children: [
-                  _panelImg(imgUrl),
-                  Positioned.fill(child: CustomPaint(painter: _HalftonePainter(K.ink.withOpacity(.033)))),
-                ]),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Stack(
+        children: [
+          Positioned(
+            left: 10, 
+            top: 10, 
+            right: 0, 
+            bottom: 0, 
+            child: Container(decoration: BoxDecoration(color: K.ink, borderRadius: BorderRadius.circular(32))),
+          ),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 350),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [bg, bg.withOpacity(0.95)],
               ),
-              Positioned(top: 12, left: 12, child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(color: bc, borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: K.white, width: 2.5),
-                  boxShadow: const [BoxShadow(color: K.ink, offset: Offset(2, 3), blurRadius: 0)]),
-                child: Text('Panel ${idx + 1}', style: ts(12, K.white)))),
-              Positioned(top: 10, right: 10, child: Transform.rotate(angle: .22,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                  decoration: BoxDecoration(color: K.zapCols[idx % K.zapCols.length],
-                    borderRadius: BorderRadius.circular(11),
-                    border: Border.all(color: K.ink, width: 2.5),
-                    boxShadow: const [BoxShadow(color: K.ink, offset: Offset(2, 2), blurRadius: 0)]),
-                  child: Text(K.zapLabels[idx % K.zapLabels.length], style: ts(12, K.white))))),
-              if (active) Positioned.fill(child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
-                child: AnimatedBuilder(animation: _aPulse,
-                  builder: (_, __) => Container(color: bc.withOpacity(_aPulse.value * .13))))),
-            ]),
-            Padding(padding: const EdgeInsets.fromLTRB(14, 16, 14, 2),
-              child: CustomPaint(painter: _BubblePainter(fill: K.white, stroke: bc),
-                child: Padding(padding: const EdgeInsets.fromLTRB(16, 13, 16, 30),
-                  child: Text(panel['title'] ?? '', style: ts(15, bc, fw: FontWeight.w900))))),
-            Padding(padding: const EdgeInsets.fromLTRB(14, 8, 14, 18),
-              child: Text(panel['description'] ?? '', style: tb(13, K.ink.withOpacity(.8), fw: FontWeight.w600))),
-          ])),
-        Positioned.fill(child: ClipRRect(borderRadius: BorderRadius.circular(26),
-          child: CustomPaint(painter: _WobblePainter(bc, 4.4, seed)))),
-      ]),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: active ? bc : bg, width: 5),
+              boxShadow: active ? [BoxShadow(color: bc.withOpacity(0.4), blurRadius: 18, spreadRadius: 2)] : null,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(27)),
+                      child: _buildPremiumPanelImage(imgUrl),
+                    ),
+                    Positioned(
+                      top: 14,
+                      left: 14,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(colors: [bc, bc.withOpacity(0.8)]),
+                          borderRadius: BorderRadius.circular(36),
+                          border: Border.all(color: K.white, width: 2.5),
+                          boxShadow: const [BoxShadow(color: K.ink, offset: Offset(3, 3), blurRadius: 0)],
+                        ),
+                        child: Text('PANEL ${idx + 1}', style: ts(13, K.white, fw: FontWeight.w900)),
+                      ),
+                    ),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Transform.rotate(
+                        angle: 0.3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(colors: [K.rainbow[idx % K.rainbow.length], K.rainbow[(idx + 1) % K.rainbow.length]]),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: K.ink, width: 2),
+                            boxShadow: const [BoxShadow(color: K.ink, offset: Offset(2, 2), blurRadius: 0)],
+                          ),
+                          child: Text(K.rainbowLabels[idx % K.rainbowLabels.length], style: ts(11, K.white, fw: FontWeight.w900)),
+                        ),
+                      ),
+                    ),
+                    if (active)
+                      Positioned.fill(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(27)),
+                          child: Container(color: bc.withOpacity(0.12)),
+                        ),
+                      ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 6),
+                  child: CustomPaint(
+                    painter: _PremiumBubblePainter(fill: K.white, stroke: bc),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                      child: Text(panel['title'] ?? '', style: ts(16, bc, fw: FontWeight.w800)),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 22),
+                  child: Text(panel['description'] ?? '', style: tb(14, K.ink.withOpacity(0.8), h: 1.4)),
+                ),
+              ],
+            ),
+          ),
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(32),
+              child: CustomPaint(painter: _PremiumWobblePainter(bc, 5.0, seed)),
+            ),
+          ),
+        ],
+      ),
     );
 
     if (idx < _panelSc.length) {
       card = AnimatedBuilder(
         animation: Listenable.merge([_panelSc[idx], _panelOp[idx]]),
-        builder: (_, child) => Opacity(opacity: _panelOp[idx].value,
-          child: Transform.scale(scale: _panelSc[idx].value, child: child)),
+        builder: (_, child) => Opacity(opacity: _panelOp[idx].value, child: Transform.scale(scale: _panelSc[idx].value, child: child)),
         child: card,
       );
     }
     return card;
   }
 
-  Widget _panelImg(String url) {
-    if (url.isEmpty) return Container(height: 220, color: const Color(0xFFE3EEFF),
-      child: const Center(child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(K.blue))));
-    return CachedNetworkImage(imageUrl: url, height: 220, width: double.infinity, fit: BoxFit.cover,
-      placeholder: (_, __) => Container(height: 220, color: const Color(0xFFE3EEFF),
-        child: const Center(child: CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(K.blue)))),
-      errorWidget: (_, __, ___) => Container(height: 220, color: Colors.grey.shade200,
-        child: const Center(child: Icon(Icons.broken_image, size: 44, color: Colors.grey))),
-      fadeInDuration: Duration.zero);
+  Widget _buildPremiumPanelImage(String url) {
+    if (url.isEmpty) {
+      return Container(
+        height: 240,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [K.blue.withOpacity(0.25), K.purple.withOpacity(0.25)],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const CircularProgressIndicator(strokeWidth: 4, valueColor: AlwaysStoppedAnimation<Color>(K.blue)),
+              const SizedBox(height: 12),
+              Text('Generating artwork...', style: ts(12, K.purple)),
+            ],
+          ),
+        ),
+      );
+    }
+    return CachedNetworkImage(
+      imageUrl: url,
+      height: 240,
+      width: double.infinity,
+      fit: BoxFit.cover,
+      placeholder: (_, __) => Container(
+        height: 240,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [K.blue.withOpacity(0.25), K.purple.withOpacity(0.25)],
+          ),
+        ),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 4, valueColor: AlwaysStoppedAnimation<Color>(K.blue))),
+      ),
+      errorWidget: (_, __, ___) => Container(
+        height: 240,
+        color: Colors.grey.shade200,
+        child: const Center(child: Icon(Icons.broken_image, size: 56, color: Colors.grey)),
+      ),
+      fadeInDuration: Duration.zero,
+    );
   }
 
-  Widget _timeBadge() {
+  Widget _buildPremiumTimeBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 14),
       decoration: BoxDecoration(
-        color: K.surface, borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: K.mint, width: 3),
-        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(4, 4), blurRadius: 0)],
+        gradient: const LinearGradient(colors: [K.mint, K.cyan]),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: K.ink, width: 4),
+        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
       ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        const Text('⚡', style: TextStyle(fontSize: 22)),
-        const SizedBox(width: 10),
-        Text('Done in $_genTime', style: ts(14, K.mint)),
-        const SizedBox(width: 10),
-        Text(
-          _selectedLanguage == 'urdu' ? '🇵🇰 Roman Urdu' : '🇺🇸 English',
-          style: ts(12, K.purple),
-        ),
-      ]),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _FloatingCharacter('⚡', duration: 1.5),
+          const SizedBox(width: 12),
+          Text('Created in $_genTime', style: ts(15, K.ink, fw: FontWeight.w800)),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: K.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: K.ink, width: 2),
+            ),
+            child: Text(_selectedLanguage == 'urdu' ? '🇵🇰 Roman Urdu' : '🇺🇸 English', style: ts(11, K.purple, fw: FontWeight.w800)),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  HELPER WIDGET – reusable film strip rows
-// ══════════════════════════════════════════════════════════════
-class _FilmStrip extends StatelessWidget {
-  final double? top;
-  final double? bottom;
-  const _FilmStrip({this.top, this.bottom});
+// ═══════════════════════════════════════════════════════════════════
+//  CELEBRATION OVERLAY - Magical completion animation
+// ═══════════════════════════════════════════════════════════════════
+class _CelebrationOverlay extends StatefulWidget {
+  const _CelebrationOverlay();
+
+  @override
+  State<_CelebrationOverlay> createState() => _CelebrationOverlayState();
+}
+
+class _CelebrationOverlayState extends State<_CelebrationOverlay> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    );
+    _scaleAnimation = Tween<double>(begin: 0.6, end: 1.1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    );
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+    _controller.forward();
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) Navigator.pop(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      top: top, bottom: bottom, left: 0, right: 0,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(10, (_) => Container(
-          width: 24, height: 12,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(.15),
-            borderRadius: BorderRadius.circular(3),
+    return Center(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (_, __) => Opacity(
+          opacity: _fadeAnimation.value,
+          child: Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [K.yellow, K.orange]),
+                borderRadius: BorderRadius.circular(50),
+                border: Border.all(color: K.white, width: 4),
+                boxShadow: const [
+                  BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  Text('🎉', style: TextStyle(fontSize: 56)),
+                  SizedBox(height: 12),
+                  Text('MAGIC COMPLETE!', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: K.ink)),
+                  SizedBox(height: 6),
+                  Text('Your comic is ready!', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: K.ink)),
+                ],
+              ),
+            ),
           ),
-        )),
+        ),
       ),
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PREMIUM CUSTOM PAINTERS - Professional decorative elements
+// ═══════════════════════════════════════════════════════════════════
+
+class _PremiumBubblePainter extends CustomPainter {
+  final Color fill, stroke;
+  _PremiumBubblePainter({required this.fill, required this.stroke});
+  
+  @override
+  void paint(Canvas canvas, Size sz) {
+    const r = 22.0, tail = 28.0, tw = 30.0;
+    final W = sz.width, H = sz.height;
+    final path = Path()
+      ..moveTo(r, 0)
+      ..lineTo(W - r, 0)
+      ..quadraticBezierTo(W, 0, W, r)
+      ..lineTo(W, H - tail - r)
+      ..quadraticBezierTo(W, H - tail, W - r, H - tail)
+      ..lineTo(r + tw + 16, H - tail)
+      ..lineTo(r + 8, H)
+      ..lineTo(r + tw - 8, H - tail)
+      ..lineTo(r, H - tail)
+      ..quadraticBezierTo(0, H - tail, 0, H - tail - r)
+      ..lineTo(0, r)
+      ..quadraticBezierTo(0, 0, r, 0)
+      ..close();
+    canvas.drawPath(path, Paint()..color = fill);
+    canvas.drawPath(path, Paint()..color = stroke..style = PaintingStyle.stroke..strokeWidth = 3.5);
+  }
+  
+  @override
+  bool shouldRepaint(_PremiumBubblePainter o) => false;
+}
+
+class _PremiumWobblePainter extends CustomPainter {
+  final Color color;
+  final double sw;
+  final Random _rng;
+  _PremiumWobblePainter(this.color, this.sw, int seed) : _rng = Random(seed);
+  
+  @override
+  void paint(Canvas canvas, Size sz) {
+    final paint = Paint()..color = color..strokeWidth = sw..style = PaintingStyle.stroke..strokeCap = StrokeCap.round..strokeJoin = StrokeJoin.round;
+    const int seg = 70;
+    const double pad = 12.0;
+    const double w2 = 4.0;
+    final double W = sz.width;
+    final double H = sz.height;
+    final path = Path();
+    path.moveTo(pad, _rng.nextDouble() * w2);
+    for (int i = 1; i <= seg; i++) {
+      path.lineTo(pad + (W - pad * 2) * i / seg, _rng.nextDouble() * w2);
+    }
+    for (int i = 1; i <= seg; i++) {
+      path.lineTo(W - _rng.nextDouble() * w2, pad + (H - pad * 2) * i / seg);
+    }
+    for (int i = seg; i >= 0; i--) {
+      path.lineTo(pad + (W - pad * 2) * i / seg, H - _rng.nextDouble() * w2);
+    }
+    for (int i = seg; i >= 0; i--) {
+      path.lineTo(_rng.nextDouble() * w2, pad + (H - pad * 2) * i / seg);
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+  
+  @override
+  bool shouldRepaint(_PremiumWobblePainter o) => false;
 }
