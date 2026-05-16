@@ -21,7 +21,6 @@ class _BottomBarState extends State<BottomBar> {
   final List<Widget> pages = [
     const HomeScreen(),
     const NewPage(),
-    const SavedStoriesPage(), 
     const GamesScreen(),
     const SettingsScreen(),
   ];
