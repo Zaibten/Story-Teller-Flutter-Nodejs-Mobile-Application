@@ -12,6 +12,7 @@ import '../../../constants/global_variables.dart';
 import '../../../providers/user_provider.dart';
 import '../../common/widgets/header.dart';
 import '../auth/screens/auth_screen.dart';
+import '../home/savestory.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -244,6 +245,16 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+  // ================= VIEW MY STORIES =================
+  void _viewMyStories() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SavedStoriesPage(),
+      ),
+    );
+  }
+
   // ================= TILE =================
   Widget tile({
     required IconData icon,
@@ -303,6 +314,160 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
+// ================= RESPONSIVE STORIES CARD BUTTON =================
+Widget _storiesCard() {
+  final screenWidth = MediaQuery.of(context).size.width;
+  final screenHeight = MediaQuery.of(context).size.height;
+  
+  // Responsive sizing based on screen width
+  final bool isSmallScreen = screenWidth < 380;
+  final bool isMediumScreen = screenWidth >= 380 && screenWidth < 600;
+  final bool isLargeScreen = screenWidth >= 600;
+  
+  // Responsive padding and sizes
+  final double cardPadding = isSmallScreen ? 16 : 20;
+  final double iconSize = isSmallScreen ? 28 : (isMediumScreen ? 32 : 36);
+  final double titleFontSize = isSmallScreen ? 14 : (isMediumScreen ? 16 : 18);
+  final double subtitleFontSize = isSmallScreen ? 10 : (isMediumScreen ? 11 : 12);
+  final double hintFontSize = isSmallScreen ? 9 : (isMediumScreen ? 10 : 11);
+  final double arrowSize = isSmallScreen ? 20 : (isMediumScreen ? 22 : 24);
+  final double borderRadius = isSmallScreen ? 24 : 28;
+  final double verticalPadding = isSmallScreen ? 16 : 20;
+  
+  return GestureDetector(
+    onTap: _viewMyStories,
+    child: AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, _) {
+        return Transform.scale(
+          scale: 1 + (_pulseAnimation.value * 0.02),
+          child: Container(
+            margin: EdgeInsets.only(bottom: screenHeight * 0.02),
+            padding: EdgeInsets.all(cardPadding),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.purple.shade600,
+                  Colors.pink.shade500,
+                  Colors.orange.shade400,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(borderRadius),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.purple.withOpacity(0.4),
+                  blurRadius: screenWidth * 0.05,
+                  offset: Offset(0, screenHeight * 0.01),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                // Animated book icon
+                AnimatedBuilder(
+                  animation: _rotateAnimation,
+                  builder: (context, _) {
+                    return Transform.rotate(
+                      angle: _rotateAnimation.value * 0.5 * pi,
+                      child: Container(
+                        padding: EdgeInsets.all(isSmallScreen ? 10 : 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(isSmallScreen ? 16 : 20),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.5),
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.book_rounded,
+                          color: Colors.white,
+                          size: iconSize,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                SizedBox(width: screenWidth * 0.04),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "📚 MY STORY LIBRARY",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: screenHeight * 0.005),
+                      Text(
+                        "View all your saved magical stories",
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.85),
+                          fontSize: subtitleFontSize,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: screenHeight * 0.01),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.star,
+                            color: Colors.yellow,
+                            size: isSmallScreen ? 12 : 14,
+                          ),
+                          SizedBox(width: screenWidth * 0.01),
+                          Flexible(
+                            child: Text(
+                              "✨ Tap to explore your collection ✨",
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: hintFontSize,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                // Animated arrow
+                AnimatedBuilder(
+                  animation: _floatAnimation,
+                  builder: (context, _) {
+                    return Transform.translate(
+                      offset: Offset(_floatAnimation.value * 2, 0),
+                      child: Container(
+                        padding: EdgeInsets.all(isSmallScreen ? 6 : 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.25),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          color: Colors.white,
+                          size: arrowSize,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
   // ================= MAGIC MOMENTS SECTION =================
   Widget _magicMomentsSection() {
     return AnimatedBuilder(
@@ -959,25 +1124,26 @@ class _SettingsScreenState extends State<SettingsScreen>
           Column(
             children: [
               MagicHeader(
-      height: 170,
-
-      // pass animations so it looks SAME as homepage
-      floatAnimation: _floatAnimation,
-      waveAnimation: _waveAnimation,
-      pulseAnimation: _pulseAnimation,
-      sparkleAnimation1: _sparkleAnimation,
-      sparkleAnimation2: _sparkleAnimation,
-      shimmerAnimation: _waveAnimation,
-      glowAnimation: _pulseAnimation,
-
-      // optional (you can keep false if not used)
-      hasSelectedCharacter: false,
-      selectedCharacterName: null,
-    ),
+                height: 170,
+                // pass animations so it looks SAME as homepage
+                floatAnimation: _floatAnimation,
+                waveAnimation: _waveAnimation,
+                pulseAnimation: _pulseAnimation,
+                sparkleAnimation1: _sparkleAnimation,
+                sparkleAnimation2: _sparkleAnimation,
+                shimmerAnimation: _waveAnimation,
+                glowAnimation: _pulseAnimation,
+                // optional (you can keep false if not used)
+                hasSelectedCharacter: false,
+                selectedCharacterName: null,
+              ),
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(18),
                   children: [
+                    // NEW: STORIES CARD - Prominent button to view saved stories
+                    _storiesCard(),
+                    
                     tile(
                       icon: Icons.person,
                       title: "Profile",
@@ -1004,7 +1170,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                       color: Colors.red,
                       onTap: () => showLogoutDialog(context),
                     ),
-                    // NEW: Magic Moments Section below the tiles
+                    // Magic Moments Section below the tiles
                     _magicMomentsSection(),
                   ],
                 ),
