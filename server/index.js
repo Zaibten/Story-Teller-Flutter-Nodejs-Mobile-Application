@@ -2542,6 +2542,171 @@ app.get("/home", (req, res) => {
   res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Story Teller Server</title></head><body style="background:#1e1e2f;color:#e4e4e4;font-family:sans-serif;padding:2rem;"><h1>🎬 Story Teller Server</h1><p>Server is running! Use the Flutter app to generate stories.</p><ul><li>GET /generate-story-comic-stream?prompt=...&language=english|urdu</li><li>POST /generate-story-comic</li><li>GET /check-openai</li></ul></body></html>`);
 });
 
+// ============================================
+// STORY MODEL - Add this AFTER your other models
+// ============================================
+
+// Define Story Schema
+const storySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, required: true },
+  storyText: { type: String, required: true },
+  videoUrl: { type: String, default: '' },
+  character: { type: String, default: '' },
+  world: { type: String, default: '' },
+  mood: { type: String, default: '' },
+  panels: { type: Array, default: [] },
+  createdAt: { type: Date, default: Date.now },
+  language: { type: String, default: 'english' }
+});
+
+// CREATE THE MODEL - This is what you're missing!
+const Story = mongoose.model('Story', storySchema);
+
+// ============================================
+// STORY API ROUTES
+// ============================================
+
+// Save story to database
+app.post('/api/save-story', async (req, res) => {
+  try {
+    const { userId, title, storyText, videoUrl, character, world, mood, panels, language } = req.body;
+    
+    // 📝 CONSOLE LOG - Request received
+    console.log('\n📚 ========== SAVE STORY REQUEST ==========');
+    console.log('📝 Request received at:', new Date().toLocaleString());
+    console.log('👤 User ID:', userId);
+    console.log('📖 Title:', title);
+    console.log('📄 Story length:', storyText?.length || 0, 'characters');
+    console.log('🎬 Video URL:', videoUrl || 'No video');
+    console.log('🎭 Character:', character || 'Not specified');
+    console.log('🌍 World:', world || 'Not specified');
+    console.log('😊 Mood:', mood || 'Not specified');
+    console.log('🗣️ Language:', language || 'english');
+    console.log('=========================================\n');
+    
+    if (!userId || !storyText) {
+      console.log('❌ ERROR: Missing userId or storyText');
+      return res.status(400).json({ success: false, error: 'User ID and story text are required' });
+    }
+    
+    const newStory = new Story({
+      userId,
+      title: title || 'Untitled Story',
+      storyText,
+      videoUrl: videoUrl || '',
+      character: character || '',
+      world: world || '',
+      mood: mood || '',
+      panels: panels || [],
+      language: language || 'english'
+    });
+    
+    console.log('💾 Saving to MongoDB...');
+    await newStory.save();
+    
+    // ✅ CONSOLE LOG - Success
+    console.log('\n✅ ========== STORY SAVED SUCCESSFULLY ==========');
+    console.log('🆔 Story ID:', newStory._id);
+    console.log('📖 Title:', newStory.title);
+    console.log('👤 User ID:', newStory.userId);
+    console.log('📅 Created at:', newStory.createdAt);
+    console.log('===============================================\n');
+    
+    res.json({ 
+      success: true, 
+      message: 'Story saved successfully',
+      storyId: newStory._id
+    });
+  } catch (error) {
+    // ❌ CONSOLE LOG - Error
+    console.error('\n❌ ========== SAVE STORY ERROR ==========');
+    console.error('Error message:', error.message);
+    console.error('Error details:', error);
+    console.error('=========================================\n');
+    
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get user's saved stories
+app.get('/api/user-stories/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const stories = await Story.find({ userId }).sort({ createdAt: -1 });
+    
+    res.json({ success: true, stories });
+  } catch (error) {
+    console.error('Get stories error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get single story by ID
+app.get('/api/story/:storyId', async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({ success: false, error: 'Story not found' });
+    }
+    
+    res.json({ success: true, story });
+  } catch (error) {
+    console.error('Get story error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete story
+app.delete('/api/story/:storyId', async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    
+    await Story.findByIdAndDelete(storyId);
+    
+    res.json({ success: true, message: 'Story deleted successfully' });
+  } catch (error) {
+    console.error('Delete story error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
+// VIDEO DOWNLOAD ENDPOINT
+// ============================================
+app.get('/api/download-video', async (req, res) => {
+  try {
+    const { videoUrl } = req.query;
+    
+    if (!videoUrl) {
+      return res.status(400).json({ error: 'Video URL is required' });
+    }
+    
+    // Download video from Cloudinary
+    const response = await axios({
+      method: 'GET',
+      url: videoUrl,
+      responseType: 'stream',
+      timeout: 60000
+    });
+    
+    // Set headers for file download
+    const filename = `story_video_${Date.now()}.mp4`;
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    // Pipe the video stream to response
+    response.data.pipe(res);
+    
+  } catch (error) {
+    console.error('Video download error:', error);
+    res.status(500).json({ error: 'Failed to download video' });
+  }
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running at:`);
   console.log(`➡️  http://localhost:${PORT}`);

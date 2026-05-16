@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../features/game/games_screen.dart';
+import '../features/home/savestory.dart';
 import '../features/home/screens/home_screen.dart';
 import '../features/home/screens/test.dart';
 import '../features/setting/setting.dart';
@@ -20,6 +21,7 @@ class _BottomBarState extends State<BottomBar> {
   final List<Widget> pages = [
     const HomeScreen(),
     const NewPage(),
+    const SavedStoriesPage(), 
     const GamesScreen(),
     const SettingsScreen(),
   ];

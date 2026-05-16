@@ -4,6 +4,8 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:dio/dio.dart';
 import '../../../providers/user_provider.dart';
 import 'dart:math';
 import 'dart:convert';
@@ -81,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   final AudioPlayer _audio = AudioPlayer();
   final List<_Particle> _particles = [];
-  final String _baseUrl = 'http://192.168.100.177:9000';
+  final String _baseUrl = 'http://192.168.100.97:9000';
 
   // Responsive variables
   late double _sw, _sh;
@@ -1473,12 +1475,15 @@ class _StoryDialog extends StatefulWidget {
     required this.tts, required this.onClose, required this.onNewStory});
   @override State<_StoryDialog> createState() => _StoryDialogState();
 }
+
 class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderStateMixin {
   late String _story; String? _storyTitle;
   bool _speaking = false; bool _urduReading = false; bool _isLoadingNew = false;
+  bool _isSaving = false; bool _isDownloading = false;
   late AnimationController _textCtrl;
   late Animation<double> _textFade, _textSlide;
   int _highlightStart = 0; int _highlightEnd = 0; String _plainStory = '';
+  final String _baseUrl = 'http://192.168.100.97:9000';
 
   @override
   void initState() {
@@ -1489,6 +1494,10 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
     _textFade  = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeIn));
     _textSlide = Tween<double>(begin: 28, end: 0).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic));
     _textCtrl.forward();
+    _setupTtsHandlers();
+  }
+
+  void _setupTtsHandlers() {
     widget.tts.setCompletionHandler(() {
       if (mounted) setState(() { _speaking = false; _urduReading = false; _highlightStart = 0; _highlightEnd = 0; });
       widget.tts.setLanguage('en-US'); widget.tts.setSpeechRate(0.44); widget.tts.setPitch(1.1);
@@ -1501,12 +1510,109 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
       if (mounted && _speaking) setState(() { _highlightStart = start; _highlightEnd = end; });
     });
   }
-  @override void dispose() { _textCtrl.dispose(); super.dispose(); }
+
+  @override
+  void dispose() { _textCtrl.dispose(); super.dispose(); }
+
+  Future<void> _saveStory() async {
+    final user = Provider.of<UserProvider>(context, listen: false).user;
+    
+    if (user.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to save stories')),
+      );
+      return;
+    }
+    
+    setState(() => _isSaving = true);
+    
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/api/save-story'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': user.id,
+          'title': _storyTitle ?? '${widget.char.name}\'s Story',
+          'storyText': _story,
+          'videoUrl': widget.videoUrl ?? '',
+          'character': widget.char.name,
+          'world': widget.world.name,
+          'mood': widget.mood,
+          'panels': [],
+          'language': 'english'
+        }),
+      );
+      
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('📚 Story saved to library!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: ${data['error']}')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<void> _downloadVideo() async {
+    if (widget.videoUrl == null || widget.videoUrl!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No video available to download')),
+      );
+      return;
+    }
+    
+    setState(() => _isDownloading = true);
+    
+    try {
+      final Dio dio = Dio();
+      final dir = await getApplicationDocumentsDirectory();
+      final filename = 'story_${widget.char.name}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final filePath = '${dir.path}/$filename';
+      
+      await dio.download(widget.videoUrl!, filePath);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Video saved: $filename'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Download failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
 
   Future<void> _toggleTts() async {
-    if (_speaking) { await widget.tts.stop(); setState(() { _speaking = false; _highlightStart = 0; _highlightEnd = 0; }); return; }
-    if (_urduReading) { await widget.tts.stop(); await Future.delayed(const Duration(milliseconds: 150)); setState(() => _urduReading = false); }
-    await widget.tts.setLanguage('en-US'); await widget.tts.setSpeechRate(0.44); await widget.tts.setPitch(1.1);
+    if (_speaking) {
+      await widget.tts.stop();
+      setState(() { _speaking = false; _highlightStart = 0; _highlightEnd = 0; });
+      return;
+    }
+    if (_urduReading) {
+      await widget.tts.stop();
+      await Future.delayed(const Duration(milliseconds: 150));
+      setState(() => _urduReading = false);
+    }
+    await widget.tts.setLanguage('en-US');
+    await widget.tts.setSpeechRate(0.44);
+    await widget.tts.setPitch(1.1);
     setState(() => _speaking = true);
     final clean = _story.replaceAll(RegExp(r'[^\x00-\x7F]+'), '').trim();
     await widget.tts.speak(clean.isEmpty ? _story : clean);
@@ -1516,23 +1622,28 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
     if (_urduReading) {
       await widget.tts.stop();
       if (mounted) setState(() => _urduReading = false);
-      await widget.tts.setLanguage('en-US'); await widget.tts.setSpeechRate(0.44); await widget.tts.setPitch(1.1);
+      await widget.tts.setLanguage('en-US');
+      await widget.tts.setSpeechRate(0.44);
+      await widget.tts.setPitch(1.1);
       return;
     }
-    await widget.tts.stop(); await Future.delayed(const Duration(milliseconds: 150));
+    await widget.tts.stop();
+    await Future.delayed(const Duration(milliseconds: 150));
     setState(() { _speaking = false; _highlightStart = 0; _highlightEnd = 0; });
+    
     final dynamic langs = await widget.tts.getLanguages;
     final List<String> available = (langs as List).map((e) => e.toString().toLowerCase()).toList();
     if (!available.any((l) => l.contains('ur'))) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('🇵🇰 Urdu TTS not installed.\nSettings → Accessibility → TTS Output → Install Urdu',
-          style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.deepPurple, behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        margin: const EdgeInsets.all(16), duration: const Duration(seconds: 4)));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('🇵🇰 Urdu TTS not installed. Install from device settings'),
+        backgroundColor: Colors.deepPurple,
+        duration: Duration(seconds: 3),
+      ));
       return;
     }
-    await widget.tts.setLanguage('ur-PK'); await widget.tts.setSpeechRate(0.36); await widget.tts.setPitch(1.05);
+    await widget.tts.setLanguage('ur-PK');
+    await widget.tts.setSpeechRate(0.36);
+    await widget.tts.setPitch(1.05);
     await Future.delayed(const Duration(milliseconds: 250));
     if (mounted) setState(() => _urduReading = true);
     await widget.tts.speak(_story);
@@ -1545,41 +1656,89 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
     setState(() { _speaking = false; _urduReading = false; _highlightStart = 0; _highlightEnd = 0; });
     final ns = await widget.onNewStory();
     if (mounted) {
-      setState(() { _story = ns; _plainStory = ns.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim(); _isLoadingNew = false; });
+      setState(() {
+        _story = ns;
+        _plainStory = ns.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim();
+        _isLoadingNew = false;
+      });
       _textCtrl.reset(); _textCtrl.forward();
     }
   }
 
   void _openVideoModal() {
-    if (widget.videoUrl == null) return;
-    showDialog(context: context, builder: (_) => _VideoDialog(url: widget.videoUrl!, char: widget.char, world: widget.world, mood: widget.mood));
+    if (widget.videoUrl == null || widget.videoUrl!.isEmpty) return;
+    showDialog(context: context, builder: (_) => _VideoDialog(
+      url: widget.videoUrl!,
+      char: widget.char,
+      world: widget.world,
+      mood: widget.mood,
+    ));
   }
 
-  Color get _moodColor => {'Happy': const Color(0xFFFFCC00), 'Funny': const Color(0xFFFF5500), 'Adventure': const Color(0xFFCC0000), 'Bedtime': const Color(0xFF4C5FC4)}[widget.mood] ?? const Color(0xFF6C63FF);
-  String get _moodEmoji => {'Happy':'🌟','Funny':'🎪','Adventure':'⚡','Bedtime':'🌙'}[widget.mood] ?? '✨';
+  Color get _moodColor => {
+    'Happy': const Color(0xFFFFCC00),
+    'Funny': const Color(0xFFFF5500),
+    'Adventure': const Color(0xFFCC0000),
+    'Bedtime': const Color(0xFF4C5FC4)
+  }[widget.mood] ?? const Color(0xFF6C63FF);
+  
+  String get _moodEmoji => {
+    'Happy': '🌟', 'Funny': '🎪', 'Adventure': '⚡', 'Bedtime': '🌙'
+  }[widget.mood] ?? '✨';
 
   Widget _buildHighlightedStory() {
-    if (_plainStory.isEmpty) return Text(_story, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.9, wordSpacing: 2.5));
-    final List<String> tokens = []; final List<int> tokenStarts = [];
-    int i = 0; final int len = _plainStory.length;
-    while (i < len) {
-      final char = _plainStory[i]; final bool isWordChar = _isWordChar(char);
-      if (char == ' ') { tokens.add(' '); tokenStarts.add(i); i++; }
-      else if (isWordChar) { final s = i; while (i < len && _isWordChar(_plainStory[i])) i++; tokens.add(_plainStory.substring(s, i)); tokenStarts.add(s); }
-      else { tokens.add(char); tokenStarts.add(i); i++; }
+    if (_plainStory.isEmpty) {
+      return Text(_story, style: const TextStyle(color: Colors.white, fontSize: 15, height: 1.9));
     }
+    
+    final List<String> tokens = [];
+    final List<int> tokenStarts = [];
+    int i = 0;
+    final int len = _plainStory.length;
+    
+    while (i < len) {
+      final char = _plainStory[i];
+      final bool isWordChar = _isWordChar(char);
+      if (char == ' ') {
+        tokens.add(' ');
+        tokenStarts.add(i);
+        i++;
+      } else if (isWordChar) {
+        final s = i;
+        while (i < len && _isWordChar(_plainStory[i])) i++;
+        tokens.add(_plainStory.substring(s, i));
+        tokenStarts.add(s);
+      } else {
+        tokens.add(char);
+        tokenStarts.add(i);
+        i++;
+      }
+    }
+    
     final List<TextSpan> spans = [];
     for (int idx = 0; idx < tokens.length; idx++) {
-      final token = tokens[idx]; final ts = tokenStarts[idx]; final te = ts + token.length;
+      final token = tokens[idx];
+      final ts = tokenStarts[idx];
+      final te = ts + token.length;
       final bool hl = (ts >= _highlightStart && ts < _highlightEnd) || (te > _highlightStart && te <= _highlightEnd);
-      spans.add(TextSpan(text: token, style: TextStyle(
-        color: Colors.white, backgroundColor: hl ? Colors.amber.shade700 : Colors.transparent,
-        fontWeight: hl ? FontWeight.w800 : FontWeight.w500, fontSize: 14, height: 1.8, wordSpacing: 2.0,
-        shadows: hl ? const [Shadow(color: Colors.black26, blurRadius: 3, offset: Offset(0, 1))] : null)));
+      spans.add(TextSpan(
+        text: token,
+        style: TextStyle(
+          color: Colors.white,
+          backgroundColor: hl ? Colors.amber.shade700 : Colors.transparent,
+          fontWeight: hl ? FontWeight.w800 : FontWeight.w500,
+          fontSize: 14,
+          height: 1.8,
+        ),
+      ));
     }
     return RichText(text: TextSpan(children: spans));
   }
-  bool _isWordChar(String c) { final code = c.codeUnitAt(0); return (code>=65&&code<=90)||(code>=97&&code<=122)||code==39||(code>=48&&code<=57); }
+  
+  bool _isWordChar(String c) {
+    final code = c.codeUnitAt(0);
+    return (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || code == 39 || (code >= 48 && code <= 57);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1588,31 +1747,47 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
       insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
       child: TweenAnimationBuilder<double>(
         tween: Tween(begin: 0.80, end: 1.0),
-        duration: const Duration(milliseconds: 660), curve: Curves.easeOutBack,
-        builder: (_, scale, __) => Transform.scale(scale: scale,
+        duration: const Duration(milliseconds: 660),
+        curve: Curves.easeOutBack,
+        builder: (_, scale, __) => Transform.scale(
+          scale: scale,
           child: Container(
             width: MediaQuery.of(context).size.width * 0.9,
             constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF150D2E), Color(0xFF0B1845), Color(0xFF081630)],
-                begin: Alignment.topCenter, end: Alignment.bottomCenter),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF150D2E), Color(0xFF0B1845), Color(0xFF081630)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
               borderRadius: BorderRadius.circular(38),
               border: Border.all(color: Colors.white.withOpacity(0.13), width: 1.5),
-              boxShadow: [BoxShadow(color: _moodColor.withOpacity(0.32), blurRadius: 44, spreadRadius: 5),
-                          BoxShadow(color: Colors.black.withOpacity(0.55), blurRadius: 22)]),
-            child: ClipRRect(borderRadius: BorderRadius.circular(38),
+              boxShadow: [
+                BoxShadow(color: _moodColor.withOpacity(0.32), blurRadius: 44, spreadRadius: 5),
+                BoxShadow(color: Colors.black.withOpacity(0.55), blurRadius: 22),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(38),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
+                // Header
                 Container(
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-                  decoration: BoxDecoration(gradient: LinearGradient(
-                    colors: [_moodColor.withOpacity(0.30), Colors.transparent],
-                    begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [_moodColor.withOpacity(0.30), Colors.transparent],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
                   child: Row(children: [
                     _AvatarRing(gif: widget.char.gif, emoji: widget.char.emoji, color: widget.char.color, size: 50),
                     const SizedBox(width: 12),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(_storyTitle ?? '${widget.char.name}\'s Story',
-                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 0.3)),
+                      Text(
+                        _storyTitle ?? '${widget.char.name}\'s Story',
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                      ),
                       const SizedBox(height: 5),
                       Row(children: [
                         _Tag(label: '${widget.world.emoji} ${widget.world.name}', color: Colors.white.withOpacity(0.18)),
@@ -1623,81 +1798,141 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
                     _AvatarRing(gif: widget.world.gif, emoji: widget.world.emoji, color: widget.world.color, size: 45),
                   ]),
                 ),
+                
                 Container(height: 1, margin: const EdgeInsets.symmetric(horizontal: 18), color: Colors.white.withOpacity(0.1)),
+                
+                // Story content
                 Expanded(
                   child: SingleChildScrollView(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.fromLTRB(18, 16, 18, 6),
-                    child: AnimatedBuilder(animation: _textCtrl, builder: (_, __) =>
-                      Opacity(opacity: _textFade.value,
-                        child: Transform.translate(offset: Offset(0, _textSlide.value),
+                    child: AnimatedBuilder(
+                      animation: _textCtrl,
+                      builder: (_, __) => Opacity(
+                        opacity: _textFade.value,
+                        child: Transform.translate(
+                          offset: Offset(0, _textSlide.value),
                           child: Container(
                             padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: Colors.white.withOpacity(0.07),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.07),
                               borderRadius: BorderRadius.circular(22),
-                              border: Border.all(color: Colors.white.withOpacity(0.1))),
+                              border: Border.all(color: Colors.white.withOpacity(0.1)),
+                            ),
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Row(children: const [Text('📖', style: TextStyle(fontSize: 16)), SizedBox(width: 8),
-                                Text('Your Magical Story', style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 0.5))]),
+                              const Row(children: [
+                                Text('📖', style: TextStyle(fontSize: 16)),
+                                SizedBox(width: 8),
+                                Text('Your Magical Story', style: TextStyle(color: Colors.white60, fontSize: 12, fontWeight: FontWeight.w700)),
+                              ]),
                               const SizedBox(height: 12),
                               _buildHighlightedStory(),
                             ]),
-                          )))),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
+                
+                // Buttons
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
                   child: Column(children: [
-                    GestureDetector(onTap: _toggleTts,
-                      child: AnimatedContainer(duration: const Duration(milliseconds: 300),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: _speaking
-                              ? const LinearGradient(colors: [Color(0xFFE53935), Color(0xFFC62828)])
-                              : LinearGradient(colors: [_moodColor, _moodColor.withOpacity(0.78)]),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [BoxShadow(color: (_speaking ? const Color(0xFFE53935) : _moodColor).withOpacity(0.44), blurRadius: 14, offset: const Offset(0, 5))]),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          AnimatedSwitcher(duration: const Duration(milliseconds: 280),
-                            transitionBuilder: (child, anim) => ScaleTransition(scale: anim, child: RotationTransition(turns: Tween(begin: 0.0, end: 0.5).animate(anim), child: child)),
-                            child: Icon(_speaking ? Icons.stop_circle_rounded : Icons.record_voice_over_rounded, key: ValueKey(_speaking), color: Colors.white, size: 24)),
-                          const SizedBox(width: 8),
-                          AnimatedSwitcher(duration: const Duration(milliseconds: 240),
-                            child: Text(_speaking ? 'Stop' : 'Read Aloud', key: ValueKey(_speaking),
-                              style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800))),
-                        ]))),
-                    const SizedBox(height: 8),
-                    GestureDetector(onTap: _startUrduRead,
-                      child: AnimatedContainer(duration: const Duration(milliseconds: 280),
-                        padding: const EdgeInsets.symmetric(vertical: 11),
-                        decoration: BoxDecoration(
-                          gradient: _urduReading
-                              ? const LinearGradient(colors: [Color(0xFF6A0DAD), Color(0xFF4A0080)])
-                              : const LinearGradient(colors: [Color(0xFF1C1C3A), Color(0xFF2A2A50)]),
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: _urduReading ? const Color(0xFFAA00FF) : Colors.white.withOpacity(0.18), width: _urduReading ? 1.5 : 1.0),
-                          boxShadow: _urduReading ? [BoxShadow(color: const Color(0xFF6A0DAD).withOpacity(0.5), blurRadius: 14, offset: const Offset(0, 5))] : []),
-                        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text(_urduReading ? '🔊' : '🇵🇰', style: const TextStyle(fontSize: 18)),
-                          const SizedBox(width: 8),
-                          AnimatedSwitcher(duration: const Duration(milliseconds: 240),
-                            child: Text(_urduReading ? 'اردو میں پڑھ رہا ہے...' : 'اردو میں سنیں', key: ValueKey(_urduReading),
-                              style: TextStyle(color: _urduReading ? Colors.white : Colors.white70, fontSize: 14, fontWeight: FontWeight.w800))),
-                          if (_urduReading) ...[const SizedBox(width: 8), const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))],
-                        ]))),
-                    const SizedBox(height: 8),
+                    // Row 1: Read Aloud and Urdu
                     Row(children: [
-                      Expanded(child: _BottomBtn(label: _isLoadingNew ? 'Generating...' : 'New Story', onTap: _isLoadingNew ? null : _newStory, highlight: true, color: _moodColor)),
+                      Expanded(child: GestureDetector(
+                        onTap: _toggleTts,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: _speaking
+                                ? const LinearGradient(colors: [Color(0xFFE53935), Color(0xFFC62828)])
+                                : LinearGradient(colors: [_moodColor, _moodColor.withOpacity(0.78)]),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [BoxShadow(color: (_speaking ? const Color(0xFFE53935) : _moodColor).withOpacity(0.44), blurRadius: 14, offset: const Offset(0, 5))],
+                          ),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Icon(_speaking ? Icons.stop_circle_rounded : Icons.record_voice_over_rounded, color: Colors.white, size: 24),
+                            const SizedBox(width: 8),
+                            Text(_speaking ? 'Stop' : 'Read Aloud', style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                          ]),
+                        ),
+                      )),
                       const SizedBox(width: 8),
-                      Expanded(child: _BottomBtn(label: 'Watch Video', onTap: widget.videoUrl != null ? _openVideoModal : null, highlight: true, color: const Color(0xFFFF6D00))),
+                      Expanded(child: GestureDetector(
+                        onTap: _startUrduRead,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 280),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          decoration: BoxDecoration(
+                            gradient: _urduReading
+                                ? const LinearGradient(colors: [Color(0xFF6A0DAD), Color(0xFF4A0080)])
+                                : const LinearGradient(colors: [Color(0xFF1C1C3A), Color(0xFF2A2A50)]),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(color: _urduReading ? const Color(0xFFAA00FF) : Colors.white.withOpacity(0.18), width: _urduReading ? 1.5 : 1.0),
+                            boxShadow: _urduReading ? [BoxShadow(color: const Color(0xFF6A0DAD).withOpacity(0.5), blurRadius: 14, offset: const Offset(0, 5))] : [],
+                          ),
+                          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            Text(_urduReading ? '🔊' : '🇵🇰', style: const TextStyle(fontSize: 18)),
+                            const SizedBox(width: 8),
+                            Text(_urduReading ? 'اردو میں' : 'اردو میں سنیں', style: TextStyle(color: _urduReading ? Colors.white : Colors.white70, fontSize: 13, fontWeight: FontWeight.w800)),
+                            if (_urduReading) const SizedBox(width: 8, height: 12, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                          ]),
+                        ),
+                      )),
+                    ]),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Row 2: Save, Download, Watch
+                    Row(children: [
+                      Expanded(child: _BottomBtn(
+                        label: _isSaving ? 'Saving...' : 'Save Story',
+                        onTap: _isSaving ? null : _saveStory,
+                        highlight: true,
+                        color: const Color(0xFF4CAF50),
+                      )),
                       const SizedBox(width: 8),
-                      Expanded(child: _BottomBtn(label: 'Close', onTap: () { widget.onClose(); Navigator.pop(context); })),
+                      Expanded(child: _BottomBtn(
+                        label: _isDownloading ? 'Downloading...' : 'Download Video',
+                        onTap: (widget.videoUrl != null && widget.videoUrl!.isNotEmpty && !_isDownloading) ? _downloadVideo : null,
+                        highlight: true,
+                        color: const Color(0xFF2196F3),
+                      )),
+                      const SizedBox(width: 8),
+                      Expanded(child: _BottomBtn(
+                        label: 'Watch Video',
+                        onTap: widget.videoUrl != null && widget.videoUrl!.isNotEmpty ? _openVideoModal : null,
+                        highlight: true,
+                        color: const Color(0xFFFF6D00),
+                      )),
+                    ]),
+                    
+                    const SizedBox(height: 10),
+                    
+                    // Row 3: New Story, Close
+                    Row(children: [
+                      Expanded(child: _BottomBtn(
+                        label: _isLoadingNew ? 'Generating...' : 'New Story',
+                        onTap: _isLoadingNew ? null : _newStory,
+                        highlight: true,
+                        color: _moodColor,
+                      )),
+                      const SizedBox(width: 8),
+                      Expanded(child: _BottomBtn(
+                        label: 'Close',
+                        onTap: () { widget.onClose(); Navigator.pop(context); },
+                        highlight: false,
+                      )),
                     ]),
                   ]),
                 ),
               ]),
             ),
-          )),
+          ),
+        ),
       ),
     );
   }

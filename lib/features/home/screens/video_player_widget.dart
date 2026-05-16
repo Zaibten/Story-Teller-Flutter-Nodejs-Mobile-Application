@@ -24,7 +24,7 @@ class VideoGenerationPage extends StatefulWidget {
 class _VideoGenerationPageState extends State<VideoGenerationPage>
     with SingleTickerProviderStateMixin {
   
-  static const String _baseUrl = 'http://192.168.100.177:9000';
+  static const String _baseUrl = 'http://192.168.100.97:9000';
   
   late TabController _tabController;
   final TextEditingController _promptController = TextEditingController();

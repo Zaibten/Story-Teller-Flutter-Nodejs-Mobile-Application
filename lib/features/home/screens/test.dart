@@ -5,10 +5,15 @@ import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:video_player/video_player.dart';
-
+import 'package:path_provider/path_provider.dart';
+import 'package:dio/dio.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../common/widgets/header.dart';
+import '../../../providers/user_provider.dart';
 
 // ═══════════════════════════════════════════════════════════════════
 //  PREMIUM KIDS MAGICAL DESIGN SYSTEM
@@ -316,7 +321,9 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   final _ctrl = TextEditingController();
   final _tts = FlutterTts();
   final _rng = Random();
-  static const _base = 'http://192.168.100.177:9000';
+  bool _isSaving = false;
+bool _isDownloading = false;
+  static const _base = 'http://192.168.100.97:9000';
 
   String _selectedLanguage = 'english';
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -435,6 +442,93 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
       return false;
     });
   }
+
+  Future<void> _saveStoryToDatabase() async {
+  final user = Provider.of<UserProvider>(context, listen: false).user;
+  
+  if (user.id == null) {
+    _showSnackbar('Please login to save stories', K.red);
+    return;
+  }
+  
+  setState(() => _isSaving = true);
+  
+  try {
+    final response = await http.post(
+      Uri.parse('$_base/api/save-story'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'userId': user.id,
+        'title': _story.substring(0, _story.length > 50 ? 50 : _story.length),
+        'storyText': _story,
+        'videoUrl': _videoUrl ?? '',
+        'character': '',
+        'world': '',
+        'mood': '',
+        'panels': _panels,
+        'language': _selectedLanguage
+      }),
+    );
+    
+    final data = json.decode(response.body);
+    if (data['success'] == true) {
+      _showSnackbar('📚 Story saved to library!', K.mint);
+    } else {
+      _showSnackbar('Failed to save: ${data['error']}', K.red);
+    }
+  } catch (e) {
+    _showSnackbar('Failed to save: $e', K.red);
+  } finally {
+    if (mounted) setState(() => _isSaving = false);
+  }
+}
+
+Future<void> _downloadVideoToDevice() async {
+  if (_videoUrl == null || _videoUrl!.isEmpty) {
+    _showSnackbar('No video available to download', K.orange);
+    return;
+  }
+  
+  // Request storage permission for Android
+  if (await Permission.storage.request().isGranted == false) {
+    _showSnackbar('Storage permission required to download videos', K.red);
+    return;
+  }
+  
+  setState(() => _isDownloading = true);
+  
+  try {
+    final Dio dio = Dio();
+    final dir = await getApplicationDocumentsDirectory();
+    final filename = 'story_${DateTime.now().millisecondsSinceEpoch}.mp4';
+    final filePath = '${dir.path}/$filename';
+    
+    await dio.download(_videoUrl!, filePath, onReceiveProgress: (received, total) {
+      if (total > 0) {
+        final progress = (received / total * 100).toInt();
+        if (mounted && progress % 20 == 0) {
+          _showSnackbar('Downloading: $progress%', K.blue);
+        }
+      }
+    });
+    
+    if (mounted) {
+      _showSnackbar('✅ Video saved to: $filename', K.mint);
+      
+      // Option to share
+      await Share.shareXFiles(
+        [XFile(filePath)],
+        text: 'Check out my magical story video!',
+      );
+    }
+  } catch (e) {
+    if (mounted) {
+      _showSnackbar('Download failed: $e', K.red);
+    }
+  } finally {
+    if (mounted) setState(() => _isDownloading = false);
+  }
+}
 
   Future<void> _initSpeech() async {
     try {
@@ -1208,102 +1302,168 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   // ═══════════════════════════════════════════════════════════════════
   //  PREMIUM VIDEO CARD - Pro presentation for video content
   // ═══════════════════════════════════════════════════════════════════
-  Widget _buildPremiumVideoCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF2D1B4E),
-        borderRadius: BorderRadius.circular(36),
-        border: Border.all(color: K.yellow, width: 4),
-        boxShadow: const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            decoration: const BoxDecoration(gradient: LinearGradient(colors: [K.purple, K.pink])),
-            child: Row(
-              children: [
-                AnimatedBuilder(
-                  animation: _rotateAnimation,
-                  builder: (_, __) => Transform.rotate(
-                    angle: _rotateAnimation.value,
-                    child: const Text('🎬', style: TextStyle(fontSize: 32)),
-                  ),
+Widget _buildPremiumVideoCard() {
+  return Container(
+    decoration: BoxDecoration(
+      color: const Color(0xFF2D1B4E),
+      borderRadius: BorderRadius.circular(36),
+      border: Border.all(color: K.yellow, width: 4),
+      boxShadow: const [BoxShadow(color: K.ink, offset: Offset(6, 6), blurRadius: 0)],
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          decoration: const BoxDecoration(gradient: LinearGradient(colors: [K.purple, K.pink])),
+          child: Row(
+            children: [
+              AnimatedBuilder(
+                animation: _rotateAnimation,
+                builder: (_, __) => Transform.rotate(
+                  angle: _rotateAnimation.value,
+                  child: const Text('🎬', style: TextStyle(fontSize: 32)),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('🎉 YOUR MAGIC VIDEO IS READY! 🎉', style: ts(13, K.white, fw: FontWeight.w900)),
-                      Text(
-                        _videoInitialized
-                            ? (_selectedLanguage == 'urdu' ? '🇵🇰 Urdu Voiceover' : '🇺🇸 English Voiceover')
-                            : 'Loading your video...',
-                        style: tb(11, K.white.withOpacity(0.85)),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [K.yellow, K.orange]),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: K.ink, width: 2.5),
-                  ),
-                  child: Text('✨ PREMIUM ✨', style: ts(10, K.ink, fw: FontWeight.w900)),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(
-            height: 210,
-            child: _videoInitialized && _chewieController != null
-                ? Chewie(controller: _chewieController!)
-                : Container(
-                    color: const Color(0xFF1A0A3E),
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircularProgressIndicator(color: K.yellow, strokeWidth: 4),
-                          const SizedBox(height: 12),
-                          Text('Preparing your video...', style: ts(13, K.white)),
-                        ],
-                      ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('🎉 YOUR MAGIC VIDEO IS READY! 🎉', style: ts(13, K.white, fw: FontWeight.w900)),
+                    Text(
+                      _videoInitialized
+                          ? (_selectedLanguage == 'urdu' ? '🇵🇰 Urdu Voiceover' : '🇺🇸 English Voiceover')
+                          : 'Loading your video...',
+                      style: tb(11, K.white.withOpacity(0.85)),
                     ),
-                  ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: _PremiumPulseButton(
-              onTap: () => setState(() => _showVideoOverlay = true),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [K.yellow, K.orange]),
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(color: K.ink, width: 3),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.fullscreen_rounded, color: K.ink, size: 24),
-                    SizedBox(width: 10),
-                    Text('WATCH FULL SCREEN', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: K.ink)),
-                    SizedBox(width: 6),
-                    Icon(Icons.arrow_forward_rounded, color: K.ink, size: 20),
                   ],
                 ),
               ),
-            ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [K.yellow, K.orange]),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: K.ink, width: 2.5),
+                ),
+                child: Text('✨ PREMIUM ✨', style: ts(10, K.ink, fw: FontWeight.w900)),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+        SizedBox(
+          height: 210,
+          child: _videoInitialized && _chewieController != null
+              ? Chewie(controller: _chewieController!)
+              : Container(
+                  color: const Color(0xFF1A0A3E),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const CircularProgressIndicator(color: K.yellow, strokeWidth: 4),
+                        const SizedBox(height: 12),
+                        Text('Preparing your video...', style: ts(13, K.white)),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            children: [
+              // Row 1: Watch Full Screen
+              _PremiumPulseButton(
+                onTap: () => setState(() => _showVideoOverlay = true),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [K.yellow, K.orange]),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: K.ink, width: 3),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.fullscreen_rounded, color: K.ink, size: 24),
+                      SizedBox(width: 10),
+                      Text('WATCH FULL SCREEN', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: K.ink)),
+                      SizedBox(width: 6),
+                      Icon(Icons.arrow_forward_rounded, color: K.ink, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Row 2: Save Story and Download Video
+              Row(
+                children: [
+                  Expanded(
+                    child: _PremiumPulseButton(
+                      onTap: _isSaving ? null : _saveStoryToDatabase,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: _isSaving 
+                              ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                              : const LinearGradient(colors: [K.mint, K.cyan]),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(color: K.ink, width: 2.5),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(_isSaving ? Icons.hourglass_empty : Icons.bookmark_add_rounded, 
+                                color: K.ink, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isSaving ? 'SAVING...' : 'SAVE STORY',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: K.ink),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _PremiumPulseButton(
+                      onTap: _isDownloading ? null : _downloadVideoToDevice,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: _isDownloading 
+                              ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                              : const LinearGradient(colors: [K.blue, K.purple]),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(color: K.ink, width: 2.5),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(_isDownloading ? Icons.downloading : Icons.download_for_offline_rounded, 
+                                color: K.white, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              _isDownloading ? 'DOWNLOADING...' : 'DOWNLOAD VIDEO',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: K.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   // ═══════════════════════════════════════════════════════════════════
   //  PREMIUM VIDEO OVERLAY - Fullscreen immersive experience
@@ -1716,63 +1876,66 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   }
 
   Widget _buildPremiumPanelNav() {
-    return Row(
-      children: [
-        Expanded(
-          child: _PremiumPulseButton(
-            isActive: _comicPanel > 0,
-            onTap: _comicPanel > 0 ? () => _pageCtrl.previousPage(duration: const Duration(milliseconds: 500), curve: Curves.easeInOutCubic) : null,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                gradient: _comicPanel > 0 ? const LinearGradient(colors: [K.blue, K.cyan]) : null,
-                color: _comicPanel > 0 ? null : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: K.ink, width: 3),
-                boxShadow: _comicPanel > 0 ? const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)] : [],
+    return // Row 2: Save Story and Download Video
+Row(
+  children: [
+    Expanded(
+      child: _PremiumPulseButton(
+        onTap: _isSaving ? null : _saveStoryToDatabase,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            gradient: _isSaving 
+                ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                : const LinearGradient(colors: [K.mint, K.cyan]),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: K.ink, width: 2.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_isSaving ? Icons.hourglass_empty : Icons.bookmark_add_rounded, 
+                  color: K.ink, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                _isSaving ? 'SAVING...' : 'SAVE STORY',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: K.ink),
               ),
-              child: Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.arrow_back_ios_rounded, size: 18),
-                    SizedBox(width: 8),
-                    Text('PREVIOUS', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                  ],
-                ),
-              ),
-            ),
+            ],
           ),
         ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: _PremiumPulseButton(
-            isActive: _comicPanel < _panels.length - 1,
-            onTap: _comicPanel < _panels.length - 1 ? () => _pageCtrl.nextPage(duration: const Duration(milliseconds: 500), curve: Curves.easeInOutCubic) : null,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                gradient: _comicPanel < _panels.length - 1 ? const LinearGradient(colors: [K.red, K.orange]) : null,
-                color: _comicPanel < _panels.length - 1 ? null : Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: K.ink, width: 3),
-                boxShadow: _comicPanel < _panels.length - 1 ? const [BoxShadow(color: K.ink, offset: Offset(5, 5), blurRadius: 0)] : [],
+      ),
+    ),
+    const SizedBox(width: 10),
+    Expanded(
+      child: _PremiumPulseButton(
+        onTap: _isDownloading ? null : _downloadVideoToDevice,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            gradient: _isDownloading 
+                ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                : const LinearGradient(colors: [K.blue, K.purple]),
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: K.ink, width: 2.5),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_isDownloading ? Icons.downloading : Icons.download_for_offline_rounded, 
+                  color: K.white, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                _isDownloading ? 'DOWNLOADING...' : 'DOWNLOAD VIDEO',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: K.white),
               ),
-              child: Center(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Text('NEXT', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                    SizedBox(width: 8),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 18),
-                  ],
-                ),
-              ),
-            ),
+            ],
           ),
         ),
-      ],
-    );
+      ),
+    ),
+  ],
+);
   }
 
   Widget _buildPremiumComicPanel(int idx, Map<String, dynamic> panel) {

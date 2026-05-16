@@ -9,6 +9,7 @@ import 'constants/global_variables.dart';
 import 'features/art/screens/art_screen.dart';
 import 'features/auth/screens/auth_screen.dart';
 import 'features/auth/services/auth_service.dart';
+import 'features/home/savestory.dart';
 import 'features/home/screens/home_screen.dart';
 import 'features/home/screens/test.dart';
 import 'providers/user_provider.dart';
@@ -58,7 +59,7 @@ class _MyAppState extends State<MyApp> {
         useMaterial3: true,
       ),
       onGenerateRoute: (settings) => generateRoute(settings),
-      // home: const NewPage()
+      // home: const SavedStoriesPage()
      home: Provider.of<UserProvider>(context).user.token.isNotEmpty &&
               Provider.of<UserProvider>(context).user.type == 'user'
           ? const BottomBar()

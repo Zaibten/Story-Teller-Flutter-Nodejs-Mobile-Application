@@ -68,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final AudioPlayer _audio = AudioPlayer();
   final List<_Particle> _particles = [];
 
-  final String _baseUrl = 'http://192.168.100.177:9000';
+  final String _baseUrl = 'http://192.168.100.97:9000';
 
   // ── CHARACTER / WORLD / MOOD DATA ─────────────────────────────────
   final List<Character> characters = [
