@@ -10,7 +10,7 @@ import '../../../providers/user_provider.dart';
 import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/services.dart';
-
+import 'package:share_plus/share_plus.dart';
 // ═══════════════════════════════════════════════════════════════════
 //  HOME SCREEN  –  Fully responsive with animated backgrounds
 // ═══════════════════════════════════════════════════════════════════
@@ -83,7 +83,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   final AudioPlayer _audio = AudioPlayer();
   final List<_Particle> _particles = [];
-  final String _baseUrl = 'http://192.168.100.97:9000';
+  final String _baseUrl = 'http://10.255.212.221:9000';
 
   // Responsive variables
   late double _sw, _sh;
@@ -1483,7 +1483,7 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
   late AnimationController _textCtrl;
   late Animation<double> _textFade, _textSlide;
   int _highlightStart = 0; int _highlightEnd = 0; String _plainStory = '';
-  final String _baseUrl = 'http://192.168.100.97:9000';
+  final String _baseUrl = 'http://10.255.212.221:9000';
 
   @override
   void initState() {
@@ -1513,6 +1513,40 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
 
   @override
   void dispose() { _textCtrl.dispose(); super.dispose(); }
+
+  Future<void> _shareVideoOnWhatsApp() async {
+  if (widget.videoUrl == null || widget.videoUrl!.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No video available to share')),
+    );
+    return;
+  }
+
+  try {
+    // Download the video to a temp file first, then share
+    final Dio dio = Dio();
+    final dir = await getTemporaryDirectory();
+    final filename = 'story_${widget.char.name}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+    final filePath = '${dir.path}/$filename';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('🔄 Preparing video for sharing...')),
+    );
+
+    await dio.download(widget.videoUrl!, filePath);
+
+    await Share.shareXFiles(
+      [XFile(filePath)],
+      text: '🌟 Check out ${widget.char.name}\'s magical story in ${widget.world.name}! ✨ #MagicStory',
+    );
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: $e')),
+      );
+    }
+  }
+}
 
   Future<void> _saveStory() async {
     final user = Provider.of<UserProvider>(context, listen: false).user;
@@ -1895,12 +1929,18 @@ class _StoryDialogState extends State<_StoryDialog> with SingleTickerProviderSta
                         color: const Color(0xFF4CAF50),
                       )),
                       const SizedBox(width: 8),
+                      // Expanded(child: _BottomBtn(
+                      //   label: _isDownloading ? 'Downloading...' : 'Download Video',
+                      //   onTap: (widget.videoUrl != null && widget.videoUrl!.isNotEmpty && !_isDownloading) ? _downloadVideo : null,
+                      //   highlight: true,
+                      //   color: const Color(0xFF2196F3),
+                      // )),
                       Expanded(child: _BottomBtn(
-                        label: _isDownloading ? 'Downloading...' : 'Download Video',
-                        onTap: (widget.videoUrl != null && widget.videoUrl!.isNotEmpty && !_isDownloading) ? _downloadVideo : null,
-                        highlight: true,
-                        color: const Color(0xFF2196F3),
-                      )),
+  label: '📤 WhatsApp',
+  onTap: widget.videoUrl != null && widget.videoUrl!.isNotEmpty ? _shareVideoOnWhatsApp : null,
+  highlight: true,
+  color: const Color(0xFF25D366), // WhatsApp green
+)),
                       const SizedBox(width: 8),
                       Expanded(child: _BottomBtn(
                         label: 'Watch Video',

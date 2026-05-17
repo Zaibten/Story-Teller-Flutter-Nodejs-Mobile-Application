@@ -14,7 +14,6 @@ import 'package:share_plus/share_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../common/widgets/header.dart';
 import '../../../providers/user_provider.dart';
-
 // ═══════════════════════════════════════════════════════════════════
 //  PREMIUM KIDS MAGICAL DESIGN SYSTEM
 //  Professional, playful, and child-optimized
@@ -323,7 +322,7 @@ class _NewPageState extends State<NewPage> with TickerProviderStateMixin {
   final _rng = Random();
   bool _isSaving = false;
 bool _isDownloading = false;
-  static const _base = 'http://192.168.100.97:9000';
+  static const _base = 'http://10.255.212.221:9000';
 
   String _selectedLanguage = 'english';
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -485,45 +484,38 @@ bool _isDownloading = false;
 
 Future<void> _downloadVideoToDevice() async {
   if (_videoUrl == null || _videoUrl!.isEmpty) {
-    _showSnackbar('No video available to download', K.orange);
+    _showSnackbar('No video available to share', K.orange);
     return;
   }
-  
-  // Request storage permission for Android
-  if (await Permission.storage.request().isGranted == false) {
-    _showSnackbar('Storage permission required to download videos', K.red);
-    return;
-  }
-  
+
   setState(() => _isDownloading = true);
-  
+
   try {
     final Dio dio = Dio();
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await getTemporaryDirectory();
     final filename = 'story_${DateTime.now().millisecondsSinceEpoch}.mp4';
     final filePath = '${dir.path}/$filename';
-    
+
+    _showSnackbar('🔄 Preparing video...', K.blue);
+
     await dio.download(_videoUrl!, filePath, onReceiveProgress: (received, total) {
       if (total > 0) {
         final progress = (received / total * 100).toInt();
-        if (mounted && progress % 20 == 0) {
+        if (mounted && progress % 25 == 0) {
           _showSnackbar('Downloading: $progress%', K.blue);
         }
       }
     });
-    
+
     if (mounted) {
-      _showSnackbar('✅ Video saved to: $filename', K.mint);
-      
-      // Option to share
       await Share.shareXFiles(
         [XFile(filePath)],
-        text: 'Check out my magical story video!',
+        text: '🌟 Check out my magical story! ✨ #MagicStory',
       );
     }
   } catch (e) {
     if (mounted) {
-      _showSnackbar('Download failed: $e', K.red);
+      _showSnackbar('Share failed: $e', K.red);
     }
   } finally {
     if (mounted) setState(() => _isDownloading = false);
@@ -1443,11 +1435,11 @@ Widget _buildPremiumVideoCard() {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(_isDownloading ? Icons.downloading : Icons.download_for_offline_rounded, 
+                            Icon(_isDownloading ? Icons.downloading : Icons.share_rounded, 
                                 color: K.white, size: 20),
                             const SizedBox(width: 8),
                             Text(
-                              _isDownloading ? 'DOWNLOADING...' : 'DOWNLOAD VIDEO',
+                              _isDownloading ? 'SHARING...' : 'SHARE VIDEO',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: K.white),
                             ),
                           ],

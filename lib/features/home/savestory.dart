@@ -24,7 +24,7 @@ class _SavedStoriesPageState extends State<SavedStoriesPage> with TickerProvider
   List<Map<String, dynamic>> _stories = [];
   bool _isLoading = true;
   bool _isDeleting = false;
-  final String _baseUrl = 'http://192.168.100.97:9000';
+  final String _baseUrl = 'http://10.255.212.221:9000';
   
   // Animation Controllers
   late AnimationController _fadeController;
