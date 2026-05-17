@@ -411,7 +411,7 @@
 //             model: "dall-e-3",
 //             prompt: `${safePrompt(panel.imagePrompt)}, cartoon style, colorful, kid-friendly`,
 //             size: "1024x1024",
-//             response_format: "b64_json",
+//              
 //           });
           
 //           const base64 = img.data?.[0]?.b64_json;
@@ -675,7 +675,7 @@
 //             model: "dall-e-3",
 //             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, completely new scene",
 //             size: "1024x1024",
-//             response_format: "b64_json",
+//              
 //           });
 //           const base64 = img.data?.[0]?.b64_json;
 //           if (!base64) throw new Error("No base64");
@@ -1159,7 +1159,7 @@
 // //             model: "dall-e-3",
 // //             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, completely new scene",
 // //             size: "1024x1024",
-// //             response_format: "b64_json",
+// //              
 // //           });
 // //           const base64 = img.data?.[0]?.b64_json;
 // //           if (!base64) throw new Error("No base64");
@@ -1276,7 +1276,7 @@
 // //             model: "dall-e-3",
 // //             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style",
 // //             size: "1024x1024",
-// //             response_format: "b64_json",
+// //              
 // //           });
 // //           const base64 = img.data?.[0]?.b64_json;
 // //           if (!base64) throw new Error("No base64");
@@ -2147,39 +2147,48 @@ app.get('/generate-story-comic-stream', async (req, res) => {
     const concurrency = 2;
     const imageQueue = [...panels.entries()];
 
-    async function processQueue() {
-      const batch = [];
-      while (imageQueue.length && batch.length < concurrency) batch.push(imageQueue.shift());
-      if (batch.length === 0) return;
+// ══════════════════════════════════════════════════════════════
+//  REPLACE the processQueue function in /generate-story-comic-stream
+// ══════════════════════════════════════════════════════════════
+async function processQueue() {
+  const batch = [];
+  while (imageQueue.length && batch.length < concurrency) batch.push(imageQueue.shift());
+  if (batch.length === 0) return;
 
-      await Promise.all(batch.map(async ([idx, panel]) => {
-        try {
-          const img = await openai.images.generate({
-            model: "dall-e-3",
-            prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, completely new scene",
-            size: "1024x1024",
-            response_format: "b64_json",
-          });
-          const base64 = img.data?.[0]?.b64_json;
-          if (!base64) throw new Error("No base64");
+  await Promise.all(batch.map(async ([idx, panel]) => {
+    try {
+      const img = await openai.images.generate({
+        model: "gpt-image-1",           // ✅ current model, no response_format needed
+        prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, colorful, kid-friendly",
+        size: "1024x1024",
+        quality: "low",                 // ✅ low = cheaper & faster for kids app
+        // NO response_format — gpt-image-1 always returns b64_json automatically
+      });
 
-          const uploadRes = await cloudinary.uploader.upload(
-            `data:image/png;base64,${base64}`,
-            { folder: "story_comics" }
-          );
-          const imageUrl = uploadRes.secure_url;
-          console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
+      const base64 = img.data?.[0]?.b64_json;  // ✅ always present with gpt-image-1
+      if (!base64) throw new Error("No base64 returned");
 
-          panels[idx].image = imageUrl;
-          send({ progress: 40 + Math.round(((idx + 1) / panels.length) * 40), panelIndex: idx, image: imageUrl });
-        } catch (err) {
-          console.error(`Panel ${idx} failed:`, err.message);
-          panels[idx].image = "";
-        }
-      }));
+      const uploadRes = await cloudinary.uploader.upload(
+        `data:image/png;base64,${base64}`,
+        { folder: "story_comics" }
+      );
+      const imageUrl = uploadRes.secure_url;
+      console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
 
-      await processQueue();
+      panels[idx].image = imageUrl;
+      send({
+        progress: 40 + Math.round(((idx + 1) / panels.length) * 40),
+        panelIndex: idx,
+        image: imageUrl
+      });
+    } catch (err) {
+      console.error(`Panel ${idx} failed:`, err.message);
+      panels[idx].image = "";
     }
+  }));
+
+  await processQueue();
+}
 
     await processQueue();
 
@@ -2306,24 +2315,33 @@ app.post('/generate-story-comic', async (req, res) => {
     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
     if (!Array.isArray(panels)) return res.status(500).json({ error: "Panel error" });
 
-    const panelsWithImages = await Promise.all(panels.map(async (panel, index) => {
-      try {
-        const img = await openai.images.generate({
-          model: "dall-e-3",
-          prompt: `${safePrompt(panel.imagePrompt)}, cartoon style, colorful, kid-friendly`,
-          size: "1024x1024",
-          response_format: "b64_json",
-        });
-        const base64 = img.data?.[0]?.b64_json;
-        if (base64) {
-          const uploadRes = await cloudinary.uploader.upload(`data:image/png;base64,${base64}`, { folder: "story_comics" });
-          return { ...panel, image: uploadRes.secure_url };
-        }
-        return { ...panel, image: "" };
-      } catch (err) {
-        return { ...panel, image: "" };
-      }
-    }));
+// ══════════════════════════════════════════════════════════════
+//  REPLACE panelsWithImages in POST /generate-story-comic
+// ══════════════════════════════════════════════════════════════
+const panelsWithImages = await Promise.all(panels.map(async (panel, index) => {
+  try {
+    const img = await openai.images.generate({
+      model: "gpt-image-1",           // ✅
+      prompt: `${safePrompt(panel.imagePrompt)}, cartoon style, colorful, kid-friendly`,
+      size: "1024x1024",
+      quality: "low",
+      // NO response_format
+    });
+
+    const base64 = img.data?.[0]?.b64_json;  // ✅ always present
+    if (!base64) return { ...panel, image: "" };
+
+    const uploadRes = await cloudinary.uploader.upload(
+      `data:image/png;base64,${base64}`,
+      { folder: "story_comics" }
+    );
+    console.log(`✅ Panel ${index + 1} uploaded`);
+    return { ...panel, image: uploadRes.secure_url };
+  } catch (err) {
+    console.error(`Panel ${index} error:`, err.message);
+    return { ...panel, image: "" };
+  }
+}));
 
     res.json({
       success: true,
