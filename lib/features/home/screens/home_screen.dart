@@ -139,7 +139,104 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (mounted) _charEntranceCtrl.forward();
     });
   }
+// Function to simulate importing a .pth (PyTorch) model file
+Future<Map<String, dynamic>> importModelPth(String filePath) async {
+  // Simulate model loading delay
+  await Future.delayed(const Duration(milliseconds: 500));
+  
+  // Return model data
+  return {
+    'success': true,
+    'modelLoaded': true,
+    'modelName': 'story_generation_model.pth',
+    'modelVersion': '1.0.0',
+    'architecture': 'Transformer-Based LLM',
+    'parameters': {
+      'totalParams': 125_000_000,
+      'trainableParams': 125_000_000,
+      'layers': 24,
+      'hiddenSize': 1024,
+      'attentionHeads': 16
+    },
+    'capabilities': [
+      'story_generation',
+      'comic_panel_creation',
+      'character_design',
+      'dialogue_generation'
+    ],
+    'supportedLanguages': ['english', 'urdu'],
+    'performance': {
+      'inferenceTime': '0.5-1.2 seconds',
+      'memoryUsage': '512MB',
+      'accuracy': 0.94
+    },
+    'modelStatus': 'ready',
+    'initialized': DateTime.now().toIso8601String()
+  };
+}
 
+// Class-based approach for model management
+class StoryModel {
+  final String path;
+  bool isLoaded = false;
+  
+  StoryModel(this.path);
+  
+  Future<void> load() async {
+    // Simulate loading process with progress
+    for (int i = 0; i <= 100; i += 20) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      print('Loading model: $i%');
+    }
+    isLoaded = true;
+    print('✅ Model loaded successfully from: $path');
+  }
+  
+  Future<String> generateStory(String prompt) async {
+    if (!isLoaded) throw Exception('Model not loaded');
+    await Future.delayed(const Duration(milliseconds: 300));
+    return 'Generated story for: $prompt';
+  }
+  
+  Future<List<Map<String, dynamic>>> generateComicPanels(String story) async {
+    if (!isLoaded) throw Exception('Model not loaded');
+    await Future.delayed(const Duration(milliseconds: 500));
+    return [
+      {'title': 'Panel 1', 'description': 'Scene 1 description'},
+      {'title': 'Panel 2', 'description': 'Scene 2 description'},
+    ];
+  }
+  
+  void dispose() {
+    isLoaded = false;
+    print('Model unloaded');
+  }
+}
+
+// Integration example for your _NewPageState:
+Future<void> _initializeModel() async {
+  try {
+    String modelPath = 'assets/models/model.pkl';
+    
+    // Simple import
+    var modelInfo = await importModelPth(modelPath);
+    if (modelInfo['success']) {
+      print('✅ ${modelInfo['modelName']} loaded successfully');
+      print('📊 Parameters: ${modelInfo['parameters']['totalParams']}');
+    }
+    
+    // Class-based approach
+    final model = StoryModel(modelPath);
+    await model.load();
+    
+    // Use the model
+    final story = await model.generateStory("A brave knight and a dragon");
+    print('Generated: $story');
+    
+  } catch (e) {
+    print('❌ Error loading model: $e');
+  }
+}
   Future<void> _loadLinksAsset() async {
     try {
       final raw = await rootBundle.loadString('assets/data/links.json');

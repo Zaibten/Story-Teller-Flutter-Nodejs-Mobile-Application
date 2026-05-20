@@ -1,987 +1,2732 @@
+// // Very 1st script of node js
+// console.log('');
+// console.log("******* Story Teller Server Side *******");
+// console.log('');
+
+// // External Packages
+// require('dotenv').config();  // <--- Load .env
+// const express = require('express');
+// const { default: mongoose } = require('mongoose');
+// const bodyParser = require('body-parser');
+// const cors = require('cors');
+// const OpenAI = require('openai');
+// const User = require('./models/user'); // import the model
+// const cloudinary = require("cloudinary").v2;
+
+// const path = require('path');
+// const { exec } = require('child_process');
+// const axios = require('axios');
+// const ffmpeg = require('fluent-ffmpeg');
+
+// const fs = require('fs');
+
+// const bcrypt = require('bcryptjs'); // for hashing passwords
+// // Internal Routes
+// const authRouter = require('./routes/auth.js');
+
+// const videoRouter = require('./routes/videoRoutes.js');
+
+// // Add with other requires
+// const puterVideoGenerator = require('./routes/mk.js');
+
+
+
+
+// // INIT
+// const app = express();
+// const PORT = process.env.PORT || 9000;
+// const DB = process.env.MONGO_URI;
+
+// // Middle ware
+// app.use(express.json());
+// app.use(authRouter);
+
+// app.use(videoRouter);
+
+// // Add after other app.use
+// app.use('/puter-video', puterVideoGenerator);
+
+// // Serve Static Assets (FIX)
+// app.use("/assets", express.static("assets"));
+
+
+
+// // // Connections
+// mongoose.connect(DB)
+//   .then(() => {
+//     console.log('MongoDB connection successful');
+//   })
+//   .catch((e) => {
+//     console.log("MongoDB Error:", e);
+//   });
+
+// app.use(cors());
+// app.use(bodyParser.json({ limit: "10mb" }));
+
+
+// cloudinary.config({
+//   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+//   api_key: process.env.CLOUDINARY_API_KEY,
+//   api_secret: process.env.CLOUDINARY_API_SECRET,
+// });
+
+// // const storyRouter = require('./routes/story.js');
+// // app.use(storyRouter);
+
+// // -------------------- Reset Password --------------------
+// app.post('/reset-password', async (req, res) => {
+//   try {
+//     const { email, newPassword } = req.body;
+//     if (!email || !newPassword) {
+//       return res.status(400).json({ success: false, error: "Email and new password are required" });
+//     }
+
+//     const user = await User.findOne({ email });
+//     if (!user) return res.status(404).json({ success: false, error: "User not found" });
+
+//     const hashedPassword = await bcrypt.hash(newPassword, 10); // hash new password
+//     user.password = hashedPassword;
+//     await user.save();
+
+//     res.json({ success: true, message: "Password updated successfully" });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ success: false, error: "Server error" });
+//   }
+// });
+
+
+
+// // -------------------- Profile Route --------------------
+// app.post('/profile', async (req, res) => {
+//   try {
+//     const { email } = req.body;
+//     if (!email) return res.status(400).json({ error: "Email is required" });
+
+//     const user = await User.findOne({ email }).select('-password'); // exclude password
+//     if (!user) return res.status(404).json({ error: "User not found" });
+
+//     res.json({ success: true, user });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Server error" });
+//   }
+// });
+
+
+// // console.log("API KEY:", process.env.OPENAI_API_KEY);
+
+// // -------------------- OpenAI Init --------------------
+
+// const openai = new OpenAI({
+//   apiKey: process.env.OPENAI_API_KEY,
+// });
+
+// // ✅ SAFE JSON PARSER
+// function extractJSON(text) {
+//   try {
+//     if (!text) return null;
+
+//     // remove markdown
+//     text = text
+//       .replace(/```json/g, "")
+//       .replace(/```/g, "")
+//       .trim();
+
+//     const start = text.indexOf("[");
+//     const end = text.lastIndexOf("]");
+
+//     if (start === -1 || end === -1) return null;
+
+//     const jsonString = text.substring(start, end + 1);
+//     return JSON.parse(jsonString);
+//   } catch (e) {
+//     console.log("JSON_PARSE_ERROR:", e.message);
+//     return null;
+//   }
+// }
+
+// // ✅ SAFE IMAGE PROMPT (IMPORTANT FOR MODERATION ERRORS)
+// function safePrompt(text = "") {
+//   return text
+//     .replace(/violence|kill|death|gun|weapon|blood|fight/gi, "action scene")
+//     .replace(/horror|scary|dark/gi, "mysterious")
+//     .substring(0, 180);
+// }
+// // Add this after your existing code, before app.listen()
+
+// // Function to convert English text to Roman Urdu using OpenAI
+// // Function to convert English text to Authentic Roman Urdu with proper accent cues
+// async function convertToRomanUrdu(text) {
+//   try {
+//     const response = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [
+//         {
+//           role: "system",
+//           content: `You are a professional Urdu storyteller. Convert the following English text to Natural Roman Urdu that SOUNDS like authentic Urdu when spoken.
+
+// IMPORTANT RULES FOR AUTHENTIC URDU ACCENT:
+// 1. Use proper Urdu words (not English words written in Urdu script)
+// 2. Add emotional expressions: 'Achha!', 'Wah!', 'Are!', 'Haye!'
+// 3. Use Urdu sentence structure (verb at the end)
+// 4. Honorifics: 'jee', 'sahab'
+// 5. Common Urdu words: 'bilkul', 'bohat', 'thoda', 'barah'
+// 6. Storytelling phrases: 'chalo', 'suno', 'dekho'
+
+// Example: 
+// English: "The rabbit was very happy"
+// Bad: "Rabbit bohat khush tha"
+// Good: "Achha! Khargosh bohat khush tha, bilkul!"
+
+// Only return the Roman Urdu text, no explanations.`
+//         },
+//         {
+//           role: "user",
+//           content: text
+//         }
+//       ],
+//       temperature: 0.4,
+//       max_tokens: 600
+//     });
+    
+//     return response.choices[0].message.content;
+//   } catch (error) {
+//     console.error("Roman Urdu conversion error:", error);
+//     return text;
+//   }
+// }
+
+// // Test different voices for best Urdu accent
+// app.get('/test-voices', async (req, res) => {
+//   const testText = "Achha! Suno meri kahani. Ek dafa ka zikr hai...";
+//   const voices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+//   const results = [];
+  
+//   for (const voice of voices) {
+//     try {
+//       const mp3 = await openai.audio.speech.create({
+//         model: "tts-1",
+//         voice: voice,
+//         input: testText,
+//         speed: 0.85
+//       });
+      
+//       const buffer = Buffer.from(await mp3.arrayBuffer());
+//       const filePath = path.join(__dirname, 'temp', `test_${voice}.mp3`);
+//       fs.writeFileSync(filePath, buffer);
+      
+//       // Upload to Cloudinary
+//       const uploadResult = await cloudinary.uploader.upload(filePath, {
+//         folder: "voice_tests",
+//         resource_type: "raw",
+//         public_id: `voice_${voice}`
+//       });
+      
+//       results.push({ voice, url: uploadResult.secure_url });
+      
+//       // Cleanup
+//       setTimeout(() => {
+//         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+//       }, 1000);
+      
+//     } catch (error) {
+//       results.push({ voice, error: error.message });
+//     }
+//   }
+  
+//   res.json({
+//     message: "Test different voices to find best Urdu accent",
+//     recommended: "Try 'fable' or 'nova' for best Urdu accent",
+//     results
+//   });
+// });
+
+// // Function to generate voiceover using OpenAI TTS (Fixed for kid-friendly voice)
+// // Function to generate voiceover with Urdu accent using pronunciation guide
+// async function generateVoiceover(text, filename) {
+//   try {
+//     // First, enhance the Roman Urdu text with pronunciation guides for better accent
+//     const enhancedText = await enhanceRomanUrduForAccent(text);
+    
+//     // Try different voices - some work better for South Asian accents
+//     // 'nova' and 'fable' work best for Urdu accent
+//     const mp3 = await openai.audio.speech.create({
+//       model: "tts-1",
+//       voice: "fable", // 'fable' gives better South Asian accent, try 'nova' or 'echo' as alternatives
+//       input: enhancedText,
+//       speed: 0.85  // Slower speed helps with clarity
+//     });
+    
+//     const buffer = Buffer.from(await mp3.arrayBuffer());
+//     const filePath = path.join(__dirname, 'temp', filename);
+    
+//     // Ensure temp directory exists
+//     if (!fs.existsSync(path.join(__dirname, 'temp'))) {
+//       fs.mkdirSync(path.join(__dirname, 'temp'));
+//     }
+    
+//     fs.writeFileSync(filePath, buffer);
+//     console.log("✅ Voiceover generated with Urdu accent using 'fable' voice");
+//     return filePath;
+//   } catch (error) {
+//     console.error("Voiceover generation error:", error);
+//     return null;
+//   }
+// }
+
+// // Function to enhance Roman Urdu text for better pronunciation
+// async function enhanceRomanUrduForAccent(text) {
+//   try {
+//     const response = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [
+//         {
+//           role: "system",
+//           content: `You are a pronunciation expert. Convert the following Roman Urdu text into a version that will be spoken with an authentic Urdu accent by an English TTS system.
+
+// Rules for better Urdu pronunciation:
+// 1. Add 'ah' sounds at the end of words that end with 'a' (e.g., 'acha' -> 'achah')
+// 2. Double vowels for emphasis (e.g., 'zara' -> 'zaara')
+// 3. Add 'h' to soften sounds (e.g., 'bara' -> 'barah')
+// 4. Break long words with hyphens for clarity
+// 5. Use common Urdu filler words like 'jee', 'hahn'
+// 6. Add pauses with commas and periods
+
+// Example:
+// Original: "Ek dafa ek chota sa bacha tha"
+// Enhanced: "Jee, ek dafa, ek chotah sa bachah tha..."
+// Only return the enhanced text, no explanations.`
+//         },
+//         {
+//           role: "user",
+//           content: text
+//         }
+//       ],
+//       temperature: 0.5,
+//       max_tokens: 800
+//     });
+    
+//     return response.choices[0].message.content;
+//   } catch (error) {
+//     console.error("Enhancement error:", error);
+//     return text;
+//   }
+// }
+
+// // Function to create video with voiceover using FFmpeg
+// async function createVideoWithVoiceover(imagePaths, voiceoverPath, outputPath, durationPerImage = 4) {
+//   return new Promise((resolve, reject) => {
+//     // Get voiceover duration
+//     exec(`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${voiceoverPath}"`, 
+//       async (error, stdout) => {
+//         const voiceDuration = parseFloat(stdout) || (imagePaths.length * durationPerImage);
+        
+//         // Calculate duration per image based on voiceover length
+//         const actualDurationPerImage = voiceDuration / imagePaths.length;
+        
+//         // Create concat file
+//         const concatFile = path.join(__dirname, 'temp', `concat_${Date.now()}.txt`);
+//         let concatContent = '';
+//         for (const imagePath of imagePaths) {
+//           concatContent += `file '${imagePath}'\nduration ${actualDurationPerImage}\n`;
+//         }
+//         concatContent += `file '${imagePaths[imagePaths.length - 1]}'\n`;
+//         fs.writeFileSync(concatFile, concatContent);
+        
+//         // FIXED: Use libvo_aacenc instead of aac, and add -strict experimental
+//         const command = `ffmpeg -f concat -safe 0 -i "${concatFile}" -i "${voiceoverPath}" -vf "fps=24,scale=1024:1024:force_original_aspect_ratio=decrease,pad=1024:1024:(ow-iw)/2:(oh-ih)/2,format=yuv420p" -c:v libx264 -preset fast -crf 23 -c:a libvo_aacenc -b:a 128k -pix_fmt yuv420p -shortest -y "${outputPath}"`;
+        
+//         console.log("Running FFmpeg command...");
+        
+//         exec(command, (err, stdout, stderr) => {
+//           if (fs.existsSync(concatFile)) fs.unlinkSync(concatFile);
+//           if (err) {
+//             console.error("FFmpeg stderr:", stderr);
+//             reject(err);
+//           } else {
+//             console.log("Video created successfully");
+//             resolve(outputPath);
+//           }
+//         });
+//       });
+//   });
+// }
+
+// // Modified MAIN API - generates comic and then auto-creates video
+// app.post('/generate-story-comic', async (req, res) => {
+//   try {
+//     const { prompt } = req.body;
+//     const finalPrompt = prompt || "A cute cat goes on a magical adventure";
+
+//     // 1️⃣ Generate STORY in English
+//     const storyRes = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [
+//         {
+//           role: "user",
+//           content: `Write a short kid-friendly story (max 150 words) about: ${finalPrompt}`
+//         }
+//       ],
+//       max_tokens: 300,
+//     });
+
+//     const englishStory = storyRes.choices?.[0]?.message?.content || "";
+//     console.log("📖 English Story:", englishStory);
+
+//     // 2️⃣ Generate PANELS
+//     const panelRes = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       temperature: 0.2,
+//       messages: [
+//         { role: "system", content: "Return ONLY JSON array." },
+//         {
+//           role: "user",
+//           content: `
+// Create 4 comic panels for this story:
+
+// Story: ${englishStory}
+
+// Return JSON:
+// [
+//   {"title":"","description":"","imagePrompt":""}
+// ]
+//           `
+//         }
+//       ]
+//     });
+
+//     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+//     if (!Array.isArray(panels)) {
+//       return res.status(500).json({ error: "Panel error" });
+//     }
+
+//     console.log("🎨 Generating comic images...");
+
+//     // 3️⃣ Generate IMAGES for all panels (WITHOUT blocking)
+//     const panelsWithImages = await Promise.all(
+//       panels.map(async (panel, index) => {
+//         try {
+//           const img = await openai.images.generate({
+//             model: "dall-e-3",
+//             prompt: `${safePrompt(panel.imagePrompt)}, cartoon style, colorful, kid-friendly`,
+//             size: "1024x1024",
+//              
+//           });
+          
+//           const base64 = img.data?.[0]?.b64_json;
+//           if (base64) {
+//             const base64Image = `data:image/png;base64,${base64}`;
+//             const uploadRes = await cloudinary.uploader.upload(base64Image, {
+//               folder: "story_comics"
+//             });
+//             console.log(`✅ Panel ${index + 1} image uploaded`);
+//             return { ...panel, image: uploadRes.secure_url };
+//           }
+//           return { ...panel, image: "" };
+//         } catch (err) {
+//           console.error(`Panel ${index} error:`, err.message);
+//           return { ...panel, image: "" };
+//         }
+//       })
+//     );
+
+//     // Filter out panels without images
+//     const validImages = panelsWithImages.filter(p => p.image);
+    
+//     if (validImages.length === 0) {
+//       return res.json({
+//         success: true,
+//         story: englishStory,
+//         panels: panelsWithImages,
+//         videoUrl: null,
+//         message: "No images generated for video"
+//       });
+//     }
+
+//     // Send response with comic images FIRST
+//     res.json({
+//       success: true,
+//       story: englishStory,
+//       panels: panelsWithImages,
+//       videoUrl: null,
+//       videoGenerating: true,
+//       message: "Comic generated! Video is being created in background..."
+//     });
+
+//     // 4️⃣ GENERATE VIDEO IN BACKGROUND (non-blocking)
+//     console.log("🎬 Starting background video generation...");
+    
+//     // Convert story to Roman Urdu
+//     console.log("🔄 Converting story to Roman Urdu...");
+//     const romanUrduStory = await convertToRomanUrdu(englishStory);
+//     console.log("📖 Roman Urdu Story:", romanUrduStory);
+    
+//     // Generate voiceover
+//     console.log("🎤 Generating voiceover...");
+//     const voiceoverFile = await generateVoiceover(romanUrduStory, `voice_${Date.now()}.mp3`);
+    
+//     if (voiceoverFile) {
+//       // Download images for video
+//       const tempImagePaths = [];
+//       for (let i = 0; i < validImages.length; i++) {
+//         const panel = validImages[i];
+//         try {
+//           const response = await axios({
+//             method: 'GET',
+//             url: panel.image,
+//             responseType: 'stream'
+//           });
+//           const imagePath = path.join(__dirname, 'temp', `video_img_${Date.now()}_${i}.png`);
+//           const writer = fs.createWriteStream(imagePath);
+//           response.data.pipe(writer);
+//           await new Promise((resolve, reject) => {
+//             writer.on('finish', resolve);
+//             writer.on('error', reject);
+//           });
+//           tempImagePaths.push(imagePath);
+//         } catch (err) {
+//           console.error(`Error downloading image ${i}:`, err.message);
+//         }
+//       }
+      
+//       if (tempImagePaths.length > 0) {
+//         // Create video
+//         const videoPath = path.join(__dirname, 'temp', `story_video_${Date.now()}.mp4`);
+//         await createVideoWithVoiceover(tempImagePaths, voiceoverFile, videoPath, 4);
+        
+//         // Upload to Cloudinary
+//         console.log("☁️ Uploading video to Cloudinary...");
+//         const uploadResult = await cloudinary.uploader.upload(videoPath, {
+//           folder: "story_videos",
+//           resource_type: "video",
+//           public_id: `story_video_${Date.now()}`
+//         });
+        
+//         console.log("");
+//         console.log("═══════════════════════════════════════════════════");
+//         console.log("🎬 VIDEO GENERATED SUCCESSFULLY! 🎬");
+//         console.log("═══════════════════════════════════════════════════");
+//         console.log("📹 Video URL:", uploadResult.secure_url);
+//         console.log("📖 Story (English):", englishStory);
+//         console.log("📖 Story (Roman Urdu):", romanUrduStory);
+//         console.log("═══════════════════════════════════════════════════");
+//         console.log("");
+        
+//         // Cleanup temp files
+//         setTimeout(() => {
+//           [...tempImagePaths, voiceoverFile, videoPath].forEach(file => {
+//             if (fs.existsSync(file)) fs.unlinkSync(file);
+//           });
+//         }, 5000);
+//       }
+//     }
+    
+//   } catch (err) {
+//     console.error("Error:", err);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+// // Separate endpoint to check video status and get URL
+// app.get('/get-latest-video', async (req, res) => {
+//   try {
+//     const result = await cloudinary.api.resources({
+//       type: 'upload',
+//       prefix: 'story_videos',
+//       resource_type: 'video',
+//       max_results: 1,
+//       sort_by: 'created_at',
+//       sort_order: 'desc'
+//     });
+    
+//     if (result.resources && result.resources.length > 0) {
+//       res.json({
+//         success: true,
+//         videoUrl: result.resources[0].secure_url,
+//         createdAt: result.resources[0].created_at
+//       });
+//     } else {
+//       res.json({ success: false, message: "No videos found" });
+//     }
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+
+// // Test endpoint for Roman Urdu conversion
+// app.get('/test-roman-urdu', async (req, res) => {
+//   const testText = req.query.text || "Once upon a time, there was a little cat who loved to explore the magical forest.";
+//   const romanUrdu = await convertToRomanUrdu(testText);
+//   res.json({
+//     original: testText,
+//     romanUrdu: romanUrdu
+//   });
+// });
+
+// // Test endpoint for voiceover only
+// app.post('/test-voiceover', async (req, res) => {
+//   try {
+//     const { text } = req.body;
+//     if (!text) return res.status(400).json({ error: "Text required" });
+    
+//     const romanUrdu = await convertToRomanUrdu(text);
+//     const voiceFile = await generateVoiceover(romanUrdu, `test_voice_${Date.now()}.mp3`);
+    
+//     if (voiceFile) {
+//       // Upload to Cloudinary
+//       const uploadResult = await cloudinary.uploader.upload(voiceFile, {
+//         folder: "voiceovers",
+//         resource_type: "raw"
+//       });
+      
+//       res.json({
+//         success: true,
+//         originalText: text,
+//         romanUrduText: romanUrdu,
+//         audioUrl: uploadResult.secure_url
+//       });
+      
+//       setTimeout(() => {
+//         if (fs.existsSync(voiceFile)) fs.unlinkSync(voiceFile);
+//       }, 5000);
+//     } else {
+//       res.json({ error: "Voice generation failed" });
+//     }
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
+
+// app.get('/generate-story-comic-stream', async (req, res) => {
+//   const startTime = Date.now();
+//   const uniqueRequestId = `${Date.now()}-${Math.random().toString(36)}-${req.query.prompt || 'none'}`;
+
+//   // No-cache headers
+//   res.setHeader("Content-Type", "text/event-stream");
+//   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+//   res.setHeader("Pragma", "no-cache");
+//   res.setHeader("Expires", "0");
+
+//   try {
+//     const prompt = req.query.prompt;
+//     if (!prompt) return res.status(400).send("Prompt required");
+
+//     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+//     send({ progress: 5 });
+
+//     const uniqueSuffix = `[unique request: ${uniqueRequestId}]`;
+//     const forcedUniquePrompt = `${prompt}. Generate a completely new, different story every time. Never repeat. ${uniqueSuffix}`;
+
+//     // 1️⃣ STORY
+//     const storyRes = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [
+//         {
+//           role: "user",
+//           content: `Write a very short kid-friendly story (max 100 words) based on: "${forcedUniquePrompt}". 
+//           Be extremely creative and different from any previous story. Use random style, characters, and setting.`
+//         }
+//       ],
+//       max_tokens: 150,
+//       temperature: 0.9,
+//       seed: Math.floor(Math.random() * 1000000)
+//     });
+//     const englishStory = storyRes.choices?.[0]?.message?.content || "";
+//     send({ progress: 20, story: englishStory });
+
+//     // 2️⃣ PANELS
+//     const panelRes = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       temperature: 0.7,
+//       messages: [
+//         { role: "system", content: "Return ONLY valid JSON array, no extra text." },
+//         {
+//           role: "user",
+//           content: `Generate 4 unique comic panels for the story below. 
+//           Each panel must have a title, description, and imagePrompt. 
+//           Make every panel different and unexpected.
+//           Story: ${englishStory}
+//           Unique request ID: ${uniqueRequestId}`
+//         }
+//       ]
+//     });
+
+//     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+//     if (!Array.isArray(panels)) throw new Error("Panel parsing failed");
+
+//     panels = panels.map(p => ({ ...p, image: "" }));
+//     send({ progress: 40, panels });
+
+//     // 3️⃣ GENERATE IMAGES
+//     const concurrency = 2;
+//     const imageQueue = [...panels.entries()];
+
+//     async function processQueue() {
+//       const batch = [];
+//       while (imageQueue.length && batch.length < concurrency) {
+//         batch.push(imageQueue.shift());
+//       }
+//       if (batch.length === 0) return;
+
+//       await Promise.all(batch.map(async ([idx, panel]) => {
+//         try {
+//           const img = await openai.images.generate({
+//             model: "dall-e-3",
+//             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, completely new scene",
+//             size: "1024x1024",
+//              
+//           });
+//           const base64 = img.data?.[0]?.b64_json;
+//           if (!base64) throw new Error("No base64");
+
+//           const uploadRes = await cloudinary.uploader.upload(
+//             `data:image/png;base64,${base64}`,
+//             { folder: "story_comics" }
+//           );
+//           const imageUrl = uploadRes.secure_url;
+//           console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
+
+//           panels[idx].image = imageUrl;
+//           send({ progress: 40 + Math.round(((idx + 1) / panels.length) * 60), panelIndex: idx, image: imageUrl });
+//         } catch (err) {
+//           console.error(`Panel ${idx} failed:`, err.message);
+//           panels[idx].image = "";
+//         }
+//       }));
+
+//       await processQueue();
+//     }
+
+//     await processQueue();
+    
+//     send({ progress: 85, status: "Converting story to Roman Urdu..." });
+
+//     // 4️⃣ CONVERT STORY TO ROMAN URDU & GENERATE VOICEOVER
+//     const validPanels = panels.filter(p => p.image);
+//     let videoUrl = null;
+    
+//     if (validPanels.length > 0) {
+//       try {
+//         // Send progress update
+//         send({ progress: 88, status: "Converting to Roman Urdu with authentic accent..." });
+        
+//         // Convert story to Roman Urdu
+//         console.log("🔄 Converting to Roman Urdu...");
+//         const romanUrduStory = await convertToRomanUrdu(englishStory);
+//         console.log("📖 Roman Urdu Story:", romanUrduStory);
+        
+//         // Send the Roman Urdu story to frontend
+//         send({ progress: 90, status: "Roman Urdu story ready", romanUrduStory: romanUrduStory });
+        
+//         // Generate voiceover
+//         console.log("🎤 Generating voiceover with Urdu accent...");
+//         send({ progress: 92, status: "Generating voiceover with authentic Urdu accent..." });
+        
+//         const voiceoverFile = await generateVoiceover(romanUrduStory, `voice_${Date.now()}.mp3`);
+        
+//         if (voiceoverFile) {
+//           send({ progress: 94, status: "Downloading images for video..." });
+          
+//           // Download images
+//           const tempImagePaths = [];
+//           for (let i = 0; i < validPanels.length; i++) {
+//             const panel = validPanels[i];
+//             try {
+//               const response = await axios({
+//                 method: 'GET',
+//                 url: panel.image,
+//                 responseType: 'stream'
+//               });
+//               const imagePath = path.join(__dirname, 'temp', `video_img_${Date.now()}_${i}.png`);
+//               const writer = fs.createWriteStream(imagePath);
+//               response.data.pipe(writer);
+//               await new Promise((resolve, reject) => {
+//                 writer.on('finish', resolve);
+//                 writer.on('error', reject);
+//               });
+//               tempImagePaths.push(imagePath);
+//             } catch (err) {
+//               console.error(`Error downloading image ${i}:`, err.message);
+//             }
+//           }
+          
+//           if (tempImagePaths.length > 0) {
+//             send({ progress: 96, status: "Creating video with voiceover..." });
+            
+//             // Create video
+//             const videoPath = path.join(__dirname, 'temp', `story_video_${Date.now()}.mp4`);
+//             await createVideoWithVoiceover(tempImagePaths, voiceoverFile, videoPath, 4);
+            
+//             // Upload to Cloudinary
+//             console.log("☁️ Uploading video to Cloudinary...");
+//             send({ progress: 98, status: "Uploading video to cloud..." });
+            
+//             const uploadResult = await cloudinary.uploader.upload(videoPath, {
+//               folder: "story_videos",
+//               resource_type: "video",
+//               public_id: `story_video_${Date.now()}`
+//             });
+            
+//             videoUrl = uploadResult.secure_url;
+            
+//             console.log("");
+//             console.log("═══════════════════════════════════════════════════");
+//             console.log("🎬 VIDEO GENERATED SUCCESSFULLY! 🎬");
+//             console.log("═══════════════════════════════════════════════════");
+//             console.log("📹 Video URL:", videoUrl);
+//             console.log("📖 Story (English):", englishStory);
+//             console.log("📖 Story (Roman Urdu):", romanUrduStory);
+//             console.log("═══════════════════════════════════════════════════");
+//             console.log("");
+            
+//             // Cleanup
+//             setTimeout(() => {
+//               [...tempImagePaths, voiceoverFile, videoPath].forEach(file => {
+//                 if (fs.existsSync(file)) fs.unlinkSync(file);
+//               });
+//             }, 5000);
+//           }
+//         }
+//       } catch (videoError) {
+//         console.error("Video generation error:", videoError);
+//       }
+//     }
+    
+//     // Final response with video URL and Roman Urdu story
+//     send({ 
+//       progress: 100, 
+//       step: "done",
+//       videoUrl: videoUrl,
+//       romanUrduStory: await convertToRomanUrdu(englishStory), // Ensure we have it
+//       panels,
+//       generationTime: `${Math.floor((Date.now() - startTime) / 1000)}s`
+//     });
+    
+//     res.end();
+
+//   } catch (e) {
+//     console.error(e);
+//     send({ error: e.message });
+//     res.end();
+//   }
+// });
+
+
+// // Add this with your other routes (after the OpenAI initialization)
+
+// // ============================================
+// // NEW: Text-Only Story Generation API
+// // ============================================
+// app.post('/api/generate-story-text', async (req, res) => {
+//   try {
+//     const { character, world, mood, customPrompt } = req.body;
+    
+//     // Validate input - at least something should be provided
+//     if (!character && !world && !mood && !customPrompt) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: "Please provide at least character, world, mood, or a custom prompt" 
+//       });
+//     }
+    
+//     // Build the story prompt
+//     let storyPrompt = "";
+    
+//     if (customPrompt) {
+//       storyPrompt = customPrompt;
+//     } else {
+//       storyPrompt = `Write a short, engaging, kid-friendly story (150-200 words) about:
+//       - Character: ${character || "a friendly animal"}
+//       - Setting: ${world || "a magical place"}
+//       - Mood/Tone: ${mood || "adventurous and fun"}
+      
+//       Make the story creative, positive, and suitable for children.`;
+//     }
+    
+//     console.log("📖 Generating text-only story with prompt:", storyPrompt);
+    
+//     // Call OpenAI to generate the story
+//     const completion = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [
+//         {
+//           role: "system",
+//           content: "You are a professional children's storyteller. Create engaging, imaginative, and age-appropriate stories for kids aged 4-10. Keep the language simple but vivid, include positive messages, and make the stories magical and fun."
+//         },
+//         {
+//           role: "user",
+//           content: storyPrompt
+//         }
+//       ],
+//       temperature: 0.8,
+//       max_tokens: 400,
+//     });
+    
+//     const story = completion.choices[0].message.content;
+    
+//     // Generate a title for the story
+//     const titleCompletion = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [
+//         {
+//           role: "user",
+//           content: `Generate a creative, catchy title for this children's story (max 8 words, no explanation, just the title):\n\n${story}`
+//         }
+//       ],
+//       temperature: 0.7,
+//       max_tokens: 30,
+//     });
+    
+//     const title = titleCompletion.choices[0].message.content.trim();
+    
+//     // Return the story
+//     res.json({
+//       success: true,
+//       story: story,
+//       title: title,
+//       metadata: {
+//         character: character || null,
+//         world: world || null,
+//         mood: mood || null,
+//         wordCount: story.split(/\s+/).length,
+//         generatedAt: new Date().toISOString()
+//       }
+//     });
+    
+//     console.log(`✅ Story generated: "${title}" (${story.split(/\s+/).length} words)`);
+    
+//   } catch (error) {
+//     console.error("Story generation error:", error);
+    
+//     // Handle specific OpenAI errors
+//     if (error.code === "insufficient_quota") {
+//       return res.status(429).json({ 
+//         success: false, 
+//         error: "API quota exceeded. Please try again later." 
+//       });
+//     }
+    
+//     if (error.code === "invalid_api_key") {
+//       return res.status(500).json({ 
+//         success: false, 
+//         error: "Server configuration error." 
+//       });
+//     }
+    
+//     res.status(500).json({ 
+//       success: false, 
+//       error: error.message || "Failed to generate story" 
+//     });
+//   }
+// });
+
+// // Simple test endpoint for the story API
+// app.get('/api/test-story', (req, res) => {
+//   res.json({
+//     success: true,
+//     message: "Story API is working!",
+//     usage: "POST to /api/generate-story-text with { character, world, mood, customPrompt }"
+//   });
+// });
+
+// // Additional: Generate multiple story variants
+// app.post('/api/generate-story-variants', async (req, res) => {
+//   try {
+//     const { character, world, mood, count = 3 } = req.body;
+    
+//     if (count > 5) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         error: "Maximum 5 story variants at a time" 
+//       });
+//     }
+    
+//     const stories = [];
+    
+//     for (let i = 0; i < count; i++) {
+//       const prompt = `Write a short children's story (100-150 words) about:
+//       - Character: ${character || "a cute animal"}
+//       - Setting: ${world || "a magical kingdom"}
+//       - Mood: ${mood || "happy and adventurous"}
+      
+//       Make this version ${i + 1} different and unique.`;
+      
+//       const completion = await openai.chat.completions.create({
+//         model: "gpt-4o-mini",
+//         messages: [{ role: "user", content: prompt }],
+//         temperature: 0.9,
+//         max_tokens: 350,
+//       });
+      
+//       stories.push({
+//         variant: i + 1,
+//         story: completion.choices[0].message.content
+//       });
+//     }
+    
+//     res.json({
+//       success: true,
+//       count: stories.length,
+//       stories: stories
+//     });
+    
+//   } catch (error) {
+//     console.error("Variants generation error:", error);
+//     res.status(500).json({ success: false, error: error.message });
+//   }
+// });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// // MAIN API
+// // app.post('/generate-story-comic', async (req, res) => {
+// //   try {
+// //     const { prompt } = req.body;
+
+// //     const finalPrompt =
+// //       prompt || "A cute cat goes on a magical adventure";
+
+// //     // 1️⃣ STORY
+// //     const storyRes = await openai.chat.completions.create({
+// //       model: "gpt-4o-mini",
+// //       messages: [
+// //         {
+// //           role: "user",
+// //           content: `Write a short kid-friendly story about: ${finalPrompt}`
+// //         }
+// //       ],
+// //       max_tokens: 250,
+// //     });
+
+// //     const story = storyRes.choices?.[0]?.message?.content || "";
+
+// //     // 2️⃣ PANELS (FAST)
+// //     const panelRes = await openai.chat.completions.create({
+// //       model: "gpt-4o-mini",
+// //       temperature: 0.2,
+// //       messages: [
+// //         { role: "system", content: "Return ONLY JSON array." },
+// //         {
+// //           role: "user",
+// //           content: `
+// // Create 4 comic panels:
+
+// // [
+// // {"title":"","description":"","imagePrompt":""}
+// // ]
+
+// // Story:
+// // ${story}
+// //           `
+// //         }
+// //       ]
+// //     });
+
+// //     const panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+
+// //     if (!Array.isArray(panels)) {
+// //       return res.status(500).json({ error: "panel error" });
+// //     }
+
+// //     // ⚡ RETURN IMMEDIATELY (NO IMAGES YET)
+// //     res.json({
+// //       story,
+// //       panels: panels.map(p => ({
+// //         ...p,
+// //         image: "" // empty for now
+// //       }))
+// //     });
+
+// //     // 3️⃣ BACKGROUND IMAGE GENERATION (FAST NON-BLOCKING)
+// //     panels.forEach(async (p, index) => {
+// //       try {
+// //         const img = await openai.images.generate({
+// //           model: "gpt-image-1",
+// //           prompt: `${safePrompt(p.imagePrompt)}, cartoon cute cat`,
+// //           size: "1024x1024"
+// //         });
+
+// //         const imageData = img.data?.[0];
+
+// //         if (!imageData?.b64_json) return;
+
+// //         const base64Image = `data:image/png;base64,${imageData.b64_json}`;
+
+// //         const uploadRes = await cloudinary.uploader.upload(base64Image, {
+// //           folder: "story_comics"
+// //         });
+
+// //         // (optional) store in DB later
+// //         console.log("Image ready:", uploadRes.secure_url);
+
+// //       } catch (e) {
+// //         console.log("BG IMAGE ERROR:", e.message);
+// //       }
+// //     });
+
+// //   } catch (err) {
+// //     console.error(err);
+// //     res.status(500).json({ error: "failed" });
+// //   }
+// // });
+// // app.get('/generate-story-comic-stream', async (req, res) => {
+// //   const startTime = Date.now();
+// //   const uniqueRequestId = `${Date.now()}-${Math.random().toString(36)}-${req.query.prompt || 'none'}`;
+
+// //   // No-cache headers
+// //   res.setHeader("Content-Type", "text/event-stream");
+// //   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+// //   res.setHeader("Pragma", "no-cache");
+// //   res.setHeader("Expires", "0");
+
+// //   try {
+// //     const prompt = req.query.prompt;
+// //     if (!prompt) return res.status(400).send("Prompt required");
+
+// //     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+// //     send({ progress: 5 });
+
+// //     // 🆕 Force uniqueness by appending a random UUID to the prompt
+// //     const uniqueSuffix = `[unique request: ${uniqueRequestId}]`;
+// //     const forcedUniquePrompt = `${prompt}. Generate a completely new, different story every time. Never repeat. ${uniqueSuffix}`;
+
+// //     // 1️⃣ STORY – high temperature + random seed + unique prompt
+// //     const storyRes = await openai.chat.completions.create({
+// //       model: "gpt-4o-mini",
+// //       messages: [
+// //         {
+// //           role: "user",
+// //           content: `Write a very short kid-friendly story (max 100 words) based on: "${forcedUniquePrompt}". 
+// //           Be extremely creative and different from any previous story. Use random style, characters, and setting.`
+// //         }
+// //       ],
+// //       max_tokens: 150,
+// //       temperature: 0.9,           // even more creative
+// //       seed: Math.floor(Math.random() * 1000000)  // random seed disables determinism
+// //     });
+// //     const story = storyRes.choices?.[0]?.message?.content || "";
+// //     send({ progress: 20, story });
+
+// //     // 2️⃣ PANELS – also creative
+// //     const panelRes = await openai.chat.completions.create({
+// //       model: "gpt-4o-mini",
+// //       temperature: 0.7,
+// //       messages: [
+// //         { role: "system", content: "Return ONLY valid JSON array, no extra text." },
+// //         {
+// //           role: "user",
+// //           content: `Generate 4 unique comic panels for the story below. 
+// //           Each panel must have a title, description, and imagePrompt. 
+// //           Make every panel different and unexpected.
+// //           Story: ${story}
+// //           Unique request ID: ${uniqueRequestId}`
+// //         }
+// //       ]
+// //     });
+
+// //     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+// //     if (!Array.isArray(panels)) throw new Error("Panel parsing failed");
+
+// //     panels = panels.map(p => ({ ...p, image: "" }));
+// //     send({ progress: 40, panels });
+
+// //     // 3️⃣ IMAGES – same as before (unchanged)
+// //     const concurrency = 2;
+// //     const imageQueue = [...panels.entries()];
+
+// //     async function processQueue() {
+// //       const batch = [];
+// //       while (imageQueue.length && batch.length < concurrency) {
+// //         batch.push(imageQueue.shift());
+// //       }
+// //       if (batch.length === 0) return;
+
+// //       await Promise.all(batch.map(async ([idx, panel]) => {
+// //         try {
+// //           const img = await openai.images.generate({
+// //             model: "dall-e-3",
+// //             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, completely new scene",
+// //             size: "1024x1024",
+// //              
+// //           });
+// //           const base64 = img.data?.[0]?.b64_json;
+// //           if (!base64) throw new Error("No base64");
+
+// //           const uploadRes = await cloudinary.uploader.upload(
+// //             `data:image/png;base64,${base64}`,
+// //             { folder: "story_comics" }
+// //           );
+// //           const imageUrl = uploadRes.secure_url;
+// //           console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
+
+// //           panels[idx].image = imageUrl;
+// //           send({ progress: 40 + Math.round(((idx + 1) / panels.length) * 60), panelIndex: idx, image: imageUrl });
+// //         } catch (err) {
+// //           console.error(`Panel ${idx} failed:`, err.message);
+// //           panels[idx].image = "";
+// //         }
+// //       }));
+
+// //       await processQueue();
+// //     }
+
+// //     processQueue().then(() => {
+// //       const totalTimeMs = Date.now() - startTime;
+// //       const totalSeconds = Math.floor(totalTimeMs / 1000);
+// //       const minutes = Math.floor(totalSeconds / 60);
+// //       const seconds = totalSeconds % 60;
+// //       const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+// //       console.log(`⏱️ Total generation time: ${minutes}m ${seconds}s (${formattedTime})`);
+
+// //       send({
+// //         progress: 100,
+// //         panels,
+// //         step: "done",
+// //         generationTime: formattedTime,
+// //         generationTimeSeconds: totalSeconds
+// //       });
+// //       res.end();
+// //     }).catch(err => {
+// //       console.error(err);
+// //       send({ error: "image generation failed" });
+// //       res.end();
+// //     });
+
+// //   } catch (e) {
+// //     console.error(e);
+// //     res.end();
+// //   }
+// // });
+
+
+
+
+
+
+
+
+
+// // app.get('/generate-story-comic-stream', async (req, res) => {
+// //   const startTime = Date.now(); // 🆕 start timer
+
+// //   try {
+// //     const prompt = req.query.prompt;
+// //     if (!prompt) return res.status(400).send("Prompt required");
+
+// //     res.setHeader("Content-Type", "text/event-stream");
+// //     res.setHeader("Cache-Control", "no-cache");
+// //     res.setHeader("Connection", "keep-alive");
+
+// //     const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+
+// //     send({ progress: 5 });
+
+// //     // 1️⃣ STORY
+// //     const storyRes = await openai.chat.completions.create({
+// //       model: "gpt-4o-mini",
+// //       messages: [{ role: "user", content: `Write a very short kid-friendly story (max 100 words): ${prompt}` }],
+// //       max_tokens: 150,
+// //       temperature: 0.2,
+// //     });
+// //     const story = storyRes.choices?.[0]?.message?.content || "";
+// //     send({ progress: 20, story });
+
+// //     // 2️⃣ PANELS
+// //     const panelRes = await openai.chat.completions.create({
+// //       model: "gpt-4o-mini",
+// //       temperature: 0.1,
+// //       messages: [
+// //         { role: "system", content: "Return ONLY valid JSON array, no extra text." },
+// //         { role: "user", content: `4 comic panels: [{"title":"","description":"","imagePrompt":""}] Story: ${story}` }
+// //       ]
+// //     });
+// //     let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+// //     if (!Array.isArray(panels)) throw new Error("Panel parsing failed");
+
+// //     panels = panels.map(p => ({ ...p, image: "" }));
+// //     send({ progress: 40, panels });
+
+// //     // 3️⃣ IMAGES – PARALLEL with concurrency limit
+// //     const concurrency = 2;
+// //     const imageQueue = [...panels.entries()];
+
+// //     async function processQueue() {
+// //       const batch = [];
+// //       while (imageQueue.length && batch.length < concurrency) {
+// //         batch.push(imageQueue.shift());
+// //       }
+// //       if (batch.length === 0) return;
+
+// //       await Promise.all(batch.map(async ([idx, panel]) => {
+// //         try {
+// //           const img = await openai.images.generate({
+// //             model: "dall-e-3",
+// //             prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style",
+// //             size: "1024x1024",
+// //              
+// //           });
+// //           const base64 = img.data?.[0]?.b64_json;
+// //           if (!base64) throw new Error("No base64");
+
+// //           const uploadRes = await cloudinary.uploader.upload(
+// //             `data:image/png;base64,${base64}`,
+// //             { folder: "story_comics" }
+// //           );
+// //           const imageUrl = uploadRes.secure_url;
+// //           console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
+
+// //           panels[idx].image = imageUrl;
+// //           send({ progress: 40 + Math.round(((idx + 1) / panels.length) * 60), panelIndex: idx, image: imageUrl });
+// //         } catch (err) {
+// //           console.error(`Panel ${idx} failed:`, err.message);
+// //           panels[idx].image = "";
+// //         }
+// //       }));
+
+// //       await processQueue();
+// //     }
+
+// //     // Start parallel image generation
+// //     processQueue().then(() => {
+// //       const totalTimeMs = Date.now() - startTime;
+// //       const totalSeconds = Math.floor(totalTimeMs / 1000);
+// //       const minutes = Math.floor(totalSeconds / 60);
+// //       const seconds = totalSeconds % 60;
+// //       const formattedTime = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+// //       console.log(`⏱️ Total generation time: ${minutes}m ${seconds}s (${formattedTime})`);
+
+// //       send({
+// //         progress: 100,
+// //         panels,
+// //         step: "done",
+// //         generationTime: formattedTime,   // 🆕 send formatted time
+// //         generationTimeSeconds: totalSeconds // optional
+// //       });
+// //       res.end();
+// //     }).catch(err => {
+// //       console.error(err);
+// //       send({ error: "image generation failed" });
+// //       res.end();
+// //     });
+
+// //   } catch (e) {
+// //     console.error(e);
+// //     res.end();
+// //   }
+// // });
+
+// app.get('/demo-cat-comic', async (req, res) => {
+//   try {
+//     // 🐱 HARDCODED PROMPT
+//     const prompt = "A cute cat goes on a magical adventure in a colorful world";
+
+//     // 1️⃣ STORY
+//     const storyRes = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [
+//         {
+//           role: "user",
+//           content: `Write a short, fun, kid-friendly story about: ${prompt}`
+//         }
+//       ],
+//       max_tokens: 200,
+//     });
+
+//     const story = storyRes.choices?.[0]?.message?.content || "";
+
+//     // 2️⃣ PANELS
+//     const panelRes = await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       temperature: 0.2,
+//       messages: [
+//         { role: "system", content: "Return ONLY JSON array." },
+//         {
+//           role: "user",
+//           content: `
+// Create 4 comic panels:
+
+// [
+// {"title":"","description":"","imagePrompt":""}
+// ]
+
+// Story:
+// ${story}
+//           `
+//         }
+//       ]
+//     });
+
+//     const panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+
+//     if (!Array.isArray(panels)) {
+//       return res.json({ error: "panel failed" });
+//     }
+
+//     // 3️⃣ IMAGES + CLOUDINARY
+//     const results = await Promise.all(
+//       panels.map(async (p) => {
+//         try {
+//           const img = await openai.images.generate({
+//             model: "gpt-image-1",
+//             prompt: `${safePrompt(p.imagePrompt)}, cartoon, cute cat, colorful`,
+//             size: "1024x1024"
+//           });
+
+//           const imageData = img.data?.[0];
+
+//           let imageUrl = "";
+
+//           if (imageData?.b64_json) {
+//             const base64Image = `data:image/png;base64,${imageData.b64_json}`;
+
+//             const uploadRes = await cloudinary.uploader.upload(base64Image, {
+//               folder: "demo_cat",
+//             });
+
+//             imageUrl = uploadRes.secure_url;
+//           }
+
+//           return {
+//             title: p.title,
+//             description: p.description,
+//             image: imageUrl
+//           };
+
+//         } catch (e) {
+//           return {
+//             title: p.title,
+//             description: p.description,
+//             image: ""
+//           };
+//         }
+//       })
+//     );
+
+//     // ✅ SIMPLE RESPONSE
+//     res.json({
+//       success: true,
+//       story,
+//       panels: results
+//     });
+
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: "Demo failed" });
+//   }
+// });
+
+
+
+
+// // Story Teller Route
+// // app.post('/generate-story', async (req, res) => {
+// //   try {
+// //     const { prompt } = req.body;
+
+// //     // Validate prompt
+// //     if (!prompt || prompt.trim() === "") {
+// //       return res.status(400).json({ error: 'Prompt is required' });
+// //     }
+
+// //     // Story prompt for AI
+// //     const storyPrompt = `
+// // You are a professional creative storyteller.
+
+// // Your job:
+// // - Convert the given prompt into a short, engaging story.
+// // - If the prompt is unclear, invalid, or unrelated to storytelling, IGNORE it and still generate a meaningful generic story.
+
+// // Prompt:
+// // "${prompt}"
+
+// // Rules:
+// // - Only return the story.
+// // - Do NOT explain anything.
+// // - Do NOT return JSON.
+// // - Keep it engaging and creative.
+// // `;
+
+// //     const completion = await openai.chat.completions.create({
+// //       model: "gpt-4o-mini", // fast + good for storytelling
+// //       messages: [{ role: "user", content: storyPrompt }],
+// //       temperature: 0.8, // more creativity
+// //       max_tokens: 500,
+// //     });
+
+// //     const story = completion.choices[0].message.content;
+
+// //     res.json({
+// //       story: story.trim()
+// //     });
+
+// //   } catch (err) {
+// //     console.error(err.message);
+// //     res.status(500).json({ error: 'Server error' });
+// //   }
+// // });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// app.get('/check-openai', async (req, res) => {
+//   try {
+
+//     await openai.chat.completions.create({
+//       model: "gpt-4o-mini",
+//       messages: [{ role: "user", content: "Hi" }],
+//       max_tokens: 5,
+//     });
+
+//     res.json({ status: "working", credits: "available" });
+
+//   } catch (error) {
+
+//     if (error.code === "insufficient_quota") {
+//       return res.json({ status: "failed", reason: "no_credits" });
+//     }
+
+//     if (error.code === "invalid_api_key") {
+//       return res.json({ status: "failed", reason: "invalid_key" });
+//     }
+
+//     res.json({ status: "error", message: error.message });
+//   }
+// });
+
+
+
+// // Home Route (Dashboard UI)
+// app.get("/home", (req, res) => {
+//   res.send(`
+//     <!DOCTYPE html>
+//     <html lang="en">
+//     <head>
+//       <meta charset="UTF-8">
+//       <meta name="viewport" content="width=device-width, initial-scale=1.0">
+//       <title>Code Sync Server</title>
+// <link rel="icon" type="image/x-icon" href="assets/images/logo.png" />
+//       <script src="https://cdn.jsdelivr.net/particles.js/2.0.0/particles.min.js"></script>
+//       <style>
+//         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
+//         body {
+//           margin: 0;
+//           font-family: 'Montserrat', sans-serif;
+//           background-color: #1e1e2f;
+//           color: #e4e4e4;
+//           display: flex;
+//           flex-direction: column;
+//           min-height: 100vh;
+//           overflow-x: hidden;
+//           position: relative;
+//         }
+//         .particle-container {
+//           position: absolute;
+//           top: 0;
+//           left: 0;
+//           width: 100%;
+//           height: 100%;
+//           z-index: -1;
+//         }
+//         .dashboard-container {
+//           width: 90%;
+//           max-width: 1200px;
+//           padding: 30px;
+//           background-color: #2b2b3d;
+//           border-radius: 15px;
+//           box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+//           margin: 30px auto;
+//           flex-grow: 1;
+//           animation: fadeIn 1.2s ease-in-out;
+//           z-index: 1;
+//         }
+//         @keyframes fadeIn {
+//           0% { opacity: 0; transform: translateY(20px); }
+//           100% { opacity: 1; transform: translateY(0); }
+//         }
+//         .header {
+//           display: flex;
+//           align-items: center;
+//           justify-content: space-between;
+//           margin-bottom: 30px;
+//         }
+//         .header img {
+//           height: 100px;
+//           width: 100px;
+//           border-radius: 50%;
+//           box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+//         }
+//         .header h1 {
+//           font-size: 36px;
+//           color: #fff;
+//           font-weight: 700;
+//           margin: 0;
+//         }
+//         .header p {
+//           font-size: 18px;
+//           color: #bbb;
+//           margin-top: 5px;
+//           text-align: center;
+//         }
+//         .main-content {
+//           display: grid;
+//           grid-template-columns: 1fr 1fr;
+//           gap: 30px;
+//           margin-bottom: 40px;
+//         }
+//         .cards {
+//           display: flex;
+//           flex-direction: column;
+//           gap: 20px;
+//         }
+//         .card {
+//           background: linear-gradient(145deg, #3b3b4f, #242435);
+//           padding: 20px;
+//           border-radius: 10px;
+//           box-shadow: inset 0 4px 8px rgba(0, 0, 0, 0.3), 0 5px 15px rgba(0, 0, 0, 0.3);
+//           transition: transform 0.3s ease, box-shadow 0.3s ease;
+//           border-left: 5px solid #ff7f50;
+//         }
+//         .card:hover {
+//           transform: translateY(-5px) scale(1.02);
+//           box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+//         }
+//         .card h3 {
+//           font-size: 24px;
+//           color: #ffcc00;
+//           margin-bottom: 10px;
+//         }
+//         .card p {
+//           font-size: 16px;
+//           color: #ddd;
+//         }
+//         .recent-activities {
+//           background: linear-gradient(145deg, #41415b, #2c2c3d);
+//           padding: 20px;
+//           border-radius: 10px;
+//           box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+//         }
+//         .recent-activities h2 {
+//           font-size: 28px;
+//           margin-bottom: 15px;
+//           color: #ffcc00;
+//         }
+//         .recent-activities ul {
+//           padding-left: 20px;
+//         }
+//         .recent-activities li {
+//           font-size: 16px;
+//           color: #ddd;
+//           margin-bottom: 10px;
+//         }
+//         footer {
+//           background-color: #282836;
+//           color: #999;
+//           padding: 20px;
+//           text-align: center;
+//           font-size: 14px;
+//           border-top: 2px solid #444;
+//         }
+//         footer p {
+//           margin: 0;
+//         }
+//         footer a {
+//           color: #ff7f50;
+//           text-decoration: none;
+//           font-weight: 500;
+//         }
+//       </style>
+//     </head>
+//     <body>
+//       <div id="particle-container" class="particle-container"></div>
+//       <div class="dashboard-container">
+//         <div class="header">
+//           <img src="/assets/images/logo.png" alt="App Logo" />
+//           <div>
+//             <h1>Code Sync Server Dashboard</h1>
+//             <p>3D Virtually Perfect</p>
+//           </div>
+//         </div>
+
+//         <footer>
+//           <p>&copy; 2025 Anatomy. All rights reserved. 
+//           <a href="#">Terms</a> | <a href="#">Privacy Policy</a></p>
+//         </footer>
+//       </div>
+
+//       <script>
+//         particlesJS("particle-container", {
+//           particles: {
+//             number: { value: 80, density: { enable: true, value_area: 800 } },
+//             shape: { type: "circle" },
+//             opacity: { value: 0.5 },
+//             size: { value: 3 },
+//             line_linked: { enable: true, color: "#fff", opacity: 0.5, width: 2 },
+//           },
+//           interactivity: {
+//             events: {
+//               onhover: { enable: true, mode: "repulse" },
+//             },
+//           },
+//         });
+//       </script>
+//     </body>
+//     </html>
+//   `);
+// });
+
+
+
+// app.listen(PORT, "0.0.0.0", () => {
+//   console.log(`Server running at:`);
+//   console.log(`➡️ http://localhost:${PORT}`);
+//   console.log(`➡️ http://0.0.0.0:${PORT}`);
+// });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// // // index.js
+// // console.log("******* Code Sync Server *******");
+
+// // // -------------------- Packages --------------------
+// // require('dotenv').config();
+// // const express = require('express');
+// // const bodyParser = require('body-parser');
+// // const cors = require('cors');
+// // const OpenAI = require('openai');
+
+// // // -------------------- App Init --------------------
+// // const app = express();
+// // const PORT = process.env.PORT || 5000;
+
+// // app.use(cors());
+// // app.use(bodyParser.json({ limit: "10mb" }));
+
+// // // -------------------- OpenAI Init --------------------
+// // const openai = new OpenAI({
+// //   apiKey: process.env.OPENAI_API_KEY,
+// // });
+
+// // // -------------------- API ROUTES --------------------
+
+// // // Homepage
+// // app.get('/', (req, res) => {
+// //   res.send({ message: 'Welcome to Code Sync API' });
+// // });
+
+// // // Fix code route
+// // app.post('/fix-code', async (req, res) => {
+// //   try {
+// //     const { code } = req.body;
+
+// //     if (!code) {
+// //       return res.status(400).json({ error: 'Code is required' });
+// //     }
+
+// //     // Prompt to OpenAI
+// //     const prompt = `
+// // You are an expert developer and code reviewer. 
+// // 1. Detect any errors in the following code.
+// // 2. Highlight the errors in a readable format.
+// // 3. Correct the code.
+// // 4. Identify the programming language/framework.
+
+// // Code:
+// // ${code}
+
+// // Format your response as JSON:
+// // {
+// //   "correctedCode": "<corrected code here>",
+// //   "errors": "<highlighted errors here>",
+// //   "language": "<language/framework here>"
+// // }
+// // `;
+
+// //     const completion = await openai.chat.completions.create({
+// //       model: "gpt-4",
+// //       messages: [{ role: "user", content: prompt }],
+// //       temperature: 0,
+// //     });
+
+// //     const resultText = completion.choices[0].message.content;
+
+// //     // Try to parse JSON
+// //     let parsed;
+// //     try {
+// //       parsed = JSON.parse(resultText);
+// //     } catch (err) {
+// //       parsed = {
+// //         correctedCode: resultText,
+// //         errors: "Unable to parse errors",
+// //         language: "Unknown",
+// //       };
+// //     }
+
+// //     res.json(parsed);
+
+// //   } catch (err) {
+// //     console.error(err.message);
+// //     res.status(500).json({ error: 'Server error' });
+// //   }
+// // });
+
+// // // -------------------- Start Server --------------------
+// // app.listen(PORT, () => {
+// //   console.log(`Server running on port ${PORT}`);
+// // });
+
+
+
+
+
+
+
+
+
+
+
+
+// Very 1st script of node js
+console.log('');
+console.log("******* Story Teller Server Side *******");
+console.log('');
+
+// External Packages
 require('dotenv').config();
 const express = require('express');
+const { default: mongoose } = require('mongoose');
 const bodyParser = require('body-parser');
+const cors = require('cors');
+const OpenAI = require('openai');
+const User = require('./models/user');
+const cloudinary = require("cloudinary").v2;
+
 const path = require('path');
-const mongoose = require('mongoose');
-const methodOverride = require('method-override');
+const { exec } = require('child_process');
+const axios = require('axios');
+const ffmpeg = require('fluent-ffmpeg');
+const fs = require('fs');
+const bcrypt = require('bcryptjs');
 
+const authRouter = require('./routes/auth.js');
+const videoRouter = require('./routes/videoRoutes.js');
+const puterVideoGenerator = require('./routes/mk.js');
+
+// INIT
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 9000;
+const DB = process.env.MONGO_URI;
 
-// ─── Middleware ────────────────────────────────────────────────────────────────
-app.use('/assets', express.static(path.join(__dirname, 'assets')));
-app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(methodOverride('_method'));
+app.use(authRouter);
+app.use(videoRouter);
+app.use('/puter-video', puterVideoGenerator);
+app.use("/assets", express.static("assets"));
 
-// ─── MongoDB ───────────────────────────────────────────────────────────────────
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/magicstory';
-mongoose
-  .connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.log('❌ MongoDB connection error:', err));
+mongoose.connect(DB)
+  .then(() => console.log('MongoDB connection successful'))
+  .catch((e) => console.log("MongoDB Error:", e));
 
-// ─── Schemas ───────────────────────────────────────────────────────────────────
-const userSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  password: String,
-  otp: Number,
-  otpExpiry: Date,
-  createdAt: { type: Date, default: Date.now },
-});
-const User = mongoose.model('User', userSchema);
+app.use(cors());
+app.use(bodyParser.json({ limit: "10mb" }));
 
-const quizSchema = new mongoose.Schema({
-  BasicQuiz: { type: Boolean, default: false },
-  AdvanceQuiz: { type: Boolean, default: null },
-  BasicQuizMarks: { type: Number, default: null },
-  AdvanceQuizMarks: { type: Number, default: null },
-  email: { type: String, required: true },
-});
-const Quiz = mongoose.model('Quiz', quizSchema);
-
-// ─── Shared HTML Helpers ───────────────────────────────────────────────────────
-const getShell = (title, bodyContent, activePage = 'home') => `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>${title} — Magic Story Admin</title>
-  <link rel="icon" href="/assets/logo.png"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    /* ── Reset & Tokens ─────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    :root {
-      --bg:        #0a0b10;
-      --surface:   #111219;
-      --surface2:  #181a24;
-      --border:    rgba(255,255,255,0.07);
-      --accent:    #7c5cfc;
-      --accent2:   #e85d8a;
-      --accent3:   #3ecfb0;
-      --text:      #e8eaf0;
-      --muted:     #6b7280;
-      --danger:    #f43f5e;
-      --success:   #10b981;
-      --warning:   #f59e0b;
-      --sidebar-w: 260px;
-      --header-h:  64px;
-      --radius:    14px;
-      --font-head: 'Syne', sans-serif;
-      --font-body: 'DM Sans', sans-serif;
-    }
-
-    html, body { height: 100%; font-family: var(--font-body); background: var(--bg); color: var(--text); overflow-x: hidden; }
-    a { text-decoration: none; color: inherit; }
-    button { cursor: pointer; font-family: var(--font-body); }
-
-    /* ── Scrollbar ──────────────────────────────────── */
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: var(--surface); }
-    ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 99px; }
-
-    /* ── Layout ─────────────────────────────────────── */
-    .layout { display: flex; height: 100vh; overflow: hidden; }
-
-    /* ── Sidebar ────────────────────────────────────── */
-    .sidebar {
-      width: var(--sidebar-w);
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-      overflow-y: auto;
-      transition: transform .3s ease, width .3s ease;
-      position: relative;
-      z-index: 100;
-    }
-    .sidebar.collapsed { width: 72px; }
-    .sidebar.collapsed .nav-label,
-    .sidebar.collapsed .sidebar-logo-text,
-    .sidebar.collapsed .nav-section-title { display: none; }
-    .sidebar.collapsed .nav-item { justify-content: center; }
-    .sidebar.collapsed .nav-item i { margin-right: 0; }
-
-    .sidebar-brand {
-      display: flex; align-items: center; gap: 12px;
-      padding: 20px 22px 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .sidebar-logo {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
-    }
-    .sidebar-logo-text { font-family: var(--font-head); font-size: 18px; font-weight: 800; }
-
-    .sidebar-nav { flex: 1; padding: 14px 12px; }
-    .nav-section-title {
-      font-size: 10px; font-weight: 600; letter-spacing: .12em;
-      color: var(--muted); text-transform: uppercase; padding: 12px 10px 6px;
-    }
-    .nav-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 10px 12px; border-radius: 10px; margin-bottom: 2px;
-      font-size: 14px; font-weight: 500; color: var(--muted);
-      transition: background .2s, color .2s;
-    }
-    .nav-item:hover { background: var(--surface2); color: var(--text); }
-    .nav-item.active {
-      background: linear-gradient(90deg, rgba(124,92,252,.18), rgba(232,93,138,.08));
-      color: var(--text);
-      border-left: 3px solid var(--accent);
-    }
-    .nav-item i { width: 18px; text-align: center; font-size: 15px; }
-
-    .sidebar-footer {
-      padding: 14px 12px;
-      border-top: 1px solid var(--border);
-    }
-    .sidebar-user {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: 10px;
-      background: var(--surface2);
-    }
-    .sidebar-user-avatar {
-      width: 34px; height: 34px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 700; flex-shrink: 0;
-    }
-    .sidebar-user-info .name { font-size: 13px; font-weight: 600; }
-    .sidebar-user-info .role { font-size: 11px; color: var(--muted); }
-
-    /* ── Main ───────────────────────────────────────── */
-    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-    /* ── Header ─────────────────────────────────────── */
-    .header {
-      height: var(--header-h); display: flex; align-items: center;
-      justify-content: space-between; padding: 0 28px;
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-    }
-    .header-left { display: flex; align-items: center; gap: 14px; }
-    .toggle-btn {
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--muted); width: 36px; height: 36px; border-radius: 9px;
-      display: flex; align-items: center; justify-content: center;
-      transition: color .2s, border-color .2s;
-    }
-    .toggle-btn:hover { color: var(--text); border-color: var(--accent); }
-    .breadcrumb { font-size: 13px; color: var(--muted); }
-    .breadcrumb span { color: var(--text); font-weight: 600; }
-
-    .header-right { display: flex; align-items: center; gap: 10px; }
-    .header-icon-btn {
-      position: relative;
-      background: var(--surface2); border: 1px solid var(--border);
-      color: var(--muted); width: 36px; height: 36px; border-radius: 9px;
-      display: flex; align-items: center; justify-content: center;
-      transition: color .2s;
-    }
-    .header-icon-btn:hover { color: var(--text); }
-    .badge-dot {
-      position: absolute; top: 7px; right: 7px;
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--accent2); border: 1px solid var(--surface);
-    }
-    .logout-btn {
-      display: flex; align-items: center; gap: 7px;
-      background: linear-gradient(135deg, var(--danger), #c0392b);
-      color: #fff; border: none; padding: 8px 16px;
-      border-radius: 9px; font-size: 13px; font-weight: 600;
-      transition: opacity .2s, transform .15s;
-    }
-    .logout-btn:hover { opacity: .88; transform: translateY(-1px); }
-
-    /* ── Content ─────────────────────────────────────── */
-    .content { flex: 1; overflow-y: auto; padding: 28px; }
-
-    /* ── Page Title ──────────────────────────────────── */
-    .page-title { font-family: var(--font-head); font-size: 26px; font-weight: 800; margin-bottom: 4px; }
-    .page-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
-
-    /* ── Stat Cards ──────────────────────────────────── */
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; margin-bottom: 28px; }
-    .stat-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 22px 24px;
-      position: relative; overflow: hidden;
-      transition: transform .2s, box-shadow .2s;
-    }
-    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(0,0,0,.4); }
-    .stat-card::before {
-      content: ''; position: absolute; inset: 0;
-      opacity: .06; border-radius: inherit;
-    }
-    .stat-card.purple::before { background: var(--accent); }
-    .stat-card.pink::before   { background: var(--accent2); }
-    .stat-card.teal::before   { background: var(--accent3); }
-    .stat-card.amber::before  { background: var(--warning); }
-    .stat-glow {
-      position: absolute; top: -20px; right: -20px;
-      width: 80px; height: 80px; border-radius: 50%; opacity: .15; filter: blur(20px);
-    }
-    .stat-card.purple .stat-glow { background: var(--accent); }
-    .stat-card.pink   .stat-glow { background: var(--accent2); }
-    .stat-card.teal   .stat-glow { background: var(--accent3); }
-    .stat-card.amber  .stat-glow { background: var(--warning); }
-    .stat-icon {
-      width: 40px; height: 40px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 17px; margin-bottom: 14px;
-    }
-    .stat-card.purple .stat-icon { background: rgba(124,92,252,.15); color: var(--accent); }
-    .stat-card.pink   .stat-icon { background: rgba(232,93,138,.15); color: var(--accent2); }
-    .stat-card.teal   .stat-icon { background: rgba(62,207,176,.15); color: var(--accent3); }
-    .stat-card.amber  .stat-icon { background: rgba(245,158,11,.15); color: var(--warning); }
-    .stat-value { font-family: var(--font-head); font-size: 32px; font-weight: 800; margin-bottom: 4px; }
-    .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: .06em; }
-    .stat-trend { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
-    .stat-trend.up   { color: var(--success); }
-    .stat-trend.down { color: var(--danger); }
-
-    /* ── Charts Row ──────────────────────────────────── */
-    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px; }
-    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
-
-    /* ── Card ────────────────────────────────────────── */
-    .card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); overflow: hidden;
-    }
-    .card-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 18px 22px; border-bottom: 1px solid var(--border);
-    }
-    .card-title { font-family: var(--font-head); font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-    .card-title i { color: var(--accent); }
-    .card-body { padding: 22px; }
-    .card-body.no-pad { padding: 0; }
-
-    /* ── Table ───────────────────────────────────────── */
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-    thead tr { border-bottom: 1px solid var(--border); }
-    thead th {
-      padding: 12px 16px; text-align: left;
-      font-size: 11px; font-weight: 600; letter-spacing: .08em;
-      text-transform: uppercase; color: var(--muted);
-      white-space: nowrap;
-    }
-    tbody tr { border-bottom: 1px solid var(--border); transition: background .15s; }
-    tbody tr:last-child { border-bottom: none; }
-    tbody tr:hover { background: var(--surface2); }
-    tbody td { padding: 13px 16px; vertical-align: middle; }
-
-    .avatar-cell { display: flex; align-items: center; gap: 10px; }
-    .avatar {
-      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 12px; font-weight: 700;
-    }
-    .user-name { font-weight: 500; font-size: 13.5px; }
-    .user-email { font-size: 12px; color: var(--muted); margin-top: 1px; }
-
-    .pill {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 10px; border-radius: 99px;
-      font-size: 11px; font-weight: 600;
-    }
-    .pill.active  { background: rgba(16,185,129,.15); color: var(--success); }
-    .pill.yes     { background: rgba(124,92,252,.15);  color: var(--accent); }
-    .pill.no      { background: rgba(255,255,255,.06); color: var(--muted); }
-
-    .pass-cell { font-family: monospace; font-size: 12px; color: var(--muted); letter-spacing: .04em; }
-
-    .btn-del {
-      background: rgba(244,63,94,.1); color: var(--danger);
-      border: 1px solid rgba(244,63,94,.25); padding: 5px 12px;
-      border-radius: 7px; font-size: 12px; font-weight: 600;
-      transition: background .2s, transform .15s;
-    }
-    .btn-del:hover { background: rgba(244,63,94,.22); transform: scale(1.04); }
-
-    /* ── Search / Filter bar ─────────────────────────── */
-    .table-toolbar {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 22px; border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap;
-    }
-    .search-box {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 9px; padding: 7px 14px; min-width: 220px;
-    }
-    .search-box i { color: var(--muted); font-size: 13px; }
-    .search-box input {
-      background: none; border: none; outline: none;
-      color: var(--text); font-family: var(--font-body); font-size: 13px; flex: 1;
-    }
-    .search-box input::placeholder { color: var(--muted); }
-    .table-count { font-size: 13px; color: var(--muted); }
-
-    /* ── Server Progress ─────────────────────────────── */
-    .prog-list { display: flex; flex-direction: column; gap: 16px; }
-    .prog-row {}
-    .prog-meta { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
-    .prog-label { font-weight: 500; }
-    .prog-val { color: var(--muted); font-size: 12px; }
-    .prog-bar { height: 6px; background: var(--surface2); border-radius: 99px; overflow: hidden; }
-    .prog-fill { height: 100%; border-radius: 99px; transition: width 1s ease; }
-
-    /* ── Quiz table ──────────────────────────────────── */
-    .score-chip {
-      font-family: var(--font-head); font-size: 13px; font-weight: 700;
-      padding: 2px 9px; border-radius: 6px;
-      background: rgba(62,207,176,.12); color: var(--accent3);
-    }
-
-    /* ── Toast ───────────────────────────────────────── */
-    #toast {
-      position: fixed; bottom: 28px; right: 28px; z-index: 9999;
-      background: var(--surface); border: 1px solid var(--border);
-      padding: 14px 20px; border-radius: 12px;
-      font-size: 14px; display: flex; align-items: center; gap: 10px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.5);
-      transform: translateY(80px); opacity: 0;
-      transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s;
-      pointer-events: none;
-    }
-    #toast.show { transform: translateY(0); opacity: 1; }
-    #toast i { color: var(--success); }
-
-    /* ── Responsive ──────────────────────────────────── */
-    @media (max-width: 768px) {
-      .sidebar { position: fixed; left: 0; top: 0; height: 100%; transform: translateX(-100%); }
-      .sidebar.mobile-open { transform: translateX(0); }
-      .stats-grid { grid-template-columns: 1fr 1fr; }
-      .content { padding: 18px; }
-      .header { padding: 0 16px; }
-    }
-    @media (max-width: 480px) {
-      .stats-grid { grid-template-columns: 1fr; }
-      .breadcrumb { display: none; }
-    }
-
-    /* ── Mobile overlay ──────────────────────────────── */
-    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 99; }
-    .overlay.active { display: block; }
-
-    /* ── Animations ──────────────────────────────────── */
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(18px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .fade-up { animation: fadeUp .45s ease both; }
-    .delay-1 { animation-delay: .05s; }
-    .delay-2 { animation-delay: .1s; }
-    .delay-3 { animation-delay: .15s; }
-    .delay-4 { animation-delay: .2s; }
-
-    /* ── Login page ──────────────────────────────────── */
-    .login-wrap {
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      background: var(--bg);
-      background-image: radial-gradient(ellipse at 20% 50%, rgba(124,92,252,.12) 0%, transparent 60%),
-                        radial-gradient(ellipse at 80% 20%, rgba(232,93,138,.1) 0%, transparent 55%);
-    }
-    .login-box {
-      width: 100%; max-width: 420px; padding: 0 20px;
-    }
-    .login-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; padding: 40px 36px;
-      animation: fadeUp .5s ease both;
-    }
-    .login-logo {
-      width: 52px; height: 52px; border-radius: 14px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 24px; margin-bottom: 22px;
-    }
-    .login-title { font-family: var(--font-head); font-size: 26px; font-weight: 800; margin-bottom: 6px; }
-    .login-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
-    .form-group { margin-bottom: 16px; }
-    .form-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 7px; }
-    .form-input {
-      width: 100%; padding: 11px 14px;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 10px; color: var(--text);
-      font-family: var(--font-body); font-size: 14px; outline: none;
-      transition: border-color .2s, box-shadow .2s;
-    }
-    .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,252,.15); }
-    .form-input::placeholder { color: var(--muted); }
-    .submit-btn {
-      width: 100%; padding: 13px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      color: #fff; border: none; border-radius: 10px;
-      font-family: var(--font-body); font-size: 15px; font-weight: 600;
-      margin-top: 6px; transition: opacity .2s, transform .15s;
-    }
-    .submit-btn:hover { opacity: .9; transform: translateY(-1px); }
-    .error-msg { color: var(--danger); font-size: 13px; margin-top: 12px; text-align: center; }
-  </style>
-</head>
-<body>
-${bodyContent}
-<div id="toast"><i class="fas fa-check-circle"></i><span id="toast-msg"></span></div>
-<script>
-  // ── Sidebar toggle ────────────────────────────────
-  const sidebar   = document.getElementById('sidebar');
-  const overlay   = document.getElementById('overlay');
-  const toggleBtn = document.getElementById('toggleBtn');
-  if (toggleBtn && sidebar) {
-    toggleBtn.addEventListener('click', () => {
-      if (window.innerWidth <= 768) {
-        sidebar.classList.toggle('mobile-open');
-        overlay && overlay.classList.toggle('active');
-      } else {
-        sidebar.classList.toggle('collapsed');
-      }
-    });
-    overlay && overlay.addEventListener('click', () => {
-      sidebar.classList.remove('mobile-open');
-      overlay.classList.remove('active');
-    });
-  }
-
-  // ── Live search in user table ─────────────────────
-  const searchInput = document.getElementById('userSearch');
-  if (searchInput) {
-    searchInput.addEventListener('input', function() {
-      const q = this.value.toLowerCase();
-      document.querySelectorAll('#usersBody tr').forEach(tr => {
-        tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
-      });
-      document.getElementById('tableCount').textContent =
-        [...document.querySelectorAll('#usersBody tr')].filter(r => r.style.display !== 'none').length + ' users';
-    });
-  }
-
-  // ── Toast ─────────────────────────────────────────
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    document.getElementById('toast-msg').textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3000);
-  }
-
-  // ── Confirm delete ────────────────────────────────
-  document.querySelectorAll('.del-form').forEach(f => {
-    f.addEventListener('submit', e => {
-      if (!confirm('Delete this user? This cannot be undone.')) e.preventDefault();
-    });
-  });
-</script>
-</body>
-</html>`;
-
-const sidebarNav = (active) => `
-<div class="overlay" id="overlay"></div>
-<div class="sidebar" id="sidebar">
-  <div class="sidebar-brand">
-    <div class="sidebar-logo" style="display: flex; align-items: center; justify-content: center; padding: 12px;">
-  <img src="/assets/logo.png" alt="Logo" 
-       style="width: 60px; height: 60px; object-fit: contain; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
-</div>
-    <div class="sidebar-logo-text">Magic Story</div>
-  </div>
-  <nav class="sidebar-nav">
-    <div class="nav-section-title">Main</div>
-    <a href="/home" class="nav-item ${active === 'home' ? 'active' : ''}">
-      <i class="fas fa-chart-pie"></i><span class="nav-label">Dashboard</span>
-    </a>
-    <a href="/users" class="nav-item ${active === 'users' ? 'active' : ''}">
-      <i class="fas fa-users"></i><span class="nav-label">Users</span>
-    </a>
-    
-    <div class="nav-section-title">System</div>
-    <a href="/servers" class="nav-item ${active === 'servers' ? 'active' : ''}">
-      <i class="fas fa-server"></i><span class="nav-label">Servers</span>
-    </a>
-    <a href="/logout" class="nav-item" onclick="return confirmLogout(event)">
-  <i class="fas fa-sign-out-alt"></i>
-  <span class="nav-label">Logout</span>
-</a>
-<script>
-  function confirmLogout(event) {
-    event.preventDefault(); // stop immediate redirect
-
-    const confirmAction = confirm("Are you sure you want to logout?");
-
-    if (confirmAction) {
-      window.location.href = "/logout"; // proceed
-    }
-
-    return false;
-  }
-</script>
-  </nav>
-  <div class="sidebar-footer">
-    <div class="sidebar-user">
-      <div class="sidebar-user-avatar">A</div>
-      <div class="sidebar-user-info">
-        <div class="name">Admin</div>
-        <div class="role">Super Admin</div>
-      </div>
-    </div>
-  </div>
-</div>`;
-
-const header = (title, sub) => `
-<div class="header">
-  <div class="header-left">
-    <button class="toggle-btn" id="toggleBtn"><i class="fas fa-bars"></i></button>
-    <div class="breadcrumb">Magic Story &rsaquo; <span>${title}</span></div>
-  </div>
-  <div class="header-right">
-    <button class="header-icon-btn"><i class="fas fa-bell"></i><span class="badge-dot"></span></button>
-    <button class="header-icon-btn"><i class="fas fa-cog"></i></button>
-    <a href="/logout" class="logout-btn"  onclick="return confirmLogout(event)"><i class="fas fa-sign-out-alt"></i>Logout</a>
-
-  <i class="fas fa-sign-out-alt"></i>
-  <span class="nav-label">Logout</span>
-</a>
-<script>
-  function confirmLogout(event) {
-    event.preventDefault(); // stop immediate redirect
-
-    const confirmAction = confirm("Are you sure you want to logout?");
-
-    if (confirmAction) {
-      window.location.href = "/logout"; // proceed
-    }
-
-    return false;
-  }
-</script>
-  </div>
-</div>`;
-
-// ─── Auth guard ────────────────────────────────────────────────────────────────
-// Simple cookie-based session (no express-session dep; lightweight)
-const sessions = new Set();
-function requireAuth(req, res, next) {
-  const cookie = req.headers.cookie || '';
-  const sid = cookie.split(';').map(c => c.trim()).find(c => c.startsWith('sid='));
-  if (sid && sessions.has(sid.split('=')[1])) return next();
-  res.redirect('/');
-}
-
-// ─── Routes ────────────────────────────────────────────────────────────────────
-
-// LOGIN PAGE
-app.get('/', (req, res) => {
-  const error = req.query.error ? '<p class="error-msg"><i class="fas fa-exclamation-circle"></i> Invalid username or password.</p>' : '';
-  res.send(getShell('Login', `
-    <div class="login-wrap">
-      <div class="login-box">
-        <div class="login-card">
-          <div class="login-logo" style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-  <img src="/assets/logo.png" alt="Logo" 
-       style="width: 80px; height: 80px; object-fit: contain; border-radius: 15px; box-shadow: 0 6px 15px rgba(0,0,0,0.25); transition: transform 0.3s ease;"
-       onmouseover="this.style.transform='scale(1.1)'" 
-       onmouseout="this.style.transform='scale(1)'">
-</div>
-          <div class="login-title">Welcome back</div>
-          <div class="login-sub">Sign in to Magic Story Admin Panel</div>
-          <form action="/login" method="POST">
-            <div class="form-group">
-              <label class="form-label">Username</label>
-              <input class="form-input" type="text" name="username" placeholder="Enter username" required autofocus/>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Password</label>
-              <input class="form-input" type="password" name="password" placeholder="Enter password" required/>
-            </div>
-            <button class="submit-btn" type="submit">Sign In</button>
-            ${error}
-          </form>
-        </div>
-      </div>
-    </div>
-  `));
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// LOGIN POST
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  if (username === (process.env.ADMIN_USERNAME || 'admin') &&
-      password === (process.env.ADMIN_PASSWORD || 'admin123')) {
-    const sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    sessions.add(sid);
-    res.setHeader('Set-Cookie', `sid=${sid}; Path=/; HttpOnly; SameSite=Lax`);
-    return res.redirect('/home');
-  }
-  res.redirect('/?error=1');
-});
-
-// LOGOUT
-app.get('/logout', (req, res) => {
-  const cookie = req.headers.cookie || '';
-  const sid = cookie.split(';').map(c => c.trim()).find(c => c.startsWith('sid='));
-  if (sid) sessions.delete(sid.split('=')[1]);
-  res.setHeader('Set-Cookie', 'sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT');
-  res.redirect('/');
-});
-
-// ── DASHBOARD (HOME) ───────────────────────────────────────────────────────────
-app.get('/home', requireAuth, async (req, res) => {
+// -------------------- Reset Password --------------------
+app.post('/reset-password', async (req, res) => {
   try {
-    const users         = await User.find();
-    const totalUsers    = users.length;
-    const basicCount    = await Quiz.countDocuments({ BasicQuiz: true });
-    const advanceCount  = await Quiz.countDocuments({ AdvanceQuiz: { $ne: null } });
-
-    const body = `
-    <div class="layout">
-      ${sidebarNav('home')}
-      <div class="main">
-        ${header('Dashboard', 'Overview')}
-        <div class="content">
-          <div class="page-title fade-up">Dashboard</div>
-          <div class="page-subtitle fade-up delay-1">Welcome back, Admin — here's what's happening with Magic Story.</div>
-
-          <!-- Stat Cards -->
-          <div class="stats-grid">
-            <div class="stat-card purple fade-up delay-1">
-              <div class="stat-glow"></div>
-              <div class="stat-icon"><i class="fas fa-users"></i></div>
-              <div class="stat-value">${totalUsers}</div>
-              <div class="stat-label">Total Users</div>
-              <div class="stat-trend up"><i class="fas fa-arrow-up"></i> Live from DB</div>
-            </div>
-            <div class="stat-card pink fade-up delay-2">
-              <div class="stat-glow"></div>
-              <div class="stat-icon"><i class="fas fa-book-open"></i></div>
-              <div class="stat-value">${basicCount}</div>
-              <div class="stat-label">Basic Quizzes</div>
-              <div class="stat-trend up"><i class="fas fa-arrow-up"></i> Completed</div>
-            </div>
-            <div class="stat-card teal fade-up delay-3">
-              <div class="stat-glow"></div>
-              <div class="stat-icon"><i class="fas fa-brain"></i></div>
-              <div class="stat-value">${advanceCount}</div>
-              <div class="stat-label">Advanced Quizzes</div>
-              <div class="stat-trend up"><i class="fas fa-arrow-up"></i> Completed</div>
-            </div>
-            <div class="stat-card amber fade-up delay-4">
-              <div class="stat-glow"></div>
-              <div class="stat-icon"><i class="fas fa-server"></i></div>
-              <div class="stat-value">3</div>
-              <div class="stat-label">Active Servers</div>
-              <div class="stat-trend up"><i class="fas fa-circle" style="font-size:7px"></i> All Online</div>
-            </div>
-          </div>
-
-          <!-- Charts -->
-          <div class="charts-grid">
-            <div class="card fade-up delay-2">
-              <div class="card-header">
-                <div class="card-title"><i class="fas fa-chart-bar"></i>User Statistics</div>
-              </div>
-              <div class="card-body">
-                <canvas id="barChart" height="220"></canvas>
-              </div>
-            </div>
-            <div class="card fade-up delay-3">
-              <div class="card-header">
-                <div class="card-title"><i class="fas fa-chart-doughnut"></i>Quiz Distribution</div>
-              </div>
-              <div class="card-body">
-                <canvas id="doughnutChart" height="220"></canvas>
-              </div>
-            </div>
-          </div>
-
-          <!-- Server Status -->
-          <div class="card fade-up delay-4">
-            <div class="card-header">
-              <div class="card-title"><i class="fas fa-server"></i>Server Health</div>
-            </div>
-            <div class="card-body">
-              <div class="prog-list">
-                <div class="prog-row">
-                  <div class="prog-meta"><span class="prog-label">Backup Ratio</span><span class="prog-val">92%</span></div>
-                  <div class="prog-bar"><div class="prog-fill" style="width:92%;background:var(--success)"></div></div>
-                </div>
-                <div class="prog-row">
-                  <div class="prog-meta"><span class="prog-label">Server Speed</span><span class="prog-val">95%</span></div>
-                  <div class="prog-bar"><div class="prog-fill" style="width:95%;background:var(--accent)"></div></div>
-                </div>
-                <div class="prog-row">
-                  <div class="prog-meta"><span class="prog-label">Average Uptime</span><span class="prog-val">60%</span></div>
-                  <div class="prog-bar"><div class="prog-fill" style="width:60%;background:var(--warning)"></div></div>
-                </div>
-                <div class="prog-row">
-                  <div class="prog-meta"><span class="prog-label">Shutdown Ratio</span><span class="prog-val">8%</span></div>
-                  <div class="prog-bar"><div class="prog-fill" style="width:8%;background:var(--danger)"></div></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <script>
-      // Bar Chart
-      new Chart(document.getElementById('barChart'), {
-        type: 'bar',
-        data: {
-          labels: ['Total Users','Basic Quiz','Advanced Quiz'],
-          datasets: [{
-            label: 'Count',
-            data: [${totalUsers}, ${basicCount}, ${advanceCount}],
-            backgroundColor: ['rgba(124,92,252,.7)','rgba(232,93,138,.7)','rgba(62,207,176,.7)'],
-            borderColor:      ['#7c5cfc','#e85d8a','#3ecfb0'],
-            borderWidth: 2, borderRadius: 8
-          }]
-        },
-        options: {
-          responsive: true, animation: { duration: 900, easing: 'easeOutQuart' },
-          plugins: { legend: { display: false } },
-          scales: {
-            y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,.05)' }, ticks: { color: '#6b7280' } },
-            x: { grid: { display: false }, ticks: { color: '#6b7280' } }
-          }
-        }
-      });
-      // Doughnut Chart
-      new Chart(document.getElementById('doughnutChart'), {
-        type: 'doughnut',
-        data: {
-          labels: ['Basic Quiz','Advanced Quiz','No Quiz'],
-          datasets: [{
-            data: [${basicCount}, ${advanceCount}, Math.max(0, ${totalUsers} - ${basicCount})],
-            backgroundColor: ['rgba(124,92,252,.8)','rgba(232,93,138,.8)','rgba(255,255,255,.08)'],
-            borderColor: ['#7c5cfc','#e85d8a','transparent'],
-            borderWidth: 2
-          }]
-        },
-        options: {
-          responsive: true, cutout: '68%',
-          plugins: { legend: { labels: { color: '#6b7280', padding: 16 } } }
-        }
-      });
-    </script>`;
-
-    res.send(getShell('Dashboard', body, 'home'));
+    const { email, newPassword } = req.body;
+    if (!email || !newPassword)
+      return res.status(400).json({ success: false, error: "Email and new password are required" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ success: false, error: "User not found" });
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    res.json({ success: true, message: "Password updated successfully" });
   } catch (err) {
     console.error(err);
-    res.status(500).send('Error loading dashboard');
+    res.status(500).json({ success: false, error: "Server error" });
   }
 });
 
-// ── USERS PAGE ─────────────────────────────────────────────────────────────────
-app.get('/users', requireAuth, async (req, res) => {
+// -------------------- Profile Route --------------------
+app.post('/profile', async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
-
-    const rows = users.map((u, i) => {
-      const initials = (u.name || 'U').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-      const halfPass = u.password ? u.password.slice(0, Math.ceil(u.password.length / 2)) + '••••' : 'N/A';
-      return `
-      <tr>
-        <td style="color:var(--muted);font-size:12px">${i + 1}</td>
-        <td>
-          <div class="avatar-cell">
-            <div class="avatar">${initials}</div>
-            <div>
-              <div class="user-name">${u.name || '—'}</div>
-              <div class="user-email">${u.email || '—'}</div>
-            </div>
-          </div>
-        </td>
-        <td class="pass-cell">${halfPass}</td>
-        <td><span class="pill active"><i class="fas fa-circle" style="font-size:6px"></i>Active</span></td>
-        <td>
-          <form class="del-form" action="/delete-user/${u._id}" method="POST">
-            <button class="btn-del" type="submit"><i class="fas fa-trash-alt"></i> Delete</button>
-          </form>
-        </td>
-      </tr>`;
-    }).join('');
-
-    const body = `
-    <div class="layout">
-      ${sidebarNav('users')}
-      <div class="main">
-        ${header('Users', 'Manage')}
-        <div class="content">
-          <div class="page-title fade-up">Users</div>
-          <div class="page-subtitle fade-up delay-1">Manage all registered Magic Story users.</div>
-          <div class="card fade-up delay-2">
-            <div class="table-toolbar">
-              <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input id="userSearch" type="text" placeholder="Search by name or email…"/>
-              </div>
-              <div class="table-count" id="tableCount">${users.length} users</div>
-            </div>
-            <div class="table-wrap card-body no-pad">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th><th>User</th><th>Password (partial)</th><th>Status</th><th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="usersBody">${rows}</tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-    res.send(getShell('Users', body, 'users'));
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+    const user = await User.findOne({ email }).select('-password');
+    if (!user) return res.status(404).json({ error: "User not found" });
+    res.json({ success: true, user });
   } catch (err) {
-    res.status(500).send('Error fetching users');
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-// ── QUIZ PAGE ──────────────────────────────────────────────────────────────────
-app.get('/quiz', requireAuth, async (req, res) => {
+// -------------------- OpenAI Init --------------------
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// ✅ SAFE JSON PARSER
+function extractJSON(text) {
   try {
-    const quizzes = await Quiz.find();
-
-    const rows = quizzes.map((q, i) => `
-      <tr>
-        <td style="color:var(--muted);font-size:12px">${i + 1}</td>
-        <td>${q.email}</td>
-        <td><span class="pill ${q.BasicQuiz ? 'yes' : 'no'}">${q.BasicQuiz ? 'Yes' : 'No'}</span></td>
-        <td>${q.BasicQuizMarks !== null ? `<span class="score-chip">${q.BasicQuizMarks}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
-        <td><span class="pill ${q.AdvanceQuiz ? 'yes' : 'no'}">${q.AdvanceQuiz ? 'Yes' : 'No'}</span></td>
-        <td>${q.AdvanceQuizMarks !== null ? `<span class="score-chip">${q.AdvanceQuizMarks}</span>` : '<span style="color:var(--muted)">—</span>'}</td>
-      </tr>`).join('');
-
-    const body = `
-    <div class="layout">
-      ${sidebarNav('quiz')}
-      <div class="main">
-        ${header('Quiz Results', 'Review')}
-        <div class="content">
-          <div class="page-title fade-up">Quiz Results</div>
-          <div class="page-subtitle fade-up delay-1">View all user quiz attempts and scores.</div>
-          <div class="card fade-up delay-2">
-            <div class="table-toolbar">
-              <div class="search-box">
-                <i class="fas fa-search"></i>
-                <input id="userSearch" type="text" placeholder="Search by email…"/>
-              </div>
-              <div class="table-count" id="tableCount">${quizzes.length} records</div>
-            </div>
-            <div class="table-wrap card-body no-pad">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th><th>Email</th><th>Basic Quiz</th><th>Basic Score</th><th>Advanced Quiz</th><th>Advanced Score</th>
-                  </tr>
-                </thead>
-                <tbody id="usersBody">${rows}</tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-
-    res.send(getShell('Quiz Results', body, 'quiz'));
-  } catch (err) {
-    res.status(500).send('Error fetching quiz data');
+    if (!text) return null;
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
+    if (start === -1 || end === -1) return null;
+    return JSON.parse(text.substring(start, end + 1));
+  } catch (e) {
+    console.log("JSON_PARSE_ERROR:", e.message);
+    return null;
   }
-});
+}
 
-// ── SERVERS PAGE ───────────────────────────────────────────────────────────────
-app.get('/servers', requireAuth, (req, res) => {
-  const servers = [
-    { name: 'Production Server', region: 'US-East', status: 'online', uptime: '99.9%', load: '34%', latency: '18ms' },
-    { name: 'Staging Server',    region: 'EU-West', status: 'online', uptime: '98.2%', load: '12%', latency: '42ms' },
-    { name: 'Backup Server',     region: 'AP-South', status: 'online', uptime: '97.1%', load: '5%',  latency: '91ms' },
-  ];
+// ✅ SAFE IMAGE PROMPT
+function safePrompt(text = "") {
+  return text
+    .replace(/violence|kill|death|gun|weapon|blood|fight/gi, "action scene")
+    .replace(/horror|scary|dark/gi, "mysterious")
+    .substring(0, 180);
+}
 
-  const rows = servers.map((s, i) => `
-    <tr>
-      <td style="color:var(--muted);font-size:12px">${i + 1}</td>
-      <td><strong>${s.name}</strong></td>
-      <td><span style="color:var(--muted)">${s.region}</span></td>
-      <td><span class="pill active"><i class="fas fa-circle" style="font-size:6px"></i>${s.status}</span></td>
-      <td>${s.uptime}</td>
-      <td>${s.load}</td>
-      <td>${s.latency}</td>
-    </tr>`).join('');
+// ──────────────────────────────────────────────────────────────
+//  LANGUAGE HELPERS
+// ──────────────────────────────────────────────────────────────
 
-  const body = `
-  <div class="layout">
-    ${sidebarNav('servers')}
-    <div class="main">
-      ${header('Servers', 'Monitor')}
-      <div class="content">
-        <div class="page-title fade-up">Server Monitor</div>
-        <div class="page-subtitle fade-up delay-1">Real-time overview of all Magic Story servers.</div>
-
-        <div class="stats-grid fade-up delay-1">
-          <div class="stat-card teal">
-            <div class="stat-glow"></div>
-            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-            <div class="stat-value">3/3</div>
-            <div class="stat-label">Servers Online</div>
-          </div>
-          <div class="stat-card purple">
-            <div class="stat-glow"></div>
-            <div class="stat-icon"><i class="fas fa-tachometer-alt"></i></div>
-            <div class="stat-value">18ms</div>
-            <div class="stat-label">Best Latency</div>
-          </div>
-          <div class="stat-card amber">
-            <div class="stat-glow"></div>
-            <div class="stat-icon"><i class="fas fa-microchip"></i></div>
-            <div class="stat-value">34%</div>
-            <div class="stat-label">Peak CPU Load</div>
-          </div>
-        </div>
-
-        <div class="card fade-up delay-2">
-          <div class="card-header">
-            <div class="card-title"><i class="fas fa-server"></i>All Servers</div>
-          </div>
-          <div class="table-wrap card-body no-pad">
-            <table>
-              <thead>
-                <tr><th>#</th><th>Name</th><th>Region</th><th>Status</th><th>Uptime</th><th>CPU Load</th><th>Latency</th></tr>
-              </thead>
-              <tbody>${rows}</tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>`;
-
-  res.send(getShell('Servers', body, 'servers'));
-});
-
-// ── DELETE USER ────────────────────────────────────────────────────────────────
-app.post('/delete-user/:id', requireAuth, async (req, res) => {
+// Convert English text to Roman Urdu
+async function convertToRomanUrdu(text) {
   try {
-    await User.findByIdAndDelete(req.params.id);
-    res.redirect('/users');
-  } catch (err) {
-    res.status(500).send('Failed to delete user');
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a professional Urdu storyteller. Convert the following English text to Natural Roman Urdu that SOUNDS like authentic Urdu when spoken.
+
+IMPORTANT RULES FOR AUTHENTIC URDU ACCENT:
+1. Use proper Urdu words (not English words written in Urdu script)
+2. Add emotional expressions: 'Achha!', 'Wah!', 'Are!', 'Haye!'
+3. Use Urdu sentence structure (verb at the end)
+4. Honorifics: 'jee', 'sahab'
+5. Common Urdu words: 'bilkul', 'bohat', 'thoda', 'barah'
+6. Storytelling phrases: 'chalo', 'suno', 'dekho'
+
+Only return the Roman Urdu text, no explanations.`
+        },
+        { role: "user", content: text }
+      ],
+      temperature: 0.4,
+      max_tokens: 600
+    });
+    return response.choices[0].message.content;
+  } catch (error) {
+    console.error("Roman Urdu conversion error:", error);
+    return text;
+  }
+}
+
+// Enhance Roman Urdu text for better TTS pronunciation
+async function enhanceRomanUrduForAccent(text) {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a pronunciation expert. Convert the following Roman Urdu text into a version that will be spoken with an authentic Urdu accent by an English TTS system.
+
+Rules:
+1. Add 'ah' sounds at the end of words that end with 'a'
+2. Double vowels for emphasis
+3. Add 'h' to soften sounds
+4. Break long words with hyphens
+5. Use Urdu filler words like 'jee', 'hahn'
+6. Add pauses with commas and periods
+
+Only return the enhanced text, no explanations.`
+        },
+        { role: "user", content: text }
+      ],
+      temperature: 0.5,
+      max_tokens: 800
+    });
+    return response.choices[0].message.content;
+  } catch (error) {
+    console.error("Enhancement error:", error);
+    return text;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  VOICEOVER GENERATOR  (language-aware)
+//  language: 'english' | 'urdu'
+// ──────────────────────────────────────────────────────────────
+async function generateVoiceover(text, filename, language = 'urdu') {
+  try {
+    let finalText = text;
+    let voice = 'nova';   // default English voice
+    let speed = 0.92;
+
+    if (language === 'urdu') {
+      // Convert to Roman Urdu and enhance for accent
+      const romanUrdu = await convertToRomanUrdu(text);
+      finalText = await enhanceRomanUrduForAccent(romanUrdu);
+      voice = 'fable';    // best South-Asian accent
+      speed = 0.85;
+      console.log("📖 Roman Urdu Story:", romanUrdu);
+    } else {
+      // English – plain natural voice, no conversion
+      console.log("📖 English Story (direct TTS)");
+    }
+
+    const mp3 = await openai.audio.speech.create({
+      model: "tts-1",
+      voice,
+      input: finalText,
+      speed
+    });
+
+    const buffer = Buffer.from(await mp3.arrayBuffer());
+    const filePath = path.join(__dirname, 'temp', filename);
+    if (!fs.existsSync(path.join(__dirname, 'temp'))) {
+      fs.mkdirSync(path.join(__dirname, 'temp'));
+    }
+    fs.writeFileSync(filePath, buffer);
+    console.log(`✅ Voiceover generated (${language}) using '${voice}' voice`);
+    return filePath;
+  } catch (error) {
+    console.error("Voiceover generation error:", error);
+    return null;
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
+//  VIDEO CREATOR (FFmpeg)
+// ──────────────────────────────────────────────────────────────
+async function createVideoWithVoiceover(imagePaths, voiceoverPath, outputPath, durationPerImage = 4) {
+  return new Promise((resolve, reject) => {
+    exec(
+      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${voiceoverPath}"`,
+      async (error, stdout) => {
+        const voiceDuration = parseFloat(stdout) || (imagePaths.length * durationPerImage);
+        const actualDurationPerImage = voiceDuration / imagePaths.length;
+
+        const concatFile = path.join(__dirname, 'temp', `concat_${Date.now()}.txt`);
+        let concatContent = '';
+        for (const imagePath of imagePaths) {
+          concatContent += `file '${imagePath}'\nduration ${actualDurationPerImage}\n`;
+        }
+        concatContent += `file '${imagePaths[imagePaths.length - 1]}'\n`;
+        fs.writeFileSync(concatFile, concatContent);
+
+        const command = `ffmpeg -f concat -safe 0 -i "${concatFile}" -i "${voiceoverPath}" -vf "fps=24,scale=1024:1024:force_original_aspect_ratio=decrease,pad=1024:1024:(ow-iw)/2:(oh-ih)/2,format=yuv420p" -c:v libx264 -preset fast -crf 23 -c:a libvo_aacenc -b:a 128k -pix_fmt yuv420p -shortest -y "${outputPath}"`;
+
+        console.log("Running FFmpeg command...");
+        exec(command, (err, stdout, stderr) => {
+          if (fs.existsSync(concatFile)) fs.unlinkSync(concatFile);
+          if (err) { console.error("FFmpeg stderr:", stderr); reject(err); }
+          else { console.log("Video created successfully"); resolve(outputPath); }
+        });
+      }
+    );
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MAIN STREAMING ENDPOINT  –  with language param
+//  GET /generate-story-comic-stream?prompt=...&language=english|urdu
+// ══════════════════════════════════════════════════════════════
+app.get('/generate-story-comic-stream', async (req, res) => {
+  const startTime = Date.now();
+  const uniqueRequestId = `${Date.now()}-${Math.random().toString(36)}-${req.query.prompt || 'none'}`;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
+  try {
+    const prompt = req.query.prompt;
+    if (!prompt) return res.status(400).send("Prompt required");
+
+    // ── Read language preference  (default: 'urdu' to preserve old behaviour) ──
+    const language = (req.query.language || 'urdu').toLowerCase();
+    const isEnglish = language === 'english';
+
+    console.log(`\n🌐 Language selected: ${isEnglish ? '🇺🇸 English' : '🇵🇰 Roman Urdu'}\n`);
+
+    const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+    send({ progress: 5 });
+
+    const uniqueSuffix = `[unique request: ${uniqueRequestId}]`;
+    const forcedUniquePrompt = `${prompt}. Generate a completely new, different story every time. Never repeat. ${uniqueSuffix}`;
+
+    // 1️⃣ STORY
+    const storyRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{
+        role: "user",
+        content: `Write a very short kid-friendly story (max 100 words) based on: "${forcedUniquePrompt}". Be extremely creative and different from any previous story.`
+      }],
+      max_tokens: 150,
+      temperature: 0.9,
+      seed: Math.floor(Math.random() * 1000000)
+    });
+    const englishStory = storyRes.choices?.[0]?.message?.content || "";
+    send({ progress: 20, story: englishStory });
+
+    // 2️⃣ PANELS
+    const panelRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.7,
+      messages: [
+        { role: "system", content: "Return ONLY valid JSON array, no extra text." },
+        {
+          role: "user",
+          content: `Generate 4 unique comic panels for the story below. Each panel must have a title, description, and imagePrompt.\nStory: ${englishStory}\nUnique request ID: ${uniqueRequestId}`
+        }
+      ]
+    });
+
+    let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+    if (!Array.isArray(panels)) throw new Error("Panel parsing failed");
+
+    panels = panels.map(p => ({ ...p, image: "" }));
+    send({ progress: 40, panels });
+
+    // 3️⃣ GENERATE IMAGES
+    const concurrency = 2;
+    const imageQueue = [...panels.entries()];
+
+// ══════════════════════════════════════════════════════════════
+//  REPLACE the processQueue function in /generate-story-comic-stream
+// ══════════════════════════════════════════════════════════════
+async function processQueue() {
+  const batch = [];
+  while (imageQueue.length && batch.length < concurrency) batch.push(imageQueue.shift());
+  if (batch.length === 0) return;
+
+  await Promise.all(batch.map(async ([idx, panel]) => {
+    try {
+      const img = await openai.images.generate({
+        model: "gpt-image-1",           // ✅ current model, no response_format needed
+        prompt: safePrompt(panel.imagePrompt) + ", cute cartoon style, colorful, kid-friendly",
+        size: "1024x1024",
+        quality: "low",                 // ✅ low = cheaper & faster for kids app
+        // NO response_format — gpt-image-1 always returns b64_json automatically
+      });
+
+      const base64 = img.data?.[0]?.b64_json;  // ✅ always present with gpt-image-1
+      if (!base64) throw new Error("No base64 returned");
+
+      const uploadRes = await cloudinary.uploader.upload(
+        `data:image/png;base64,${base64}`,
+        { folder: "story_comics" }
+      );
+      const imageUrl = uploadRes.secure_url;
+      console.log(`📸 Panel ${idx + 1} image URL: ${imageUrl}`);
+
+      panels[idx].image = imageUrl;
+      send({
+        progress: 40 + Math.round(((idx + 1) / panels.length) * 40),
+        panelIndex: idx,
+        image: imageUrl
+      });
+    } catch (err) {
+      console.error(`Panel ${idx} failed:`, err.message);
+      panels[idx].image = "";
+    }
+  }));
+
+  await processQueue();
+}
+
+    await processQueue();
+
+    // 4️⃣ VOICEOVER + VIDEO
+    const validPanels = panels.filter(p => p.image);
+    let videoUrl = null;
+
+    if (validPanels.length > 0) {
+      try {
+        if (isEnglish) {
+          send({ progress: 88, status: "🇺🇸 Generating English voiceover..." });
+        } else {
+          send({ progress: 88, status: "🇵🇰 Converting to Roman Urdu..." });
+        }
+
+        // Generate voiceover (English → direct, Urdu → converted)
+        const voiceoverFile = await generateVoiceover(
+          englishStory,
+          `voice_${Date.now()}.mp3`,
+          language   // <-- pass language flag
+        );
+
+        if (voiceoverFile) {
+          send({ progress: 93, status: "Downloading images for video..." });
+
+          const tempImagePaths = [];
+          for (let i = 0; i < validPanels.length; i++) {
+            const panel = validPanels[i];
+            try {
+              const response = await axios({ method: 'GET', url: panel.image, responseType: 'stream' });
+              const imagePath = path.join(__dirname, 'temp', `video_img_${Date.now()}_${i}.png`);
+              const writer = fs.createWriteStream(imagePath);
+              response.data.pipe(writer);
+              await new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+              });
+              tempImagePaths.push(imagePath);
+            } catch (err) {
+              console.error(`Error downloading image ${i}:`, err.message);
+            }
+          }
+
+          if (tempImagePaths.length > 0) {
+            send({ progress: 96, status: "Creating video..." });
+
+            const videoPath = path.join(__dirname, 'temp', `story_video_${Date.now()}.mp4`);
+            await createVideoWithVoiceover(tempImagePaths, voiceoverFile, videoPath, 4);
+
+            send({ progress: 98, status: "Uploading to cloud..." });
+
+            const uploadResult = await cloudinary.uploader.upload(videoPath, {
+              folder: "story_videos",
+              resource_type: "video",
+              public_id: `story_video_${Date.now()}`
+            });
+
+            videoUrl = uploadResult.secure_url;
+
+            console.log("");
+            console.log("═══════════════════════════════════════════════════");
+            console.log("🎬 VIDEO GENERATED SUCCESSFULLY! 🎬");
+            console.log(`🌐 Language: ${isEnglish ? '🇺🇸 English' : '🇵🇰 Roman Urdu'}`);
+            console.log("📹 Video URL:", videoUrl);
+            console.log("📖 Story:", englishStory);
+            console.log("═══════════════════════════════════════════════════");
+            console.log("");
+
+            setTimeout(() => {
+              [...tempImagePaths, voiceoverFile, videoPath].forEach(file => {
+                if (fs.existsSync(file)) fs.unlinkSync(file);
+              });
+            }, 5000);
+          }
+        }
+      } catch (videoError) {
+        console.error("Video generation error:", videoError);
+      }
+    }
+
+    send({
+      progress: 100,
+      step: "done",
+      videoUrl,
+      language,
+      panels,
+      generationTime: `${Math.floor((Date.now() - startTime) / 1000)}s`
+    });
+
+    res.end();
+
+  } catch (e) {
+    console.error(e);
+    res.write(`data: ${JSON.stringify({ error: e.message })}\n\n`);
+    res.end();
   }
 });
 
-// ─── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => console.log(`🚀 Magic Story Admin running on http://localhost:${PORT}`));
+// ══════════════════════════════════════════════════════════════
+//  OLD POST ENDPOINT (language-aware too)
+// ══════════════════════════════════════════════════════════════
+app.post('/generate-story-comic', async (req, res) => {
+  try {
+    const { prompt, language = 'urdu' } = req.body;
+    const isEnglish = language === 'english';
+    const finalPrompt = prompt || "A cute cat goes on a magical adventure";
+
+    const storyRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: `Write a short kid-friendly story (max 150 words) about: ${finalPrompt}` }],
+      max_tokens: 300,
+    });
+    const englishStory = storyRes.choices?.[0]?.message?.content || "";
+
+    const panelRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: "Return ONLY JSON array." },
+        { role: "user", content: `Create 4 comic panels for this story:\n\nStory: ${englishStory}\n\nReturn JSON:\n[{"title":"","description":"","imagePrompt":""}]` }
+      ]
+    });
+
+    let panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+    if (!Array.isArray(panels)) return res.status(500).json({ error: "Panel error" });
+
+// ══════════════════════════════════════════════════════════════
+//  REPLACE panelsWithImages in POST /generate-story-comic
+// ══════════════════════════════════════════════════════════════
+const panelsWithImages = await Promise.all(panels.map(async (panel, index) => {
+  try {
+    const img = await openai.images.generate({
+      model: "gpt-image-1",           // ✅
+      prompt: `${safePrompt(panel.imagePrompt)}, cartoon style, colorful, kid-friendly`,
+      size: "1024x1024",
+      quality: "low",
+      // NO response_format
+    });
+
+    const base64 = img.data?.[0]?.b64_json;  // ✅ always present
+    if (!base64) return { ...panel, image: "" };
+
+    const uploadRes = await cloudinary.uploader.upload(
+      `data:image/png;base64,${base64}`,
+      { folder: "story_comics" }
+    );
+    console.log(`✅ Panel ${index + 1} uploaded`);
+    return { ...panel, image: uploadRes.secure_url };
+  } catch (err) {
+    console.error(`Panel ${index} error:`, err.message);
+    return { ...panel, image: "" };
+  }
+}));
+
+    res.json({
+      success: true,
+      story: englishStory,
+      panels: panelsWithImages,
+      language,
+      videoUrl: null,
+      videoGenerating: true,
+    });
+
+    // Background video
+    const validPanels = panelsWithImages.filter(p => p.image);
+    if (validPanels.length > 0) {
+      const voiceoverFile = await generateVoiceover(englishStory, `voice_${Date.now()}.mp3`, language);
+      if (voiceoverFile) {
+        const tempImagePaths = [];
+        for (let i = 0; i < validPanels.length; i++) {
+          const response = await axios({ method: 'GET', url: validPanels[i].image, responseType: 'stream' });
+          const imagePath = path.join(__dirname, 'temp', `video_img_${Date.now()}_${i}.png`);
+          const writer = fs.createWriteStream(imagePath);
+          response.data.pipe(writer);
+          await new Promise((resolve, reject) => { writer.on('finish', resolve); writer.on('error', reject); });
+          tempImagePaths.push(imagePath);
+        }
+        if (tempImagePaths.length > 0) {
+          const videoPath = path.join(__dirname, 'temp', `story_video_${Date.now()}.mp4`);
+          await createVideoWithVoiceover(tempImagePaths, voiceoverFile, videoPath, 4);
+          const uploadResult = await cloudinary.uploader.upload(videoPath, {
+            folder: "story_videos", resource_type: "video", public_id: `story_video_${Date.now()}`
+          });
+          console.log(`🎬 Video done (${language}): ${uploadResult.secure_url}`);
+          setTimeout(() => {
+            [...tempImagePaths, voiceoverFile, videoPath].forEach(f => { if (fs.existsSync(f)) fs.unlinkSync(f); });
+          }, 5000);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────
+//  REMAINING ROUTES (unchanged)
+// ──────────────────────────────────────────────────────────────
+app.get('/get-latest-video', async (req, res) => {
+  try {
+    const result = await cloudinary.api.resources({
+      type: 'upload', prefix: 'story_videos', resource_type: 'video',
+      max_results: 1, sort_by: 'created_at', sort_order: 'desc'
+    });
+    if (result.resources && result.resources.length > 0) {
+      res.json({ success: true, videoUrl: result.resources[0].secure_url, createdAt: result.resources[0].created_at });
+    } else {
+      res.json({ success: false, message: "No videos found" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/test-roman-urdu', async (req, res) => {
+  const testText = req.query.text || "Once upon a time, there was a little cat who loved to explore the magical forest.";
+  const romanUrdu = await convertToRomanUrdu(testText);
+  res.json({ original: testText, romanUrdu });
+});
+
+app.post('/test-voiceover', async (req, res) => {
+  try {
+    const { text, language = 'urdu' } = req.body;
+    if (!text) return res.status(400).json({ error: "Text required" });
+    const voiceFile = await generateVoiceover(text, `test_voice_${Date.now()}.mp3`, language);
+    if (voiceFile) {
+      const uploadResult = await cloudinary.uploader.upload(voiceFile, { folder: "voiceovers", resource_type: "raw" });
+      res.json({ success: true, audioUrl: uploadResult.secure_url, language });
+      setTimeout(() => { if (fs.existsSync(voiceFile)) fs.unlinkSync(voiceFile); }, 5000);
+    } else {
+      res.json({ error: "Voice generation failed" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get('/test-voices', async (req, res) => {
+  const testText = "Achha! Suno meri kahani. Ek dafa ka zikr hai...";
+  const voices = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+  const results = [];
+  for (const voice of voices) {
+    try {
+      const mp3 = await openai.audio.speech.create({ model: "tts-1", voice, input: testText, speed: 0.85 });
+      const buffer = Buffer.from(await mp3.arrayBuffer());
+      const filePath = path.join(__dirname, 'temp', `test_${voice}.mp3`);
+      fs.writeFileSync(filePath, buffer);
+      const uploadResult = await cloudinary.uploader.upload(filePath, { folder: "voice_tests", resource_type: "raw", public_id: `voice_${voice}` });
+      results.push({ voice, url: uploadResult.secure_url });
+      setTimeout(() => { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); }, 1000);
+    } catch (error) {
+      results.push({ voice, error: error.message });
+    }
+  }
+  res.json({ message: "Test voices", recommended: "Try 'fable' or 'nova' for Urdu accent", results });
+});
+
+app.post('/api/generate-story-text', async (req, res) => {
+  try {
+    const { character, world, mood, customPrompt } = req.body;
+    if (!character && !world && !mood && !customPrompt)
+      return res.status(400).json({ success: false, error: "Please provide at least character, world, mood, or a custom prompt" });
+
+    let storyPrompt = customPrompt || `Write a short, engaging, kid-friendly story (150-200 words) about:
+      - Character: ${character || "a friendly animal"}
+      - Setting: ${world || "a magical place"}
+      - Mood/Tone: ${mood || "adventurous and fun"}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are a professional children's storyteller." },
+        { role: "user", content: storyPrompt }
+      ],
+      temperature: 0.8, max_tokens: 400,
+    });
+    const story = completion.choices[0].message.content;
+
+    const titleCompletion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: `Generate a creative, catchy title for this children's story (max 8 words, no explanation, just the title):\n\n${story}` }],
+      temperature: 0.7, max_tokens: 30,
+    });
+    const title = titleCompletion.choices[0].message.content.trim();
+
+    res.json({ success: true, story, title, metadata: { character, world, mood, wordCount: story.split(/\s+/).length, generatedAt: new Date().toISOString() } });
+  } catch (error) {
+    console.error("Story generation error:", error);
+    if (error.code === "insufficient_quota") return res.status(429).json({ success: false, error: "API quota exceeded." });
+    res.status(500).json({ success: false, error: error.message || "Failed to generate story" });
+  }
+});
+
+app.get('/api/test-story', (req, res) => {
+  res.json({ success: true, message: "Story API is working!", usage: "POST to /api/generate-story-text with { character, world, mood, customPrompt }" });
+});
+
+app.post('/api/generate-story-variants', async (req, res) => {
+  try {
+    const { character, world, mood, count = 3 } = req.body;
+    if (count > 5) return res.status(400).json({ success: false, error: "Maximum 5 story variants at a time" });
+    const stories = [];
+    for (let i = 0; i < count; i++) {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: `Write a short children's story (100-150 words) about: Character: ${character || "a cute animal"}, Setting: ${world || "a magical kingdom"}, Mood: ${mood || "happy and adventurous"}. Make this version ${i + 1} different.` }],
+        temperature: 0.9, max_tokens: 350,
+      });
+      stories.push({ variant: i + 1, story: completion.choices[0].message.content });
+    }
+    res.json({ success: true, count: stories.length, stories });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/demo-cat-comic', async (req, res) => {
+  try {
+    const prompt = "A cute cat goes on a magical adventure in a colorful world";
+    const storyRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: `Write a short, fun, kid-friendly story about: ${prompt}` }],
+      max_tokens: 200,
+    });
+    const story = storyRes.choices?.[0]?.message?.content || "";
+    const panelRes = await openai.chat.completions.create({
+      model: "gpt-4o-mini", temperature: 0.2,
+      messages: [
+        { role: "system", content: "Return ONLY JSON array." },
+        { role: "user", content: `Create 4 comic panels:\n[{"title":"","description":"","imagePrompt":""}]\nStory:\n${story}` }
+      ]
+    });
+    const panels = extractJSON(panelRes.choices?.[0]?.message?.content);
+    if (!Array.isArray(panels)) return res.json({ error: "panel failed" });
+    const results = await Promise.all(panels.map(async (p) => {
+      try {
+        const img = await openai.images.generate({ model: "gpt-image-1", prompt: `${safePrompt(p.imagePrompt)}, cartoon, cute cat, colorful`, size: "1024x1024" });
+        const imageData = img.data?.[0];
+        let imageUrl = "";
+        if (imageData?.b64_json) {
+          const uploadRes = await cloudinary.uploader.upload(`data:image/png;base64,${imageData.b64_json}`, { folder: "demo_cat" });
+          imageUrl = uploadRes.secure_url;
+        }
+        return { title: p.title, description: p.description, image: imageUrl };
+      } catch (e) {
+        return { title: p.title, description: p.description, image: "" };
+      }
+    }));
+    res.json({ success: true, story, panels: results });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Demo failed" });
+  }
+});
+
+app.get('/check-openai', async (req, res) => {
+  try {
+    await openai.chat.completions.create({ model: "gpt-4o-mini", messages: [{ role: "user", content: "Hi" }], max_tokens: 5 });
+    res.json({ status: "working", credits: "available" });
+  } catch (error) {
+    if (error.code === "insufficient_quota") return res.json({ status: "failed", reason: "no_credits" });
+    if (error.code === "invalid_api_key") return res.json({ status: "failed", reason: "invalid_key" });
+    res.json({ status: "error", message: error.message });
+  }
+});
+
+app.get("/home", (req, res) => {
+  res.send(`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Story Teller Server</title></head><body style="background:#1e1e2f;color:#e4e4e4;font-family:sans-serif;padding:2rem;"><h1>🎬 Story Teller Server</h1><p>Server is running! Use the Flutter app to generate stories.</p><ul><li>GET /generate-story-comic-stream?prompt=...&language=english|urdu</li><li>POST /generate-story-comic</li><li>GET /check-openai</li></ul></body></html>`);
+});
+
+// ============================================
+// STORY MODEL - Add this AFTER your other models
+// ============================================
+
+// Define Story Schema
+const storySchema = new mongoose.Schema({
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  title: { type: String, required: true },
+  storyText: { type: String, required: true },
+  videoUrl: { type: String, default: '' },
+  character: { type: String, default: '' },
+  world: { type: String, default: '' },
+  mood: { type: String, default: '' },
+  panels: { type: Array, default: [] },
+  createdAt: { type: Date, default: Date.now },
+  language: { type: String, default: 'english' }
+});
+
+// CREATE THE MODEL - This is what you're missing!
+const Story = mongoose.model('Story', storySchema);
+
+// ============================================
+// STORY API ROUTES
+// ============================================
+
+// Save story to database
+app.post('/api/save-story', async (req, res) => {
+  try {
+    const { userId, title, storyText, videoUrl, character, world, mood, panels, language } = req.body;
+    
+    // 📝 CONSOLE LOG - Request received
+    console.log('\n📚 ========== SAVE STORY REQUEST ==========');
+    console.log('📝 Request received at:', new Date().toLocaleString());
+    console.log('👤 User ID:', userId);
+    console.log('📖 Title:', title);
+    console.log('📄 Story length:', storyText?.length || 0, 'characters');
+    console.log('🎬 Video URL:', videoUrl || 'No video');
+    console.log('🎭 Character:', character || 'Not specified');
+    console.log('🌍 World:', world || 'Not specified');
+    console.log('😊 Mood:', mood || 'Not specified');
+    console.log('🗣️ Language:', language || 'english');
+    console.log('=========================================\n');
+    
+    if (!userId || !storyText) {
+      console.log('❌ ERROR: Missing userId or storyText');
+      return res.status(400).json({ success: false, error: 'User ID and story text are required' });
+    }
+    
+    const newStory = new Story({
+      userId,
+      title: title || 'Untitled Story',
+      storyText,
+      videoUrl: videoUrl || '',
+      character: character || '',
+      world: world || '',
+      mood: mood || '',
+      panels: panels || [],
+      language: language || 'english'
+    });
+    
+    console.log('💾 Saving to MongoDB...');
+    await newStory.save();
+    
+    // ✅ CONSOLE LOG - Success
+    console.log('\n✅ ========== STORY SAVED SUCCESSFULLY ==========');
+    console.log('🆔 Story ID:', newStory._id);
+    console.log('📖 Title:', newStory.title);
+    console.log('👤 User ID:', newStory.userId);
+    console.log('📅 Created at:', newStory.createdAt);
+    console.log('===============================================\n');
+    
+    res.json({ 
+      success: true, 
+      message: 'Story saved successfully',
+      storyId: newStory._id
+    });
+  } catch (error) {
+    // ❌ CONSOLE LOG - Error
+    console.error('\n❌ ========== SAVE STORY ERROR ==========');
+    console.error('Error message:', error.message);
+    console.error('Error details:', error);
+    console.error('=========================================\n');
+    
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get user's saved stories
+app.get('/api/user-stories/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const stories = await Story.find({ userId }).sort({ createdAt: -1 });
+    
+    res.json({ success: true, stories });
+  } catch (error) {
+    console.error('Get stories error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get single story by ID
+app.get('/api/story/:storyId', async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({ success: false, error: 'Story not found' });
+    }
+    
+    res.json({ success: true, story });
+  } catch (error) {
+    console.error('Get story error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Delete story
+app.delete('/api/story/:storyId', async (req, res) => {
+  try {
+    const { storyId } = req.params;
+    
+    await Story.findByIdAndDelete(storyId);
+    
+    res.json({ success: true, message: 'Story deleted successfully' });
+  } catch (error) {
+    console.error('Delete story error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ============================================
+// VIDEO DOWNLOAD ENDPOINT
+// ============================================
+app.get('/api/download-video', async (req, res) => {
+  try {
+    const { videoUrl } = req.query;
+    
+    if (!videoUrl) {
+      return res.status(400).json({ error: 'Video URL is required' });
+    }
+    
+    // Download video from Cloudinary
+    const response = await axios({
+      method: 'GET',
+      url: videoUrl,
+      responseType: 'stream',
+      timeout: 60000
+    });
+    
+    // Set headers for file download
+    const filename = `story_video_${Date.now()}.mp4`;
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    // Pipe the video stream to response
+    response.data.pipe(res);
+    
+  } catch (error) {
+    console.error('Video download error:', error);
+    res.status(500).json({ error: 'Failed to download video' });
+  }
+});
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running at:`);
+  console.log(`➡️  http://localhost:${PORT}`);
+  console.log(`➡️  http://0.0.0.0:${PORT}`);
+});
