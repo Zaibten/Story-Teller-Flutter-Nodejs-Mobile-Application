@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -794,13 +795,7 @@ Future<Map<String, dynamic>> importModelPth(String filePath) async {
     'modelName': 'story_generation_model.pth',
     'modelVersion': '1.0.0',
     'architecture': 'Transformer-Based LLM',
-    'parameters': {
-      'totalParams': 125_000_000,
-      'trainableParams': 125_000_000,
-      'layers': 24,
-      'hiddenSize': 1024,
-      'attentionHeads': 16
-    },
+    'parameters': {},
     'capabilities': [
       'story_generation',
       'comic_panel_creation',
@@ -818,152 +813,225 @@ Future<Map<String, dynamic>> importModelPth(String filePath) async {
   };
 }
 
-// Class-based approach for model management
-class StoryModel {
-  final String path;
-  bool isLoaded = false;
-  
-  StoryModel(this.path);
-  
-  Future<void> load() async {
-    // Simulate loading process with progress
-    for (int i = 0; i <= 100; i += 20) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      print('Loading model: $i%');
-    }
-    isLoaded = true;
-    print('✅ Model loaded successfully from: $path');
-  }
-  
-  Future<String> generateStory(String prompt) async {
-    if (!isLoaded) throw Exception('Model not loaded');
-    await Future.delayed(const Duration(milliseconds: 300));
-    return 'Generated story for: $prompt';
-  }
-  
-  Future<List<Map<String, dynamic>>> generateComicPanels(String story) async {
-    if (!isLoaded) throw Exception('Model not loaded');
-    await Future.delayed(const Duration(milliseconds: 500));
-    return [
-      {'title': 'Panel 1', 'description': 'Scene 1 description'},
-      {'title': 'Panel 2', 'description': 'Scene 2 description'},
-    ];
-  }
-  
-  void dispose() {
-    isLoaded = false;
-    print('Model unloaded');
-  }
-}
+  // Future<void> _generateStory() async {
+  //   final prompt = _ctrl.text.trim();
+  //   if (prompt.isEmpty) {
+  //     _showSnackbar('✏️ Type a magical story idea first!', K.orange);
+  //     return;
+  //   }
+  //   _stopReading(reset: true);
+  //   _stopComicReading();
+  //   _disposeVideo();
+  //   setState(() {
+  //     _loading = true;
+  //     _story = '';
+  //     _panels = [];
+  //     _pct = 0;
+  //     _genTime = '';
+  //     _showComic = false;
+  //     _seeds = [];
+  //     _videoState = 'generating';
+  //     _videoUrl = null;
+  //     _showVideoOverlay = false;
+  //   });
 
-// Integration example for your _NewPageState:
-Future<void> _initializeModel() async {
+  //   try {
+  //     final url = '$_base/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}&language=$_selectedLanguage';
+  //     final req = http.Request('GET', Uri.parse(url));
+  //     final res = await req.send();
+  //     res.stream.transform(utf8.decoder).listen((chunk) {
+  //       for (final line in chunk.split('\n')) {
+  //         if (!line.startsWith('data:')) continue;
+  //         final js = line.replaceFirst('data:', '').trim();
+  //         if (js.isEmpty) continue;
+  //         try {
+  //           final data = jsonDecode(js);
+  //           setState(() {
+  //             _pct = (data['progress'] ?? _pct).toDouble();
+  //             if (data['story'] != null) {
+  //               _story = data['story'];
+  //               _words = [];
+  //               _starts = [];
+  //               _cw = -1;
+  //             }
+  //             if (data['panels'] != null) {
+  //               _panels = List.from(data['panels']);
+  //               _seeds = List.generate(_panels.length, (i) => i * 137 + 91);
+  //               _setupPanelAnimations(_panels.length);
+  //             }
+  //             if (data['panelIndex'] != null && data['image'] != null) {
+  //               final idx = data['panelIndex'] as int;
+  //               if (idx < _panels.length) {
+  //                 _panels[idx] = Map<String, dynamic>.from(_panels[idx])..['image'] = data['image'];
+  //                 precacheImage(CachedNetworkImageProvider(data['image'] as String), context);
+  //               }
+  //             }
+  //             if (data['step'] == 'done') {
+  //               _loading = false;
+  //               _genTime = data['generationTime'] ?? '';
+  //               final vUrl = data['videoUrl'];
+  //               if (vUrl != null && (vUrl as String).isNotEmpty) {
+  //                 _videoUrl = vUrl;
+  //                 _videoState = 'ready';
+  //                 _initVideoPlayer(vUrl);
+  //               } else {
+  //                 _videoState = 'idle';
+  //               }
+  //               _celebrateWithConfetti();
+  //             }
+  //           });
+  //         } catch (_) {}
+  //       }
+  //     }, onError: (_) {
+  //       setState(() {
+  //         _loading = false;
+  //         _videoState = 'error';
+  //       });
+  //     });
+  //   } catch (_) {
+  //     setState(() {
+  //       _loading = false;
+  //       _videoState = 'idle';
+  //     });
+  //     _showSnackbar('❌ Oops! Something went wrong.', K.red);
+  //   }
+  // }
+
+Future<void> _generateStory() async {
+  final prompt = _ctrl.text.trim();
+  if (prompt.isEmpty) {
+    _showSnackbar('✏️ Type a magical story idea first!', K.orange);
+    return;
+  }
+  _stopReading(reset: true);
+  _stopComicReading();
+  _disposeVideo();
+  setState(() {
+    _loading = true;
+    _story = '';
+    _panels = [];
+    _pct = 0;
+    _genTime = '';
+    _showComic = false;
+    _seeds = [];
+    _videoState = 'generating';
+    _videoUrl = null;
+    _showVideoOverlay = false;
+  });
+
   try {
-    String modelPath = 'assets/models/model.pkl';
-    
-    // Simple import
-    var modelInfo = await importModelPth(modelPath);
-    if (modelInfo['success']) {
-      print('✅ ${modelInfo['modelName']} loaded successfully');
-      print('📊 Parameters: ${modelInfo['parameters']['totalParams']}');
-    }
-    
-    // Class-based approach
-    final model = StoryModel(modelPath);
-    await model.load();
-    
-    // Use the model
-    final story = await model.generateStory("A brave knight and a dragon");
-    print('Generated: $story');
-    
-  } catch (e) {
-    print('❌ Error loading model: $e');
-  }
-}
+    final url =
+        '$_base/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}&language=$_selectedLanguage';
 
-  Future<void> _generateStory() async {
-    final prompt = _ctrl.text.trim();
-    if (prompt.isEmpty) {
-      _showSnackbar('✏️ Type a magical story idea first!', K.orange);
+    // Use a persistent Client with a long timeout so the connection
+    // stays alive through image generation + video upload (~2-3 min)
+    final client = http.Client();
+
+    final request = http.Request('GET', Uri.parse(url));
+    // Some platforms need explicit headers to keep SSE alive
+    request.headers['Accept'] = 'text/event-stream';
+    request.headers['Cache-Control'] = 'no-cache';
+    request.headers['Connection'] = 'keep-alive';
+
+    final response = await client.send(request).timeout(
+      const Duration(minutes: 6), // video generation can take ~2-3 min
+      onTimeout: () {
+        client.close();
+        throw Exception('Generation timed out after 6 minutes');
+      },
+    );
+
+    if (response.statusCode != 200) {
+      client.close();
+      setState(() { _loading = false; _videoState = 'error'; });
+      _showSnackbar('❌ Server error: ${response.statusCode}', K.red);
       return;
     }
-    _stopReading(reset: true);
-    _stopComicReading();
-    _disposeVideo();
-    setState(() {
-      _loading = true;
-      _story = '';
-      _panels = [];
-      _pct = 0;
-      _genTime = '';
-      _showComic = false;
-      _seeds = [];
-      _videoState = 'generating';
-      _videoUrl = null;
-      _showVideoOverlay = false;
-    });
 
-    try {
-      final url = '$_base/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}&language=$_selectedLanguage';
-      final req = http.Request('GET', Uri.parse(url));
-      final res = await req.send();
-      res.stream.transform(utf8.decoder).listen((chunk) {
-        for (final line in chunk.split('\n')) {
-          if (!line.startsWith('data:')) continue;
-          final js = line.replaceFirst('data:', '').trim();
-          if (js.isEmpty) continue;
-          try {
-            final data = jsonDecode(js);
-            setState(() {
-              _pct = (data['progress'] ?? _pct).toDouble();
-              if (data['story'] != null) {
-                _story = data['story'];
-                _words = [];
-                _starts = [];
-                _cw = -1;
-              }
-              if (data['panels'] != null) {
-                _panels = List.from(data['panels']);
-                _seeds = List.generate(_panels.length, (i) => i * 137 + 91);
-                _setupPanelAnimations(_panels.length);
-              }
-              if (data['panelIndex'] != null && data['image'] != null) {
-                final idx = data['panelIndex'] as int;
-                if (idx < _panels.length) {
-                  _panels[idx] = Map<String, dynamic>.from(_panels[idx])..['image'] = data['image'];
-                  precacheImage(CachedNetworkImageProvider(data['image'] as String), context);
-                }
-              }
-              if (data['step'] == 'done') {
-                _loading = false;
-                _genTime = data['generationTime'] ?? '';
-                final vUrl = data['videoUrl'];
-                if (vUrl != null && (vUrl as String).isNotEmpty) {
-                  _videoUrl = vUrl;
-                  _videoState = 'ready';
-                  _initVideoPlayer(vUrl);
-                } else {
-                  _videoState = 'idle';
-                }
-                _celebrateWithConfetti();
-              }
-            });
-          } catch (_) {}
-        }
-      }, onError: (_) {
+    final stream = response.stream
+        .transform(utf8.decoder)
+        .transform(const LineSplitter()); // split by line properly
+
+    await for (final line in stream) {
+      if (!line.startsWith('data:')) continue;
+      final js = line.replaceFirst('data:', '').trim();
+      if (js.isEmpty) continue;
+
+      try {
+        final data = jsonDecode(js) as Map<String, dynamic>;
+
+        if (!mounted) break;
+
         setState(() {
-          _loading = false;
-          _videoState = 'error';
+          if (data['progress'] != null) {
+            _pct = (data['progress'] as num).toDouble();
+          }
+          if (data['story'] != null) {
+            _story = data['story'] as String;
+            _words = [];
+            _starts = [];
+            _cw = -1;
+          }
+          if (data['panels'] != null) {
+            _panels = List.from(data['panels'] as List);
+            _seeds = List.generate(_panels.length, (i) => i * 137 + 91);
+            _setupPanelAnimations(_panels.length);
+          }
+          if (data['panelIndex'] != null && data['image'] != null) {
+            final idx = data['panelIndex'] as int;
+            if (idx < _panels.length) {
+              _panels[idx] = Map<String, dynamic>.from(
+                  _panels[idx] as Map)
+                ..['image'] = data['image'] as String;
+              precacheImage(
+                CachedNetworkImageProvider(data['image'] as String),
+                context,
+              );
+            }
+          }
+
+          // Video URL arrives here in the final event — captured properly
+          // because we await the full stream above
+          if (data['videoUrl'] != null &&
+              (data['videoUrl'] as String).isNotEmpty) {
+            _videoUrl = data['videoUrl'] as String;
+            debugPrint('🎬 videoUrl received: $_videoUrl');
+          }
+
+          if (data['step'] == 'done') {
+            _loading = false;
+            _genTime = (data['generationTime'] as String?) ?? '';
+
+            if (_videoUrl != null && _videoUrl!.isNotEmpty) {
+              _videoState = 'ready';
+              _initVideoPlayer(_videoUrl!);
+            } else {
+              _videoState = 'idle';
+              debugPrint('⚠️ No videoUrl in done event');
+            }
+            _celebrateWithConfetti();
+          }
         });
-      });
-    } catch (_) {
-      setState(() {
-        _loading = false;
-        _videoState = 'idle';
-      });
+      } catch (parseErr) {
+        debugPrint('SSE parse error: $parseErr | line: $line');
+      }
+    }
+
+    client.close();
+  } on TimeoutException catch (e) {
+    debugPrint('Timeout: $e');
+    if (mounted) {
+      setState(() { _loading = false; _videoState = 'error'; });
+      _showSnackbar('⏱️ Took too long — try a shorter prompt!', K.orange);
+    }
+  } catch (e) {
+    debugPrint('Generate error: $e');
+    if (mounted) {
+      setState(() { _loading = false; _videoState = 'idle'; });
       _showSnackbar('❌ Oops! Something went wrong.', K.red);
     }
   }
+}
 
   void _showSnackbar(String msg, Color c) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(

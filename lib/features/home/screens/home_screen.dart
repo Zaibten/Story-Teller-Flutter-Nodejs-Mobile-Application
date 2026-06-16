@@ -151,13 +151,7 @@ Future<Map<String, dynamic>> importModelPth(String filePath) async {
     'modelName': 'story_generation_model.pth',
     'modelVersion': '1.0.0',
     'architecture': 'Transformer-Based LLM',
-    'parameters': {
-      'totalParams': 125_000_000,
-      'trainableParams': 125_000_000,
-      'layers': 24,
-      'hiddenSize': 1024,
-      'attentionHeads': 16
-    },
+    'parameters': {},
     'capabilities': [
       'story_generation',
       'comic_panel_creation',
@@ -175,68 +169,9 @@ Future<Map<String, dynamic>> importModelPth(String filePath) async {
   };
 }
 
-// Class-based approach for model management
-class StoryModel {
-  final String path;
-  bool isLoaded = false;
-  
-  StoryModel(this.path);
-  
-  Future<void> load() async {
-    // Simulate loading process with progress
-    for (int i = 0; i <= 100; i += 20) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      print('Loading model: $i%');
-    }
-    isLoaded = true;
-    print('✅ Model loaded successfully from: $path');
-  }
-  
-  Future<String> generateStory(String prompt) async {
-    if (!isLoaded) throw Exception('Model not loaded');
-    await Future.delayed(const Duration(milliseconds: 300));
-    return 'Generated story for: $prompt';
-  }
-  
-  Future<List<Map<String, dynamic>>> generateComicPanels(String story) async {
-    if (!isLoaded) throw Exception('Model not loaded');
-    await Future.delayed(const Duration(milliseconds: 500));
-    return [
-      {'title': 'Panel 1', 'description': 'Scene 1 description'},
-      {'title': 'Panel 2', 'description': 'Scene 2 description'},
-    ];
-  }
-  
-  void dispose() {
-    isLoaded = false;
-    print('Model unloaded');
-  }
-}
 
-// Integration example for your _NewPageState:
-Future<void> _initializeModel() async {
-  try {
-    String modelPath = 'assets/models/model.pkl';
-    
-    // Simple import
-    var modelInfo = await importModelPth(modelPath);
-    if (modelInfo['success']) {
-      print('✅ ${modelInfo['modelName']} loaded successfully');
-      print('📊 Parameters: ${modelInfo['parameters']['totalParams']}');
-    }
-    
-    // Class-based approach
-    final model = StoryModel(modelPath);
-    await model.load();
-    
-    // Use the model
-    final story = await model.generateStory("A brave knight and a dragon");
-    print('Generated: $story');
-    
-  } catch (e) {
-    print('❌ Error loading model: $e');
-  }
-}
+
+
   Future<void> _loadLinksAsset() async {
     try {
       final raw = await rootBundle.loadString('assets/data/links.json');
@@ -347,34 +282,103 @@ Future<void> _initializeModel() async {
     } catch (e) { debugPrint('Story API Error: $e'); return null; }
   }
 
-  Future<String?> _generateVideoWithComic(String storyText) async {
-    try {
-      final prompt =
-          "In English only: A ${_selectedChar?.name ?? 'character'} "
-          "in ${_selectedWorld?.name ?? 'a magical place'} "
-          "with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. "
-          "Story: ${storyText.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim().substring(0, storyText.length > 100 ? 100 : storyText.length)}";
-      final response = await http.get(Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
-      if (response.statusCode == 200) {
-        for (var line in response.body.split('\n')) {
-          if (line.startsWith('data: ')) {
+  // Future<String?> _generateVideoWithComic(String storyText) async {
+  //   try {
+  //     final prompt =
+  //         "In English only: A ${_selectedChar?.name ?? 'character'} "
+  //         "in ${_selectedWorld?.name ?? 'a magical place'} "
+  //         "with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. "
+  //         "Story: ${storyText.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim().substring(0, storyText.length > 100 ? 100 : storyText.length)}";
+  //     final response = await http.get(Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'));
+  //     if (response.statusCode == 200) {
+  //       for (var line in response.body.split('\n')) {
+  //         if (line.startsWith('data: ')) {
+  //           final data = json.decode(line.substring(6));
+  //           if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) return data['videoUrl'];
+  //         }
+  //       }
+  //     }
+  //     return null;
+  //   } catch (e) { debugPrint('Video API Error: $e'); return null; }
+  // }
+
+Future<String?> _generateVideoWithComic(String storyText) async {
+  try {
+    final prompt =
+        "In English only: A ${_selectedChar?.name ?? 'character'} "
+        "in ${_selectedWorld?.name ?? 'a magical place'} "
+        "with ${_selectedMood?.toLowerCase() ?? 'adventurous'} mood. "
+        "Story: ${storyText.replaceAll(RegExp(r'[^\x00-\x7F]'), '').trim().substring(
+              0, storyText.length > 100 ? 100 : storyText.length)}";
+
+    final client = http.Client();
+    final request = http.Request(
+      'GET',
+      Uri.parse('$_baseUrl/generate-story-comic-stream?prompt=${Uri.encodeComponent(prompt)}'),
+    );
+
+    // 5-minute timeout — video generation takes 60-120 seconds
+    final response = await client.send(request).timeout(
+      const Duration(minutes: 5),
+    );
+
+    final stream = response.stream.transform(utf8.decoder);
+    String? videoUrl;
+
+    await for (final chunk in stream) {
+      for (final line in chunk.split('\n')) {
+        if (line.startsWith('data: ')) {
+          try {
             final data = json.decode(line.substring(6));
-            if (data['videoUrl'] != null && data['videoUrl'].isNotEmpty) return data['videoUrl'];
-          }
+            // Capture videoUrl whenever it appears — the final event has it
+            if (data['videoUrl'] != null &&
+                (data['videoUrl'] as String).isNotEmpty) {
+              videoUrl = data['videoUrl'] as String;
+              debugPrint('🎬 videoUrl received: $videoUrl');
+            }
+          } catch (_) {}
         }
       }
-      return null;
-    } catch (e) { debugPrint('Video API Error: $e'); return null; }
+    }
+
+    client.close();
+    return videoUrl;
+  } catch (e) {
+    debugPrint('Video API Error: $e');
+    return null;
   }
+}
+
+  // Future<Map<String, dynamic>?> _generateStoryAndVideo() async {
+  //   try {
+  //     final storyResult = await _generateStoryFromAPI();
+  //     if (storyResult == null) return null;
+  //     final videoUrl = await _generateVideoWithComic(storyResult['story']);
+  //     return {'story': storyResult['story'], 'title': storyResult['title'], 'videoUrl': videoUrl};
+  //   } catch (e) { debugPrint('Combined Error: $e'); return null; }
+  // }
+
 
   Future<Map<String, dynamic>?> _generateStoryAndVideo() async {
-    try {
-      final storyResult = await _generateStoryFromAPI();
-      if (storyResult == null) return null;
-      final videoUrl = await _generateVideoWithComic(storyResult['story']);
-      return {'story': storyResult['story'], 'title': storyResult['title'], 'videoUrl': videoUrl};
-    } catch (e) { debugPrint('Combined Error: $e'); return null; }
+  try {
+    final storyResult = await _generateStoryFromAPI();
+    if (storyResult == null) return null;
+
+    // Generate video using the streaming client — this now waits fully
+    final videoUrl = await _generateVideoWithComic(storyResult['story']);
+
+    debugPrint('Story: ${storyResult['title']}, Video: $videoUrl');
+
+    return {
+      'story': storyResult['story'],
+      'title': storyResult['title'],
+      'videoUrl': videoUrl, // may be null if video failed, that's fine
+    };
+  } catch (e) {
+    debugPrint('Combined Error: $e');
+    return null;
   }
+}
 
   String? _getVideoUrl() {
     if (_selectedChar == null || _selectedWorld == null || _selectedMood == null || linkData.isEmpty) return null;
